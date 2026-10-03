@@ -4,6 +4,10 @@
 - **Root cause.** The 2-minute calibration cache in `sessionStorage` was not tied to a module. Reloading or restarting the same ET module within 2 minutes started at `preparing` and jumped straight to the stimulus — intro, setup and calibration were skipped.
 - **Fix.** The cache stores `moduleId`; `loadCalibrationFromSession(moduleId)` only reuses a calibration from a *different* ET module (consecutive modules), never from the same one.
 
+### fix: Eye Tracking setup camera preview stayed black
+- **Root cause.** `SetupPhase` mounts the preview `<video>` only after `streamReady`. The stream poller set `streamReady` and assigned `srcObject` in the same tick, while `previewRef.current` was still `null` — the preview never received the stream, face detection waited forever on `readyState < 2` and "Center your face on screen" stayed red.
+- **Fix.** The stream is attached in the detection effect, which runs after the preview `<video>` exists. Regression test: `SetupPhase.test.tsx`.
+
 ---
 
 ## v0.96.10 — Eye Tracking mobile Safari fixes + IAT repetitions config (2026-09-25)

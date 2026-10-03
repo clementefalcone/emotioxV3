@@ -33,9 +33,6 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
                 cameraRef.current.srcObject = stream;
                 await cameraRef.current.play();
                 setStreamReady(true);
-                if (previewRef.current) {
-                    previewRef.current.srcObject = stream;
-                }
             }
         } catch (err) {
             const name = err instanceof DOMException ? err.name : '';
@@ -53,9 +50,6 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
             const stream = cameraRef.current?.srcObject as MediaStream | null;
             if (stream && stream.active) {
                 setStreamReady(true);
-                if (previewRef.current && previewRef.current.srcObject !== stream) {
-                    previewRef.current.srcObject = stream;
-                }
                 clearInterval(check);
             } else {
                 attempts++;
@@ -68,6 +62,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
     useEffect(() => {
         if (!streamReady || !previewRef.current || !canvasRef.current) return;
         const video = previewRef.current;
+        video.srcObject = cameraRef?.current?.srcObject ?? null;
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -92,7 +87,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
         };
         raf = requestAnimationFrame(detect);
         return () => cancelAnimationFrame(raf);
-    }, [streamReady]);
+    }, [streamReady, cameraRef]);
 
     const checkLabelsDesktop = [
         t('eyeTracking.check1', 'I am seated and will not move.'),
