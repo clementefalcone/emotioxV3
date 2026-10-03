@@ -3,12 +3,39 @@ import { success, error } from '../../utils/response';
 import { isAuthError, requireAuth } from '../../utils/auth';
 import * as analyticsService from './index';
 import { getRequestOrigin } from '../../utils/request';
+import pool from '../../config/database';
+import * as authService from '../auth/auth.service';
+import { buildOwnershipClause } from '../research';
+
+const collectSmartVOCResults = async (researchFilter: string, params: string[]) => {
+    const researches = await pool.query(
+        `SELECT r.id, r.name, e.name AS enterprise_name
+         FROM researches r
+         LEFT JOIN enterprises e ON e.id = r.enterprise_id
+         WHERE ${researchFilter} AND r.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM modules m JOIN stages st ON st.id = m.stage_id WHERE m.research_id = r.id AND st.name = 'Smart VOC')
+         ORDER BY r.created_at DESC`,
+        params,
+    );
+    const results = [];
+    for (const row of researches.rows) {
+        try {
+            const smartVoc = await analyticsService.getSmartVOCResults(row.id);
+            if (smartVoc.totalResponses > 0) {
+                results.push({ researchId: row.id, researchName: row.name, enterpriseName: row.enterprise_name, ...smartVoc });
+            }
+        } catch (err) {
+            console.warn(JSON.stringify({ event: 'smartvoc_consolidation_skipped', researchId: row.id, error: err instanceof Error ? err.message : String(err) }));
+        }
+    }
+    return results;
+};
 
 export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path, queryStringParameters: queryParams } = event;
     const origin = getRequestOrigin(event);
     try {
-        await requireAuth(event);
+        const decoded = await requireAuth(event);
 
         // GET /analytics/research/:id/smartvoc
         const smartvocMatch = path.match(/^\/analytics\/research\/([^\/]+)\/smartvoc$/);
@@ -214,20 +241,15 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promis
 
         const enterpriseSmartVocMatch = path.match(/^\/analytics\/enterprise\/([^\/]+)\/smartvoc$/);
         if (enterpriseSmartVocMatch && httpMethod === 'GET') {
-            const enterpriseId = enterpriseSmartVocMatch[1];
-            const resQuery = `SELECT r.id FROM researches r WHERE r.enterprise_id = ? AND r.deleted_at IS NULL ORDER BY r.created_at DESC`;
-            const { default: pool } = await import('../../config/database');
-            const resResult = await pool.query(resQuery, [enterpriseId]);
-            const allResults = [];
-            for (const row of resResult.rows) {
-                try {
-                    const r = await analyticsService.getSmartVOCResults(row.id);
-                    if (r && r.totalResponses > 0) {
-                        allResults.push({ researchId: row.id, ...r });
-                    }
-                } catch { /* skip */ }
-            }
-            return success({ results: allResults }, 200, undefined, origin);
+            const results = await collectSmartVOCResults('r.enterprise_id = ?', [enterpriseSmartVocMatch[1]]);
+            return success({ results }, 200, undefined, origin);
+        }
+
+        if (path === '/analytics/smartvoc/consolidated' && httpMethod === 'GET') {
+            const user = await authService.getMe(decoded.sub);
+            const ownership = buildOwnershipClause(user.id, user.role);
+            const results = await collectSmartVOCResults(ownership.clause, ownership.params);
+            return success({ results }, 200, undefined, origin);
         }
 
         return error('Route not found', 404, undefined, origin);

@@ -15,6 +15,11 @@
 - **Removed.** Tap capture during viewing (`handleImageInteraction`, blue tap markers, "N puntos registrados" counter), mobile checklist, `isDesktop` props on Intro/Setup/Preparing/Viewing/Complete phases, and 7 unused i18n keys (`checkMobile1-4`, `clicks`, `pointsRecorded`, `preparing`).
 - **Tests.** New: mobile records camera gaze during viewing without taps. Updated mocks/expectations that assumed the click-proxy path. Backend still reads legacy `click-proxy` responses.
 
+### feat: Consolidated SmartVOC endpoint across clients
+- New `GET /analytics/smartvoc/consolidated`: SmartVOC results of every study the user can see (same `buildOwnershipClause` as the research list — admin/viewer see all, researchers see own + collaborations).
+- `GET /analytics/enterprise/:id/smartvoc` and the new route share `collectSmartVOCResults`: only studies with a `Smart VOC` stage are queried, and each result now includes `researchName` and `enterpriseName`.
+- A study whose analytics fail is skipped with a structured warning log (`smartvoc_consolidation_skipped`) instead of a silent catch.
+
 ---
 
 ## v0.96.10 — Eye Tracking mobile Safari fixes + IAT repetitions config (2026-09-25)
