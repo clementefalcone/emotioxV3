@@ -1,3 +1,12 @@
+## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)
+
+### fix: Eye Tracking emotions never recorded — broken face landmark model
+- **Root cause.** `public/models/face_landmark_68_model.bin` was 55,118 bytes while its manifest declares 356,840. Since `faceLandmark68Net` was added (2026-05-03), `ensureModelsLoaded` threw on that model, `isLoaded` never became true and face-api never sampled — `emotions: []` on every desktop and mobile response. The error only reached the participant's console.
+- **Fix.** Replaced the file with the official weights from `@vladmandic/face-api/model` (manifest and the other two models were already identical). Removed the unused `face_landmark_68_model-shard1` copy with the same broken content.
+- **Guard.** `faceApiModels.test.ts` checks every face-api weights file against the byte size its manifest declares.
+
+---
+
 ## v0.96.11 — Eye Tracking mobile camera gaze + SmartVOC consolidated dashboard (2026-10-03)
 
 ### fix: Eye Tracking calibration cache scoped to module
