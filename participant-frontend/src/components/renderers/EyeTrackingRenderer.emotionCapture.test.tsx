@@ -288,6 +288,29 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.gazePointCount).toBeGreaterThan(0);
     });
 
+    it('tapping validation points measures the real gaze error instead of recording 0', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 2000, y: 2000 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        fireEvent.click(getByTestId('intro-next'));
+        fireEvent.click(getByTestId('setup-ready'));
+        fireEvent.click(getByTestId('qg-pass'));
+        await act(async () => { vi.advanceTimersByTime(2100); });
+        for (let point = 0; point < 3; point++) {
+            await act(async () => { fireEvent.click(getByTestId('calibration-phase')); });
+        }
+        await act(async () => { vi.advanceTimersByTime(500); });
+        for (let point = 0; point < 2; point++) {
+            await act(async () => { fireEvent.click(getByTestId('validation-phase')); });
+        }
+
+        expect(Number(getByTestId('validation-phase').getAttribute('data-rmse'))).toBeGreaterThan(1000);
+        expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(3);
+    });
+
     it('getSamples() is wired to save payload via faceEmotions mock', () => {
         const samples = mockGetSamples();
         expect(samples).toHaveLength(2);

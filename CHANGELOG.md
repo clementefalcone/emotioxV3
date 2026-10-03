@@ -11,6 +11,12 @@
 - **Fix.** `calibrationCache.ts` keeps the calibration in memory with its trained predictor, handed to the next module via `useMediaPipeGaze({ predictor })` — only for a different module, within 2 minutes, and only if the predictor is trained (after a reload the participant calibrates again). Loops read a live `gazeStateRef`.
 - **Tests.** `calibrationCache.test.ts`; consecutive module records gaze when the face is detected after viewing starts.
 
+### fix: Eye Tracking validation recorded 0 px error on tap
+- **Root cause.** Tapping a validation point (`handleValidationDwellComplete`) pushed an error of 0 without reading the gaze. On mobile participants tap, so validation always passed (`validationRmsePx: 0`) and a 191 px calibration on a 402 px screen went straight to the stimulus — with that noise I-DT found 0 fixations.
+- **Fix.** Dwell and tap share `recordValidationPoint`: a tap measures the error of the current gaze against the dot, the same as a completed dwell. RMSE above `HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX` shows the recalibrate option.
+- **Not changed.** I-DT dispersion threshold (70 px) — to be tuned with real mobile data from a validated calibration.
+- **Note.** "Fewer elements" in results for Shelf stimuli is by design: Scan Path, First Look, Transparency, Sequence and Image tabs are hidden for `isShelf`.
+
 ---
 
 ## v0.96.11 — Eye Tracking mobile camera gaze + SmartVOC consolidated dashboard (2026-10-03)
