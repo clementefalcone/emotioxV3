@@ -7,6 +7,12 @@ import { researchService } from '../../services/research.service';
 import * as analyticsService from '../../services/analytics.service';
 import { CustomSelect } from '../../components/ui/CustomSelect';
 import { useToast } from '../../hooks/useToast';
+import { ClientSmartVOCSection } from './ClientSmartVOCSection';
+import { buildClientSmartVOCSummary } from './clientSmartVocSummary';
+
+const ALL_CLIENTS = 'all';
+
+type ClientResearch = Pick<EnterpriseResearch, 'id' | 'name' | 'status' | 'created_at' | 'research_type_name' | 'creator_first_name' | 'creator_last_name' | 'creator_email'>;
 
 const STATUS_STYLES: Record<string, { dot: string; bg: string; text: string }> = {
     draft:     { dot: 'bg-gray-400',    bg: 'bg-gray-50',    text: 'text-gray-600' },
@@ -22,13 +28,14 @@ export const ClientsPage = () => {
     const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
     const [selectedEnterpriseId, setSelectedEnterpriseId] = useState('');
     const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
-    const [researches, setResearches] = useState<EnterpriseResearch[]>([]);
+    const [researches, setResearches] = useState<ClientResearch[]>([]);
+    const isAllClients = selectedEnterpriseId === ALL_CLIENTS;
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         enterprisesService.list().then(res => {
             setEnterprises(res.enterprises);
-            if (res.enterprises.length > 0) setSelectedEnterpriseId(res.enterprises[0].id);
+            setSelectedEnterpriseId(ALL_CLIENTS);
         }).catch(() => toast.error('Failed to load clients')).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -36,7 +43,10 @@ export const ClientsPage = () => {
     useEffect(() => {
         if (!selectedEnterpriseId) return;
         setSelectedEnterprise(enterprises.find(e => e.id === selectedEnterpriseId) || null);
-        enterprisesService.listResearches(selectedEnterpriseId)
+        const loadResearches = selectedEnterpriseId === ALL_CLIENTS
+            ? researchService.list()
+            : enterprisesService.listResearches(selectedEnterpriseId);
+        loadResearches
             .then(res => setResearches(res.researches))
             .catch(() => setResearches([]));
     }, [selectedEnterpriseId, enterprises]);
@@ -66,41 +76,27 @@ export const ClientsPage = () => {
         return { ...byStatus, total: researches.length, types: Array.from(types) };
     }, [researches]);
 
-    const [smartvocData, setSmartVocData] = useState<analyticsService.SmartVOCResults[]>([]);
+    const [smartvocData, setSmartVocData] = useState<analyticsService.EnterpriseSmartVOCResult[]>([]);
     useEffect(() => {
         if (!selectedEnterpriseId) return;
-        analyticsService.getEnterpriseSmartVOC(selectedEnterpriseId)
+        const loadSmartVOC = selectedEnterpriseId === ALL_CLIENTS
+            ? analyticsService.getConsolidatedSmartVOC()
+            : analyticsService.getEnterpriseSmartVOC(selectedEnterpriseId);
+        loadSmartVOC
             .then(setSmartVocData)
             .catch(() => setSmartVocData([]));
     }, [selectedEnterpriseId]);
 
-    const consolidatedMetrics = useMemo(() => {
-        if (smartvocData.length === 0) return null;
-        let npsSum = 0, npsCount = 0, csatSum = 0, csatCount = 0, cesSum = 0, cesCount = 0, cvSum = 0, cvCount = 0;
-        for (const r of smartvocData) {
-            const m = r.metrics;
-            if (m.npsScore !== undefined && m.npsScore !== null) { npsSum += m.npsScore; npsCount++; }
-            if (m.satisfaction !== undefined && m.satisfaction !== null) { csatSum += m.satisfaction; csatCount++; }
-            if (m.cesScores && m.cesScores.length > 0) {
-                const avg = m.cesScores.reduce((s, v) => s + v.value, 0) / m.cesScores.length;
-                cesSum += avg; cesCount++;
-            }
-            if (m.cpvValue !== undefined && m.cpvValue !== null) { cvSum += m.cpvValue; cvCount++; }
-        }
-        return {
-            nps: npsCount > 0 ? (npsSum / npsCount).toFixed(1) : null,
-            csat: csatCount > 0 ? (csatSum / csatCount).toFixed(1) : null,
-            ces: cesCount > 0 ? (cesSum / cesCount).toFixed(1) : null,
-            cv: cvCount > 0 ? (cvSum / cvCount).toFixed(1) : null,
-            studies: smartvocData.length,
-        };
-    }, [smartvocData]);
+    const smartvocSummary = useMemo(
+        () => (smartvocData.length === 0 ? null : buildClientSmartVOCSummary(smartvocData)),
+        [smartvocData],
+    );
 
     const latestProjects = useMemo(() =>
         [...researches].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4)
     , [researches]);
 
-    const handleDelete = async (research: EnterpriseResearch) => {
+    const handleDelete = async (research: ClientResearch) => {
         if (!confirm(`Delete "${research.name}"?`)) return;
         try {
             await researchService.delete(research.id);
@@ -121,7 +117,7 @@ export const ClientsPage = () => {
                     <CustomSelect
                         value={selectedEnterpriseId}
                         onChange={setSelectedEnterpriseId}
-                        options={enterprises.map(ent => ({ value: ent.id, label: ent.name }))}
+                        options={[{ value: ALL_CLIENTS, label: 'Todos los clientes' }, ...enterprises.map(ent => ({ value: ent.id, label: ent.name }))]}
                         placeholder="Select client"
                     />
                 </div>
@@ -144,7 +140,7 @@ export const ClientsPage = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 rounded-xl border border-gray-100 bg-white p-4">
                         <div className="flex items-center gap-3 mb-3">
-                            <h2 className="text-[13px] font-semibold text-gray-900">{selectedEnterprise?.name || 'Client'}</h2>
+                            <h2 className="text-[13px] font-semibold text-gray-900">{isAllClients ? 'Todos los clientes' : selectedEnterprise?.name || 'Client'}</h2>
                             <span className="text-[11px] text-gray-400">{researches.length} project{researches.length !== 1 ? 's' : ''}</span>
                         </div>
                         {chartData.length > 0 ? (
@@ -166,7 +162,7 @@ export const ClientsPage = () => {
 
                     <div className="rounded-xl border border-gray-100 bg-white p-4">
                         <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Client</h2>
-                        <h3 className="text-base font-semibold text-gray-900 mb-2">{selectedEnterprise?.name || '—'}</h3>
+                        <h3 className="text-base font-semibold text-gray-900 mb-2">{isAllClients ? 'Todos los clientes' : selectedEnterprise?.name || '—'}</h3>
                         {selectedEnterprise?.description && (
                             <p className="text-[13px] text-gray-500 leading-relaxed mb-4">{selectedEnterprise.description}</p>
                         )}
@@ -196,41 +192,7 @@ export const ClientsPage = () => {
                     </div>
                 </div>
 
-                {/* SmartVOC Consolidated */}
-                {consolidatedMetrics && (
-                    <div className="rounded-xl border border-gray-100 bg-white p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                            <h2 className="text-[13px] font-semibold text-gray-900">SmartVOC Consolidado</h2>
-                            <span className="text-[11px] text-gray-400">{consolidatedMetrics.studies} estudio{consolidatedMetrics.studies !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            {consolidatedMetrics.nps && (
-                                <div className="text-center p-3 rounded-lg bg-blue-50">
-                                    <p className="text-2xl font-bold text-blue-700">{consolidatedMetrics.nps}</p>
-                                    <p className="text-[11px] font-medium text-blue-600 uppercase mt-1">NPS Promedio</p>
-                                </div>
-                            )}
-                            {consolidatedMetrics.csat && (
-                                <div className="text-center p-3 rounded-lg bg-emerald-50">
-                                    <p className="text-2xl font-bold text-emerald-700">{consolidatedMetrics.csat}</p>
-                                    <p className="text-[11px] font-medium text-emerald-600 uppercase mt-1">CSAT Promedio</p>
-                                </div>
-                            )}
-                            {consolidatedMetrics.ces && (
-                                <div className="text-center p-3 rounded-lg bg-amber-50">
-                                    <p className="text-2xl font-bold text-amber-700">{consolidatedMetrics.ces}</p>
-                                    <p className="text-[11px] font-medium text-amber-600 uppercase mt-1">CES Promedio</p>
-                                </div>
-                            )}
-                            {consolidatedMetrics.cv && (
-                                <div className="text-center p-3 rounded-lg bg-purple-50">
-                                    <p className="text-2xl font-bold text-purple-700">{consolidatedMetrics.cv}</p>
-                                    <p className="text-[11px] font-medium text-purple-600 uppercase mt-1">CV Promedio</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
+                {smartvocSummary && <ClientSmartVOCSection summary={smartvocSummary} />}
 
                 {/* Latest projects */}
                 <div>

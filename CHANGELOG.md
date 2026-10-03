@@ -20,6 +20,13 @@
 - `GET /analytics/enterprise/:id/smartvoc` and the new route share `collectSmartVOCResults`: only studies with a `Smart VOC` stage are queried, and each result now includes `researchName` and `enterpriseName`.
 - A study whose analytics fail is skipped with a structured warning log (`smartvoc_consolidation_skipped`) instead of a silent catch.
 
+### feat: Clients page — consolidated SmartVOC charts
+- **Before.** "SmartVOC Consolidado" showed 4 tiles with the unweighted mean of per-study scores (Mises Cono Sur NPS 34 while all answers combined give 15), no charts, and the section was hidden for clients without SmartVOC data.
+- **Weighted totals.** `buildClientSmartVOCSummary` pools every answer: NPS from promoters/detractors, CSAT/CV with the shared `calculateCSAT`/`calculateCV`, CES classified with each study's `scaleConfigs.ces.max` zones before pooling.
+- **Charts (`ClientSmartVOCSection`).** NPS distribution bar (promoters/neutrals/detractors), comparison by study (grouped bars, single -100..100 axis), monthly trend (linear lines, `n` answers per month on the axis). Metric colors from the project categorical palette (NPS `#006AFF`, CSAT `#D97706`, CES `#0D9488`, CV `#E11D48`), validated for CVD/contrast; legend and tooltip in fixed metric order.
+- **"Todos los clientes".** New default option in the client selector: consolidated SmartVOC of all accessible studies (labels include client name), plus all studies in the projects chart and table.
+- **Tests.** `clientSmartVocSummary.test.ts`: weighting by answers, per-study CES scale, monthly grouping.
+
 ---
 
 ## v0.96.10 — Eye Tracking mobile Safari fixes + IAT repetitions config (2026-09-25)

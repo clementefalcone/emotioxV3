@@ -702,10 +702,22 @@ export const getSmartVOCResults = async (researchId: string): Promise<SmartVOCRe
     return response.results;
 };
 
-export const getEnterpriseSmartVOC = async (enterpriseId: string): Promise<SmartVOCResults[]> => {
-    const response = await apiClient.get<{ results: SmartVOCResults[] }>(
+export type EnterpriseSmartVOCResult = SmartVOCResults & {
+    researchId: string;
+    researchName: string;
+    enterpriseName: string | null;
+    scaleConfigs?: Record<string, { min: number; max: number }>;
+};
+
+export const getEnterpriseSmartVOC = async (enterpriseId: string): Promise<EnterpriseSmartVOCResult[]> => {
+    const response = await apiClient.get<{ results: EnterpriseSmartVOCResult[] }>(
         `/analytics/enterprise/${enterpriseId}/smartvoc`
     );
+    return response.results;
+};
+
+export const getConsolidatedSmartVOC = async (): Promise<EnterpriseSmartVOCResult[]> => {
+    const response = await apiClient.get<{ results: EnterpriseSmartVOCResult[] }>('/analytics/smartvoc/consolidated');
     return response.results;
 };
 
