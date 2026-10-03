@@ -1,5 +1,6 @@
-import { render, act } from '@testing-library/react';
+import { render, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { GazePredictor } from '../../lib/eyeTracking/gazePredictor';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (k: string) => k }),
@@ -42,6 +43,8 @@ const mockMPGaze = {
     earRef: { current: 0.3 },
     lastLandmarksRef: { current: null },
     predictorRef: { current: null },
+    calibrate: vi.fn(),
+    resetFrameStats: vi.fn(),
     getFrameStats: () => ({ validGazeFrames: 0, noValidGazeFrames: 0, captureWidthPx: null, captureHeightPx: null }),
 };
 vi.mock('../../hooks/useMediaPipeGaze', () => ({
@@ -137,10 +140,14 @@ vi.mock('./eye-tracking/PreparingPhase', () => ({
     PreparingPhase: () => <div data-testid="preparing-phase" />,
 }));
 vi.mock('./eye-tracking/CalibrationPhase', () => ({
-    CalibrationPhase: () => <div data-testid="calibration-phase" />,
+    CalibrationPhase: ({ calibrationAreaRef, onCalibrationClick }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; onCalibrationClick: () => void }) => (
+        <div data-testid="calibration-phase" ref={calibrationAreaRef} onClick={onCalibrationClick} />
+    ),
 }));
 vi.mock('./eye-tracking/ValidationPhase', () => ({
-    ValidationPhase: () => <div data-testid="validation-phase" />,
+    ValidationPhase: ({ imgRef, validationRmse, onValidationDwellComplete }: { imgRef: React.RefObject<HTMLImageElement>; validationRmse: number | null; onValidationDwellComplete: () => void }) => (
+        <img data-testid="validation-phase" data-rmse={validationRmse ?? ''} ref={imgRef} onClick={onValidationDwellComplete} alt="" />
+    ),
 }));
 vi.mock('./eye-tracking/ViewingPhase', () => ({
     ViewingPhase: ({ imgRef }: { imgRef: React.RefObject<HTMLImageElement> }) => <img data-testid="viewing-phase" ref={imgRef} alt="" />,
@@ -162,6 +169,10 @@ vi.mock('./eye-tracking/types', async () => {
 });
 
 import { EyeTrackingRenderer } from './EyeTrackingRenderer';
+import { rememberCalibration } from './eye-tracking/calibrationCache';
+
+const trainedPredictor = { isReady: () => true } as unknown as GazePredictor;
+const STIMULUS_RECT = { left: 0, top: 0, width: 400, height: 300, x: 0, y: 0, right: 400, bottom: 300, toJSON: () => ({}) } as DOMRect;
 
 function makeModule(emotionRecognition: string) {
     return {
@@ -183,17 +194,14 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         vi.clearAllMocks();
         mockDeviceType = 'mobile';
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        sessionStorage.setItem('emotiox-et-calibration', JSON.stringify({
-            moduleId: 'previous-et-module',
-            residuals: [{ u: 0.5, v: 0.5, dx: 0, dy: 0 }],
-            rmsePx: 10,
-            timestamp: Date.now(),
-        }));
+        rememberCalibration('previous-et-module', { residuals: [{ u: 0.5, v: 0.5, dx: 0, dy: 0 }], rmsePx: 10, predictor: trainedPredictor });
     });
 
     afterEach(() => {
         vi.useRealTimers();
-        sessionStorage.clear();
+        vi.restoreAllMocks();
+        mockMPGaze.gazeState = 'closed';
+        mockMPGaze.gazePosRef = { current: [0, 0] } as unknown as typeof mockMPGaze.gazePosRef;
     });
 
     it('mobile + emotion recognition: faceEmotions.start() called when phase reaches viewing', async () => {
@@ -241,12 +249,7 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
     });
 
     it('calibration cached by the same module is not reused: starts at intro', () => {
-        sessionStorage.setItem('emotiox-et-calibration', JSON.stringify({
-            moduleId: 'test-et-1',
-            residuals: [],
-            rmsePx: null,
-            timestamp: Date.now(),
-        }));
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
         const { queryByTestId } = render(
             <EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />
         );
@@ -255,8 +258,7 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
     });
 
     it('mobile records camera gaze during viewing without taps', async () => {
-        const rectSpy = vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect')
-            .mockReturnValue({ left: 0, top: 0, width: 400, height: 300, x: 0, y: 0, right: 400, bottom: 300, toJSON: () => ({}) } as DOMRect);
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
         mockMPGaze.gazeState = 'open';
         mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
 
@@ -268,10 +270,22 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(mockMPGaze.start).toHaveBeenCalled();
         expect(saved.trackingMethod).toBe('mediapipe-ridge');
         expect(saved.gazePointCount).toBeGreaterThan(0);
+    });
 
-        mockMPGaze.gazeState = 'closed';
-        mockMPGaze.gazePosRef = { current: [0, 0] } as unknown as typeof mockMPGaze.gazePosRef;
-        rectSpy.mockRestore();
+    it('consecutive module records gaze when the face is detected after viewing starts', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+        const module = makeModule('false');
+        const onComplete = vi.fn();
+
+        const { rerender } = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        mockMPGaze.gazeState = 'open';
+        rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.gazePointCount).toBeGreaterThan(0);
     });
 
     it('getSamples() is wired to save payload via faceEmotions mock', () => {

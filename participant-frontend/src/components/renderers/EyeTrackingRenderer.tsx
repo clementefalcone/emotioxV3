@@ -32,6 +32,7 @@ import {
     isBlazeGazeCaptureResolutionLow,
 } from '../../lib/eyeTracking';
 import type { HybridCalibrationResidual } from '../../lib/eyeTracking';
+import { recallCalibration, rememberCalibration } from './eye-tracking/calibrationCache';
 
 // V2 zone pipeline
 import { ZoneRegistry, generateGrid } from '../../lib/eyeTracking/zoneRegistry';
@@ -82,36 +83,6 @@ function fisherYatesShuffle<T>(arr: T[]): T[] {
     return a;
 }
 
-const ET_CALIBRATION_KEY = 'emotiox-et-calibration';
-const ET_CALIBRATION_TTL_MS = 120_000; // 2 minutes
-
-function saveCalibrationToSession(moduleId: string, residuals: HybridCalibrationResidual[], rmsePx: number | null) {
-    try {
-        sessionStorage.setItem(ET_CALIBRATION_KEY, JSON.stringify({
-            moduleId,
-            residuals,
-            rmsePx,
-            timestamp: Date.now(),
-        }));
-    } catch { /* storage full or unavailable */ }
-}
-
-function loadCalibrationFromSession(moduleId: string): { residuals: HybridCalibrationResidual[]; rmsePx: number | null } | null {
-    try {
-        const raw = sessionStorage.getItem(ET_CALIBRATION_KEY);
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        if (data.moduleId === moduleId) return null;
-        if (Date.now() - data.timestamp > ET_CALIBRATION_TTL_MS) {
-            sessionStorage.removeItem(ET_CALIBRATION_KEY);
-            return null;
-        }
-        return { residuals: data.residuals, rmsePx: data.rmsePx };
-    } catch {
-        return null;
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -128,7 +99,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const isShelf = displayMode === 'shelf';
 
     // Skip intro/setup/calibration if a recent ET calibration exists (consecutive ET modules)
-    const cachedCalibration = useMemo(() => loadCalibrationFromSession(module.id), [module.id]);
+    const cachedCalibration = useMemo(() => recallCalibration(module.id), [module.id]);
     const [phase, setPhase] = useState<ETPhase>(cachedCalibration ? 'preparing' : 'intro');
     const [resolvedUrl, setResolvedUrl] = useState<string>('');
     const [resolvedShelfUrls, setResolvedShelfUrls] = useState<string[]>([]);
@@ -175,6 +146,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         oneEuroMinCutoff: 1.2,
         oneEuroBeta: 0.05,
         rff: { D: 128, sigma: 'auto', seed: 42 },
+        predictor: cachedCalibration?.predictor,
     });
     // Unified gaze interface — reads from whichever engine is active
     const gaze = useMP ? {
@@ -206,6 +178,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         resetFrameStats: blaze.resetFrameStats,
         calibrationCount: blaze.calibrationCount,
     };
+    const gazeStateRef = useRef(gaze.gazeState);
+    useEffect(() => { gazeStateRef.current = gaze.gazeState; }, [gaze.gazeState]);
     const gazePointsRef = useRef<{ x: number; y: number; t: number; videoTime?: number }[]>([]);
 
     // --- V2 zone pipeline (connected AFTER IDW in viewing loop) ---
@@ -426,7 +400,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const now = Date.now();
             const stimEl = getStimulusElement();
             const rect = stimEl?.getBoundingClientRect();
-            if (rect && rect.width > 0 && rect.height > 0 && gaze.gazeState === 'open' && now - lastCollect >= GAZE_POLL_MS) {
+            if (rect && rect.width > 0 && rect.height > 0 && gazeStateRef.current === 'open' && now - lastCollect >= GAZE_POLL_MS) {
                 // V1: IDW correction
                 const corrected = hybridApplyCalibrationField(
                     gx, gy, rect,
@@ -530,7 +504,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const collectLoop = () => {
                 if (samplesCollected >= MICRO_RECALIB_SAMPLE_COUNT) return;
                 const [gx, gy] = gazePosRef.current;
-                if (gaze.gazeState === 'open') {
+                if (gazeStateRef.current === 'open') {
                     microGazeSamplesRef.current.push({ x: gx, y: gy });
                     samplesCollected++;
                 }
@@ -926,7 +900,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 setTimeout(() => setPhase('validating'), 400);
                 return;
             }
-            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
+            rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
             gazePointsRef.current = [];
             setTimeLeft(Math.ceil(viewingDuration / 1000));
             setTimeout(() => setPhase('viewing'), 600);
@@ -954,7 +928,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const dist = Math.sqrt((gx - dot.x) ** 2 + (gy - dot.y) ** 2);
             const now = performance.now();
 
-            if (dist <= DWELL_PROXIMITY_PX && gaze.gazeState === 'open') {
+            if (dist <= DWELL_PROXIMITY_PX && gazeStateRef.current === 'open') {
                 dwellExitTimeRef.current = null;
 
                 if (dwellStartRef.current === null) {
@@ -992,7 +966,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     /** Tap/click on a calibration point trains the model with the current gaze, same as a completed dwell. */
     const handleCalibrationClick = () => {
-        if (phase !== 'calibration' || gaze.gazeState !== 'open') return;
+        if (phase !== 'calibration' || gazeStateRef.current !== 'open') return;
         cancelAnimationFrame(dwellTimerRef.current);
         const [gx, gy] = gazePosRef.current;
         recordCalibrationPoint(calibrationIndex, gx, gy);
@@ -1041,7 +1015,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const dist = Math.sqrt((gx - dotX) ** 2 + (gy - dotY) ** 2);
             const now = performance.now();
 
-            if (dist <= VALIDATION_PROXIMITY_PX && gaze.gazeState === 'open') {
+            if (dist <= VALIDATION_PROXIMITY_PX && gazeStateRef.current === 'open') {
                 validationExitTimeRef.current = null;
 
                 if (validationDwellStartRef.current === null) {
@@ -1075,7 +1049,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
                         if (rmse <= HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX) {
                             // Passed — auto-proceed to viewing
-                            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
+                            rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
                             if (blaze) gaze.resetFrameStats();
                             gazePointsRef.current = [];
                             setTimeLeft(Math.ceil(viewingDuration / 1000));
@@ -1114,7 +1088,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         setValidationPointErrors(newErrors);
         if (validationIndex + 1 >= HYBRID_VALIDATION_POINTS.length) {
             setValidationRmse(0);
-            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
+            rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
             gazePointsRef.current = [];
             setTimeLeft(Math.ceil(viewingDuration / 1000));
             setTimeout(() => setPhase('viewing'), 600);
@@ -1138,7 +1112,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     /** Skip validation and proceed to viewing (user chose to continue despite poor accuracy). */
     const handleSkipValidation = useCallback(() => {
-        saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
+        rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
         if (blaze) gaze.resetFrameStats();
         gazePointsRef.current = [];
         setTimeLeft(Math.ceil(viewingDuration / 1000));

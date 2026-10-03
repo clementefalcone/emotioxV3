@@ -5,6 +5,12 @@
 - **Fix.** Replaced the file with the official weights from `@vladmandic/face-api/model` (manifest and the other two models were already identical). Removed the unused `face_landmark_68_model-shard1` copy with the same broken content.
 - **Guard.** `faceApiModels.test.ts` checks every face-api weights file against the byte size its manifest declares.
 
+### fix: Second Eye Tracking module recorded no gaze
+- **Root cause 1.** Consecutive ET modules skipped calibration using cached residuals only; the trained ridge model lived in the previous module's component, so the next module started untrained.
+- **Root cause 2.** Gaze loops (viewing capture, calibration/validation dwell, micro-recalibration) read `gaze.gazeState` from the closure created when the phase started. In the second module the camera was still starting at that moment, so the loop kept reading `'closed'` and discarded all 10 seconds (`gazePointCount: 0`).
+- **Fix.** `calibrationCache.ts` keeps the calibration in memory with its trained predictor, handed to the next module via `useMediaPipeGaze({ predictor })` — only for a different module, within 2 minutes, and only if the predictor is trained (after a reload the participant calibrates again). Loops read a live `gazeStateRef`.
+- **Tests.** `calibrationCache.test.ts`; consecutive module records gaze when the face is detected after viewing starts.
+
 ---
 
 ## v0.96.11 — Eye Tracking mobile camera gaze + SmartVOC consolidated dashboard (2026-10-03)
