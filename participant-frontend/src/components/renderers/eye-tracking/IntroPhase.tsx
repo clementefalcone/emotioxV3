@@ -3,12 +3,11 @@ import { useTranslation } from 'react-i18next';
 
 interface IntroPhaseProps {
     taskDescription: string;
-    isDesktop: boolean;
     isBlazeLoaded: boolean;
     onNext: () => void;
 }
 
-export const IntroPhase: React.FC<IntroPhaseProps> = ({ taskDescription, isDesktop, isBlazeLoaded, onNext }) => {
+export const IntroPhase: React.FC<IntroPhaseProps> = ({ taskDescription, isBlazeLoaded, onNext }) => {
     const { t } = useTranslation();
 
     return (
@@ -29,15 +28,15 @@ export const IntroPhase: React.FC<IntroPhaseProps> = ({ taskDescription, isDeskt
                     </svg>
                     <span>{t('eyeTracking.webcamRequired', 'Webcam access will be required')}</span>
                 </div>
-                {isDesktop && !isBlazeLoaded && (
+                {!isBlazeLoaded && (
                     <p className="text-amber-600 text-xs">{t('eyeTracking.loadingModel', 'Loading gaze model...')}</p>
                 )}
                 <button
                     onClick={onNext}
-                    disabled={isDesktop && !isBlazeLoaded}
+                    disabled={!isBlazeLoaded}
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                    {isDesktop && !isBlazeLoaded
+                    {!isBlazeLoaded
                         ? t('eyeTracking.loading', 'Loading...')
                         : t('eyeTracking.next', 'Next')}
                 </button>

@@ -41,6 +41,7 @@ const mockMPGaze = {
     headPoseRef: { current: { pitch: 0, yaw: 0 } },
     earRef: { current: 0.3 },
     lastLandmarksRef: { current: null },
+    predictorRef: { current: null },
     getFrameStats: () => ({ validGazeFrames: 0, noValidGazeFrames: 0, captureWidthPx: null, captureHeightPx: null }),
 };
 vi.mock('../../hooks/useMediaPipeGaze', () => ({
@@ -73,7 +74,7 @@ vi.mock('../../lib/eyeTracking', () => ({
     HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX: 50,
     HYBRID_REJECT_RMSE_THRESHOLD_PX: 100,
     HYBRID_AOI_GRID: [{ id: 'z1' }],
-    hybridApplyCalibrationField: vi.fn((p: unknown) => p),
+    hybridApplyCalibrationField: vi.fn((x: number, y: number) => ({ x, y })),
     hybridCalibrationRmsePx: vi.fn(() => 10),
     hybridImagePercentToBlazeNorm: vi.fn(() => [0, 0]),
     hybridPointToSoftZoneWeights: vi.fn(() => ({ z1: 1 })),
@@ -93,11 +94,11 @@ vi.mock('../../lib/eyeTracking', () => ({
 }));
 
 vi.mock('../../lib/eyeTracking/zoneRegistry', () => ({
-    ZoneRegistry: vi.fn(),
+    ZoneRegistry: vi.fn().mockImplementation(function () { return { register: vi.fn(), getZones: vi.fn(() => []), destroy: vi.fn() }; }),
     generateGrid: vi.fn(() => []),
 }));
 vi.mock('../../lib/eyeTracking/zoneEventEmitter', () => ({
-    ZoneEventEmitter: vi.fn(),
+    ZoneEventEmitter: vi.fn().mockImplementation(function () { return { on: vi.fn(), feed: vi.fn(), destroy: vi.fn() }; }),
 }));
 vi.mock('../../lib/eyeTracking/v2ResponseBuilder', () => ({
     EYE_TRACKING_V2_ENABLED: false,
@@ -112,12 +113,17 @@ vi.mock('../../lib/eyeTracking/attention/uncertaintyEstimator', () => ({
     computeFrameUncertainty: vi.fn(() => 0),
 }));
 vi.mock('../../lib/eyeTracking/attention/probabilisticHeatmap', () => ({
-    ProbabilisticHeatmap: vi.fn().mockImplementation(() => ({
-        addSample: vi.fn(), render: vi.fn(),
-    })),
+    ProbabilisticHeatmap: vi.fn().mockImplementation(function () {
+        const grid = { data: new Float32Array(1), cols: 1, rows: 1, cellW: 1, cellH: 1 };
+        return {
+            addSample: vi.fn(), render: vi.fn(), totalDurationS: 0,
+            getDensityGrid: vi.fn(() => grid), getAOIMetrics: vi.fn(() => []),
+            getFirstAttentionGrid: vi.fn(() => grid), getPeakTimeGrid: vi.fn(() => grid), hasTemporalData: vi.fn(() => false),
+        };
+    }),
 }));
 vi.mock('../../lib/eyeTracking/attention/sessionMetrics', () => ({
-    computeSessionConfidence: vi.fn(() => 1),
+    computeSessionConfidence: vi.fn(() => ({})),
     computeSpatialCoverage: vi.fn(() => 1),
 }));
 
@@ -137,7 +143,7 @@ vi.mock('./eye-tracking/ValidationPhase', () => ({
     ValidationPhase: () => <div data-testid="validation-phase" />,
 }));
 vi.mock('./eye-tracking/ViewingPhase', () => ({
-    ViewingPhase: () => <div data-testid="viewing-phase" />,
+    ViewingPhase: ({ imgRef }: { imgRef: React.RefObject<HTMLImageElement> }) => <img data-testid="viewing-phase" ref={imgRef} alt="" />,
 }));
 vi.mock('./eye-tracking/CompletePhase', () => ({
     CompletePhase: () => <div data-testid="complete-phase" />,
@@ -246,6 +252,26 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         );
         expect(queryByTestId('intro-next')).not.toBeNull();
         expect(queryByTestId('preparing-phase')).toBeNull();
+    });
+
+    it('mobile records camera gaze during viewing without taps', async () => {
+        const rectSpy = vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect')
+            .mockReturnValue({ left: 0, top: 0, width: 400, height: 300, x: 0, y: 0, right: 400, bottom: 300, toJSON: () => ({}) } as DOMRect);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(mockMPGaze.start).toHaveBeenCalled();
+        expect(saved.trackingMethod).toBe('mediapipe-ridge');
+        expect(saved.gazePointCount).toBeGreaterThan(0);
+
+        mockMPGaze.gazeState = 'closed';
+        mockMPGaze.gazePosRef = { current: [0, 0] } as unknown as typeof mockMPGaze.gazePosRef;
+        rectSpy.mockRestore();
     });
 
     it('getSamples() is wired to save payload via faceEmotions mock', () => {

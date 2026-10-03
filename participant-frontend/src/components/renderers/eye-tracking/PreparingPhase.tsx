@@ -3,11 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS } from './types';
 
-interface PreparingPhaseProps {
-    isDesktop: boolean;
-}
-
-export const PreparingPhase: React.FC<PreparingPhaseProps> = ({ isDesktop }) => {
+export const PreparingPhase: React.FC = () => {
     const { t } = useTranslation();
 
     return (
@@ -16,9 +12,7 @@ export const PreparingPhase: React.FC<PreparingPhaseProps> = ({ isDesktop }) => 
 
             <div className="mt-12 text-center space-y-4">
                 <h2 className="text-xl font-bold text-gray-900">
-                    {isDesktop
-                        ? t('eyeTracking.preparingCamera', 'Starting camera...')
-                        : t('eyeTracking.preparing', 'Preparing session...')}
+                    {t('eyeTracking.preparingCamera', 'Starting camera...')}
                 </h2>
                 <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>

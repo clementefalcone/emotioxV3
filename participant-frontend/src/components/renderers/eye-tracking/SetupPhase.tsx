@@ -4,16 +4,14 @@ import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS } from './types';
 
 interface SetupPhaseProps {
-    isDesktop: boolean;
     checks: boolean[];
     allChecked: boolean;
     onToggleCheck: (index: number) => void;
     onReady: () => void;
     cameraRef?: React.RefObject<HTMLVideoElement | null>;
-    hasEmotionRecognition?: boolean;
 }
 
-export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allChecked, onToggleCheck, onReady, cameraRef, hasEmotionRecognition }) => {
+export const SetupPhase: React.FC<SetupPhaseProps> = ({ checks, allChecked, onToggleCheck, onReady, cameraRef }) => {
     const { t } = useTranslation();
     const [streamReady, setStreamReady] = useState(false);
     const [faceDetected, setFaceDetected] = useState(false);
@@ -21,8 +19,6 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
     const [permissionBlocked, setPermissionBlocked] = useState(false);
     const previewRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-
-    const needsCamera = isDesktop || !!hasEmotionRecognition;
 
     const retryCamera = useCallback(async () => {
         if (!cameraRef?.current) return;
@@ -44,7 +40,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
     }, [cameraRef]);
 
     useEffect(() => {
-        if (!needsCamera || !cameraRef) return;
+        if (!cameraRef) return;
         let attempts = 0;
         const check = setInterval(() => {
             const stream = cameraRef.current?.srcObject as MediaStream | null;
@@ -57,7 +53,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
             }
         }, 200);
         return () => clearInterval(check);
-    }, [needsCamera, cameraRef]);
+    }, [cameraRef]);
 
     useEffect(() => {
         if (!streamReady || !previewRef.current || !canvasRef.current) return;
@@ -89,19 +85,12 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
         return () => cancelAnimationFrame(raf);
     }, [streamReady, cameraRef]);
 
-    const checkLabelsDesktop = [
+    const checkLabels = [
         t('eyeTracking.check1', 'I am seated and will not move.'),
         t('eyeTracking.check2', 'My device is stable and at face level.'),
         t('eyeTracking.check3', 'My face is well lit, no backlight.'),
         t('eyeTracking.check4', 'If wearing glasses, avoid direct light reflections on lenses.'),
     ];
-    const checkLabelsMobile = [
-        t('eyeTracking.checkMobile1', 'I am holding my device comfortably and it is stable.'),
-        t('eyeTracking.checkMobile2', 'I will tap where my attention goes on the image.'),
-        t('eyeTracking.checkMobile3', 'I am in a quiet environment without distractions.'),
-        t('eyeTracking.checkMobile4', 'I understand my taps will be recorded.'),
-    ];
-    const checkLabels = isDesktop ? checkLabelsDesktop : checkLabelsMobile;
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[400px] px-4 py-8">
@@ -112,7 +101,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
                     <div className={`w-36 h-36 rounded-full mx-auto flex items-center justify-center overflow-hidden border-4 transition-colors ${
                         streamReady && faceDetected ? 'border-green-500' : streamReady ? 'border-red-400' : 'border-gray-300'
                     } bg-gray-800`}>
-                        {needsCamera && streamReady ? (
+                        {streamReady ? (
                             <video
                                 ref={previewRef}
                                 autoPlay
@@ -128,7 +117,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isDesktop, checks, allCh
                         )}
                     </div>
                     <canvas ref={canvasRef} className="hidden" />
-                    {needsCamera && streamReady && (
+                    {streamReady && (
                         <p className={`text-xs font-medium ${faceDetected ? 'text-green-600' : 'text-red-500'}`}>
                             {faceDetected
                                 ? t('eyeTracking.faceDetected', 'Position correct')

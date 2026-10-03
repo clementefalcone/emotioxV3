@@ -14,13 +14,11 @@ describe('SetupPhase camera preview', () => {
 
         const { container } = render(
             <SetupPhase
-                isDesktop={false}
                 checks={[false, false, false, false]}
                 allChecked={false}
                 onToggleCheck={vi.fn()}
                 onReady={vi.fn()}
                 cameraRef={cameraRef}
-                hasEmotionRecognition
             />
         );
 

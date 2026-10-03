@@ -1,23 +1,18 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS } from './types';
-import type { Fixation, ShelfConfig } from './types';
+import type { ShelfConfig } from './types';
 import { ShelfGrid } from './ShelfGrid';
 
 interface ViewingPhaseProps {
-    isDesktop: boolean;
     isVideo: boolean;
     resolvedUrl: string;
     viewingDuration: number;
     timeLeft: number;
-    fixations: Fixation[];
-    naturalSize: { w: number; h: number } | null;
     microDot: { u: number; v: number } | null;
     imgRef: React.RefObject<HTMLImageElement | null>;
     stimulusVideoRef: React.RefObject<HTMLVideoElement | null>;
     containerRef: React.RefObject<HTMLDivElement | null>;
-    onImageInteraction: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
     onImageLoad: () => void;
     onVideoLoadedMetadata: () => void;
     onVideoEnded?: () => void;
@@ -25,25 +20,19 @@ interface ViewingPhaseProps {
 }
 
 export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
-    isDesktop,
     isVideo,
     resolvedUrl,
     viewingDuration,
     timeLeft,
-    fixations,
-    naturalSize,
     microDot,
     imgRef,
     stimulusVideoRef,
     containerRef,
-    onImageInteraction,
     onImageLoad,
     onVideoLoadedMetadata,
     onVideoEnded,
     shelfConfig,
 }) => {
-    const { t } = useTranslation();
-
     const viewingPercent = Math.round(70 + (1 - timeLeft / Math.ceil(viewingDuration / 1000)) * 30);
 
     return (
@@ -67,9 +56,7 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
             {/* Stimulus container (image or video) */}
             <div
                 ref={containerRef}
-                className={`relative ${isDesktop ? '' : 'cursor-crosshair'}`}
-                onClick={onImageInteraction}
-                onTouchStart={onImageInteraction}
+                className="relative"
                 onContextMenu={(e) => e.preventDefault()}
                 style={{ touchAction: 'none' }}
             >
@@ -105,7 +92,7 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
                     />
                 )}
                 {/* Micro-recalibration dot (nearly invisible, drift correction) */}
-                {microDot && isDesktop && (
+                {microDot && (
                     <div
                         className="absolute pointer-events-none rounded-full"
                         style={{
@@ -118,33 +105,8 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
                         }}
                     />
                 )}
-                {/* Click indicators (mobile/tablet only — desktop is silent) */}
-                {!isDesktop && fixations.map((fix, idx) => {
-                    const natW = naturalSize?.w || 1;
-                    const natH = naturalSize?.h || 1;
-                    const left = (fix.x / natW) * 100;
-                    const top = (fix.y / natH) * 100;
-                    return (
-                        <div
-                            key={idx}
-                            className="absolute w-4 h-4 rounded-full bg-blue-500 bg-opacity-40 border-2 border-blue-400 pointer-events-none"
-                            style={{
-                                left: `${left}%`,
-                                top: `${top}%`,
-                                transform: 'translate(-50%, -50%)',
-                            }}
-                        />
-                    );
-                })}
             </div>
 
-            {!isDesktop && (
-                <p className="pointer-events-none absolute left-1/2 z-[70] -translate-x-1/2 text-xs text-gray-400" style={{ bottom: 'max(24px, env(safe-area-inset-bottom, 24px))' }}>
-                    {t('eyeTracking.clicks', '{{count}} points recorded', {
-                        count: fixations.length,
-                    })}
-                </p>
-            )}
         </div>
     );
 };

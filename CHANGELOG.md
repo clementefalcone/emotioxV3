@@ -8,6 +8,13 @@
 - **Root cause.** `SetupPhase` mounts the preview `<video>` only after `streamReady`. The stream poller set `streamReady` and assigned `srcObject` in the same tick, while `previewRef.current` was still `null` — the preview never received the stream, face detection waited forever on `readyState < 2` and "Center your face on screen" stayed red.
 - **Fix.** The stream is attached in the detection effect, which runs after the preview `<video>` exists. Regression test: `SetupPhase.test.tsx`.
 
+### feat: Eye Tracking camera gaze tracking on mobile/tablet
+- **Before.** Mobile/tablet used `click-proxy`: no gaze model, the participant had to tap where their attention went, and the 9-point calibration only advanced an index without training anything.
+- **Now.** All devices run the same pipeline as desktop: camera → MediaPipe gaze → quality gate → dwell calibration → validation → gaze capture during viewing → micro-recalibration → I-DT fixations. Saved response uses `trackingMethod: 'mediapipe-ridge'` with `gazePointCount`, fixations and calibration/validation RMSE.
+- **Calibration tap.** A tap/click on a calibration point now trains the model with the current gaze (same as a completed dwell). Previously a click advanced the point without calling `calibrate()` — on desktop too.
+- **Removed.** Tap capture during viewing (`handleImageInteraction`, blue tap markers, "N puntos registrados" counter), mobile checklist, `isDesktop` props on Intro/Setup/Preparing/Viewing/Complete phases, and 7 unused i18n keys (`checkMobile1-4`, `clicks`, `pointsRecorded`, `preparing`).
+- **Tests.** New: mobile records camera gaze during viewing without taps. Updated mocks/expectations that assumed the click-proxy path. Backend still reads legacy `click-proxy` responses.
+
 ---
 
 ## v0.96.10 — Eye Tracking mobile Safari fixes + IAT repetitions config (2026-09-25)

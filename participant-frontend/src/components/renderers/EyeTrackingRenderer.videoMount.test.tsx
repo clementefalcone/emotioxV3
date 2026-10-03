@@ -158,21 +158,12 @@ describe('EyeTrackingRenderer video element mount', () => {
         expect(video).not.toBeNull();
     });
 
-    it('mounts hidden video on mobile when emotion recognition is enabled', () => {
-        mockDeviceType = 'mobile';
-        const { container } = render(
-            <EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />
-        );
-        const video = container.querySelector('video');
-        expect(video).not.toBeNull();
-    });
-
-    it('does NOT mount video on mobile when emotion recognition is disabled', () => {
+    it('mounts hidden video on mobile without emotion recognition (gaze tracking needs the camera)', () => {
         mockDeviceType = 'mobile';
         const { container } = render(
             <EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />
         );
         const video = container.querySelector('video');
-        expect(video).toBeNull();
+        expect(video).not.toBeNull();
     });
 });

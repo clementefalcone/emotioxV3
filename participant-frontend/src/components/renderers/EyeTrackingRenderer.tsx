@@ -132,7 +132,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const [phase, setPhase] = useState<ETPhase>(cachedCalibration ? 'preparing' : 'intro');
     const [resolvedUrl, setResolvedUrl] = useState<string>('');
     const [resolvedShelfUrls, setResolvedShelfUrls] = useState<string[]>([]);
-    const [fixations, setFixations] = useState<Fixation[]>([]);
     const [timeLeft, setTimeLeft] = useState(Math.ceil(viewingDuration / 1000));
     const imgRef = useRef<HTMLImageElement>(null);
     const stimulusVideoRef = useRef<HTMLVideoElement>(null);
@@ -140,14 +139,11 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const containerRef = useRef<HTMLDivElement>(null);
     const shelfContainerRef = useRef<HTMLDivElement>(null);
     const calibrationAreaRef = useRef<HTMLDivElement>(null);
-    const lastClickRef = useRef<{ time: number } | null>(null);
     const savedRef = useRef(false);
-    const fixationsRef = useRef<Fixation[]>([]);
     const naturalSizeRef = useRef<{ w: number; h: number } | null>(null);
     const completeTimerRef = useRef<number | null>(null);
     /** Snapshot of image bounding rect captured during viewing phase (before complete hides the image). */
     const viewingRectRef = useRef<DOMRect | null>(null);
-    const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
     const [finalPointCount, setFinalPointCount] = useState(0);
 
     // Setup checkboxes
@@ -317,7 +313,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     /** Keep latest smoothed gaze for hybrid calibration samples (desktop).
      *  Reads from gaze.gazePosRef (updated every frame, no re-render). */
     useEffect(() => {
-        if (!isDesktop) return;
         let raf = 0;
         const sync = () => {
             const pos = gaze.gazePosRef.current;
@@ -326,13 +321,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         };
         raf = requestAnimationFrame(sync);
         return () => cancelAnimationFrame(raf);
-    }, [isDesktop, gaze.gazePosRef]);
+    }, [gaze.gazePosRef]);
 
     // Gaze collection during viewing phase (desktop): RAF loop with 50ms throttle, IDW-corrected.
     // V2: feeds IDW-corrected coords into ZoneEventEmitter AFTER IDW correction.
     // Pipeline: BlazeGaze CNN → One-Euro → IDW field → ZoneClassifier → HysteresisEngine → ZoneEventEmitter
     useEffect(() => {
-        if (phase !== 'viewing' || !isDesktop) return;
+        if (phase !== 'viewing') return;
 
         // Start face-api.js emotion sampling alongside gaze
         if (hasEmotionRecognition) {
@@ -378,7 +373,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         setTimeout(initGrid, 100);
 
         // --- V3 probabilistic heatmap initialization ---
-        if (V3_HEATMAP_ENABLED && isDesktop) {
+        if (V3_HEATMAP_ENABLED) {
             const stimEl = getStimulusElement();
             const stimRect = stimEl?.getBoundingClientRect();
             if (stimRect && stimRect.width > 0) {
@@ -511,18 +506,11 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             registry.destroy();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop; live gaze.* reads via ref
-    }, [phase, isDesktop, hasEmotionRecognition, isVideo]);
+    }, [phase, hasEmotionRecognition, isVideo]);
 
+    // Micro-recalibration: periodic drift correction during viewing
     useEffect(() => {
-        if (phase !== 'viewing' || isDesktop || !hasEmotionRecognition) return;
-        faceEmotions.start();
-        return () => { faceEmotions.stop(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [phase, isDesktop, hasEmotionRecognition]);
-
-    // Micro-recalibration: periodic drift correction during viewing (desktop only)
-    useEffect(() => {
-        if (phase !== 'viewing' || !isDesktop) return;
+        if (phase !== 'viewing') return;
 
         const probeTimer = setInterval(() => {
             // Pick next position from the pool (round-robin)
@@ -581,7 +569,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
         return () => clearInterval(probeTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable timer; reads refs
-    }, [phase, isDesktop, isVideo]);
+    }, [phase, isVideo]);
 
     // Countdown timer during viewing phase
     useEffect(() => {
@@ -603,7 +591,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             if (stimEl) {
                 viewingRectRef.current = stimEl.getBoundingClientRect();
             }
-            setFinalPointCount(isDesktop ? gazePointsRef.current.length : fixationsRef.current.length);
+            setFinalPointCount(gazePointsRef.current.length);
             setPhase('complete');
         }, viewingDuration);
 
@@ -612,24 +600,22 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             clearTimeout(timeout);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getStimulusElement reads refs only, stable
-    }, [phase, viewingDuration, isDesktop]);
+    }, [phase, viewingDuration]);
 
     useEffect(() => {
         if (phase !== 'setup') return;
-        if (isDesktop || hasEmotionRecognition) void startCamera();
-    }, [phase, isDesktop, hasEmotionRecognition, startCamera]);
+        void startCamera();
+    }, [phase, startCamera]);
 
     // "Preparing" phase: start camera + auto-advance
     // If cached calibration exists, skip to viewing; otherwise go to calibration.
     useEffect(() => {
         if (phase !== 'preparing') return;
 
-        if (isDesktop || hasEmotionRecognition) {
-            void startCamera();
-        }
+        void startCamera();
 
         if (cachedCalibration) {
-            if (isDesktop) gaze.start();
+            gaze.start();
             const timer = setTimeout(() => {
                 gazePointsRef.current = [];
                 setTimeLeft(Math.ceil(viewingDuration / 1000));
@@ -646,18 +632,18 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }, 2000);
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
-    }, [phase, isDesktop, startCamera, cachedCalibration, blaze, viewingDuration]);
+    }, [phase, startCamera, cachedCalibration, blaze, viewingDuration]);
 
     // Start BlazeGaze early in quality-gate so face detection check can use gazeState
     useEffect(() => {
-        if (phase !== 'quality-gate' || !isDesktop) return;
+        if (phase !== 'quality-gate') return;
         gaze.start();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
-    }, [phase, isDesktop, blaze]);
+    }, [phase, blaze]);
 
-    // Desktop: run BlazeGaze during calibration (gaze samples for IDW residuals) and through viewing
+    // Run gaze engine during calibration (gaze samples for IDW residuals) and through viewing
     useEffect(() => {
-        if (phase !== 'calibration' || !isDesktop) return;
+        if (phase !== 'calibration') return;
         gaze.start();
 
         // Check capture resolution after a short delay for frames to arrive
@@ -671,20 +657,16 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }, 2000);
         return () => clearTimeout(resCheckTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
-    }, [phase, isDesktop, blaze]);
+    }, [phase, blaze]);
 
     // Save results when complete
     useEffect(() => {
         if (phase === 'complete' && !savedRef.current) {
             savedRef.current = true;
 
-            if (isDesktop) gaze.stop();
-            if (isDesktop || hasEmotionRecognition) {
-                faceEmotions.stop();
-                stopCamera();
-            }
-
-            let calibrationQuality: string;
+            gaze.stop();
+            faceEmotions.stop();
+            stopCamera();
 
             // Compute zone-based heatmap (same approach as /eye-tracking-hybrid)
             const zoneMass: Record<string, number> = {};
@@ -704,51 +686,30 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     ? (stimulusVideoRef.current?.videoHeight || 1)
                     : (naturalSizeRef.current?.h || imgRef.current?.naturalHeight || 1);
 
-            // Also compute fixations for backward compatibility
-            let finalFixations: Fixation[];
+            const residuals = calibrationResidualsRef.current;
+            const effectiveRect = rect ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
 
-            if (isDesktop && gazePointsRef.current.length > 0) {
-                const residuals = calibrationResidualsRef.current;
-                const effectiveRect = rect ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+            // Gap fill: interpolate missing gaze during blinks/drops (same as hybrid page)
+            const expanded = expandGazeWithMinimumJerkGapFill(gazePointsRef.current);
 
-                // Gap fill: interpolate missing gaze during blinks/drops (same as hybrid page)
-                const expanded = expandGazeWithMinimumJerkGapFill(gazePointsRef.current);
-
-                // Zone mass from expanded gaze points with calibration confidence
-                for (const pt of expanded) {
-                    const u = effectiveRect.width > 0 ? (pt.x - effectiveRect.left) / effectiveRect.width : 0;
-                    const v = effectiveRect.height > 0 ? (pt.y - effectiveRect.top) / effectiveRect.height : 0;
-                    const baseConf = hybridCalibrationConfidenceWeightUv(u, v, residuals);
-                    const conf = pt.interpolated ? baseConf * HYBRID_GAP_FILL_SYNTHETIC_WEIGHT : baseConf;
-                    const soft = hybridPointToSoftZoneWeights(pt.x, pt.y, effectiveRect);
-                    for (const z of HYBRID_AOI_GRID) {
-                        zoneMass[z.id] += soft[z.id] * conf;
-                    }
+            // Zone mass from expanded gaze points with calibration confidence
+            for (const pt of expanded) {
+                const u = effectiveRect.width > 0 ? (pt.x - effectiveRect.left) / effectiveRect.width : 0;
+                const v = effectiveRect.height > 0 ? (pt.y - effectiveRect.top) / effectiveRect.height : 0;
+                const baseConf = hybridCalibrationConfidenceWeightUv(u, v, residuals);
+                const conf = pt.interpolated ? baseConf * HYBRID_GAP_FILL_SYNTHETIC_WEIGHT : baseConf;
+                const soft = hybridPointToSoftZoneWeights(pt.x, pt.y, effectiveRect);
+                for (const z of HYBRID_AOI_GRID) {
+                    zoneMass[z.id] += soft[z.id] * conf;
                 }
-
-                // I-DT fixations for backward compatibility
-                const viewportFixations = detectFixationsIDT(gazePointsRef.current);
-                if (effectiveRect.width > 0 && effectiveRect.height > 0) {
-                    finalFixations = mapFixationsToImageCoords(viewportFixations, effectiveRect, natW, natH);
-                } else {
-                    finalFixations = viewportFixations;
-                }
-                calibrationQuality = `blazegaze-${gaze.calibrationCount}pt`;
-            } else {
-                // Click-proxy: compute zones from tap fixations
-                const effectiveRect = rect ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
-                for (const f of fixationsRef.current) {
-                    // Convert image coords back to viewport for zone computation
-                    const vpX = effectiveRect.left + (f.x / natW) * effectiveRect.width;
-                    const vpY = effectiveRect.top + (f.y / natH) * effectiveRect.height;
-                    const soft = hybridPointToSoftZoneWeights(vpX, vpY, effectiveRect);
-                    for (const z of HYBRID_AOI_GRID) {
-                        zoneMass[z.id] += soft[z.id];
-                    }
-                }
-                finalFixations = fixationsRef.current;
-                calibrationQuality = 'click-proxy';
             }
+
+            // I-DT fixations for backward compatibility
+            const viewportFixations = detectFixationsIDT(gazePointsRef.current);
+            const finalFixations: Fixation[] = effectiveRect.width > 0 && effectiveRect.height > 0
+                ? mapFixationsToImageCoords(viewportFixations, effectiveRect, natW, natH)
+                : viewportFixations;
+            const calibrationQuality = `blazegaze-${gaze.calibrationCount}pt`;
 
             // --- Build response payload ---
             // V1 payload (backward compat, always included)
@@ -761,15 +722,15 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 })),
                 zoneMass,
                 calibrationQuality,
-                integrityScore: isDesktop ? Math.min(gazePointsRef.current.length / 100, 1.0) : Math.min(fixations.length / 5, 0.8),
-                trackingMethod: isDesktop ? (useMP ? 'mediapipe-ridge' : 'blazegaze') : 'click-proxy',
+                integrityScore: Math.min(gazePointsRef.current.length / 100, 1.0),
+                trackingMethod: useMP ? 'mediapipe-ridge' : 'blazegaze',
                 deviceType,
-                gazePointCount: isDesktop ? gazePointsRef.current.length : undefined,
-                fixationCount: isDesktop ? finalFixations.length : undefined,
-                fixationMethod: isDesktop ? 'idt' : 'click-proxy',
-                gazePipeline: isDesktop ? 'hybrid-zone-idt' : 'click-proxy',
-                calibrationRmsePx: isDesktop ? calibrationRmsePxRef.current : undefined,
-                validationRmsePx: isDesktop ? validationRmse : undefined,
+                gazePointCount: gazePointsRef.current.length,
+                fixationCount: finalFixations.length,
+                fixationMethod: 'idt',
+                gazePipeline: 'hybrid-zone-idt',
+                calibrationRmsePx: calibrationRmsePxRef.current,
+                validationRmsePx: validationRmse,
                 emotions: hasEmotionRecognition ? faceEmotions.getSamples() : undefined,
                 microExpressions: hasEmotionRecognition ? detectMicroExpressions(faceEmotions.getSamples()) : undefined,
                 viewportWidth: window.innerWidth,
@@ -777,14 +738,14 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 stimulusType: isShelf ? 'shelf' : isVideo ? 'video' : 'image',
                 ...(isVideo && { videoEnded: videoEndedRef.current }),
                 ...(isShelf && { displayMode, shelfCount, shelfItems, stimulusCount: resolvedShelfUrls.length }),
-                gazeTimeline: isVideo && isDesktop ? gazePointsRef.current.map(p => ({
+                gazeTimeline: isVideo ? gazePointsRef.current.map(p => ({
                     x: p.x, y: p.y, t: p.t, videoTime: p.videoTime,
                 })) : undefined,
             };
 
             // V2 zone-event response (when enabled, alongside V1 for backward compat)
             let v2Payload = undefined;
-            if (EYE_TRACKING_V2_ENABLED && isDesktop && zoneRegistryRef.current) {
+            if (EYE_TRACKING_V2_ENABLED && zoneRegistryRef.current) {
                 const profile = getCurrentDeviceProfile();
                 const zones = zoneRegistryRef.current.getZones();
                 v2Payload = buildV2Response({
@@ -867,7 +828,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             }, 1200);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getStimulusElement/fixations.length read refs; additional props are stable at phase=complete
-    }, [phase, module.id, saveResponse, onComplete, isDesktop, blaze, stopCamera, deviceType, displayMode, faceEmotions, hasEmotionRecognition, isShelf, isVideo, resolvedShelfUrls.length, shelfCount, shelfItems]);
+    }, [phase, module.id, saveResponse, onComplete, blaze, stopCamera, deviceType, displayMode, faceEmotions, hasEmotionRecognition, isShelf, isVideo, resolvedShelfUrls.length, shelfCount, shelfItems]);
 
     const handleImageLoad = useCallback(() => {
         if (imgRef.current) {
@@ -876,7 +837,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 h: imgRef.current.naturalHeight,
             };
             naturalSizeRef.current = size;
-            setNaturalSize(size);
         }
     }, []);
 
@@ -884,7 +844,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         if (stimulusVideoRef.current) {
             const v = stimulusVideoRef.current;
             naturalSizeRef.current = { w: v.videoWidth, h: v.videoHeight };
-            setNaturalSize({ w: v.videoWidth, h: v.videoHeight });
         }
     }, []);
 
@@ -904,58 +863,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const rect = shelfContainerRef.current.getBoundingClientRect();
             const size = { w: Math.round(rect.width), h: Math.round(rect.height) };
             naturalSizeRef.current = size;
-            setNaturalSize(size);
         }
     }, []);
-
-    // Click/tap proxy for mobile/tablet during viewing
-    const handleImageInteraction = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-        const el = isShelf ? shelfContainerRef.current : imgRef.current;
-        if (phase !== 'viewing' || !el) return;
-        // Desktop uses BlazeGaze — skip click capture
-        if (isDesktop) return;
-
-        const rect = el.getBoundingClientRect();
-        const naturalW = isShelf ? rect.width : (naturalSizeRef.current?.w || (imgRef.current as HTMLImageElement)?.naturalWidth || rect.width);
-        const naturalH = isShelf ? rect.height : (naturalSizeRef.current?.h || (imgRef.current as HTMLImageElement)?.naturalHeight || rect.height);
-
-        let clientX: number;
-        let clientY: number;
-
-        if ('touches' in e) {
-            const touch = e.touches[0] || (e as React.TouchEvent).changedTouches[0];
-            clientX = touch.clientX;
-            clientY = touch.clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-
-        const relX = (clientX - rect.left) / rect.width;
-        const relY = (clientY - rect.top) / rect.height;
-        const x = Math.round(relX * naturalW);
-        const y = Math.round(relY * naturalH);
-
-        const now = performance.now();
-        const duration = lastClickRef.current
-            ? Math.round(now - lastClickRef.current.time)
-            : 200;
-
-        lastClickRef.current = { time: now };
-
-        const newFixation: Fixation = {
-            x,
-            y,
-            duration: Math.min(duration, 5000),
-            timestamp: Math.round(now),
-        };
-
-        setFixations(prev => {
-            const next = [...prev, newFixation];
-            fixationsRef.current = next;
-            return next;
-        });
-    }, [phase, isDesktop, isShelf]);
 
     // --- Dwell-based calibration (Fase B) ---
     // Desktop: auto-advance after 1.5s of stable gaze near the calibration dot.
@@ -979,33 +888,73 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     /** Timestamp when gaze last left proximity (null = currently inside). */
     const dwellExitTimeRef = useRef<number | null>(null);
 
-    // Desktop dwell loop during calibration
+    const getCalibrationDot = (idx: number) => {
+        const rect = calibrationAreaRef.current?.getBoundingClientRect();
+        const point = HYBRID_IMAGE_CALIBRATION_POINTS[idx];
+        if (!rect || rect.width <= 0 || !point) return null;
+        const [ipx, ipy] = point;
+        return { rect, ipx, ipy, x: rect.left + (ipx / 100) * rect.width, y: rect.top + (ipy / 100) * rect.height };
+    };
+
+    const recordCalibrationPoint = (idx: number, avgX: number, avgY: number) => {
+        const dot = getCalibrationDot(idx);
+        if (!dot) return;
+        calibrationResidualsRef.current.push({
+            u: dot.ipx / 100,
+            v: dot.ipy / 100,
+            dx: dot.x - avgX,
+            dy: dot.y - avgY,
+        });
+
+        if (useMP) {
+            gaze.calibrate(dot.x, dot.y);
+        } else {
+            const [normX, normY] = hybridImagePercentToBlazeNorm(dot.rect, dot.ipx, dot.ipy, window.innerWidth, window.innerHeight);
+            for (let c = 0; c < CALIBRATE_CALLS_PER_POINT; c++) {
+                gaze.calibrate(normX, normY);
+            }
+        }
+
+        if (idx + 1 < HYBRID_IMAGE_CALIBRATION_POINTS.length) {
+            setCalibrationIndex(idx + 1);
+            return;
+        }
+
+        const afterTrain = () => {
+            calibrationRmsePxRef.current = hybridCalibrationRmsePx(calibrationResidualsRef.current);
+            if (!isPreviewMode) {
+                setTimeout(() => setPhase('validating'), 400);
+                return;
+            }
+            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
+            gazePointsRef.current = [];
+            setTimeLeft(Math.ceil(viewingDuration / 1000));
+            setTimeout(() => setPhase('viewing'), 600);
+        };
+        if (useMP && gaze.trainRidge) {
+            gaze.trainRidge().then(afterTrain);
+        } else {
+            afterTrain();
+        }
+    };
+
+    // Dwell loop during calibration: auto-advance after stable gaze near the dot
     useEffect(() => {
-        if (phase !== 'calibration' || !isDesktop) return;
+        if (phase !== 'calibration') return;
 
         dwellStartRef.current = null;
         dwellSamplesRef.current = [];
         dwellExitTimeRef.current = null;
 
         const loop = () => {
-            const el = calibrationAreaRef.current;
-            if (!el) { dwellTimerRef.current = requestAnimationFrame(loop); return; }
-            const rect = el.getBoundingClientRect();
-            if (rect.width <= 0) { dwellTimerRef.current = requestAnimationFrame(loop); return; }
+            const dot = getCalibrationDot(calibrationIndex);
+            if (!dot) { dwellTimerRef.current = requestAnimationFrame(loop); return; }
 
-            const pts = HYBRID_IMAGE_CALIBRATION_POINTS;
-            const idx = calibrationIndex;
-            if (idx >= pts.length) return;
-
-            const [ipx, ipy] = pts[idx];
-            const dotX = rect.left + (ipx / 100) * rect.width;
-            const dotY = rect.top + (ipy / 100) * rect.height;
             const [gx, gy] = gazePosRef.current;
-            const dist = Math.sqrt((gx - dotX) ** 2 + (gy - dotY) ** 2);
+            const dist = Math.sqrt((gx - dot.x) ** 2 + (gy - dot.y) ** 2);
             const now = performance.now();
 
             if (dist <= DWELL_PROXIMITY_PX && gaze.gazeState === 'open') {
-                // Back inside proximity — clear exit timer
                 dwellExitTimeRef.current = null;
 
                 if (dwellStartRef.current === null) {
@@ -1014,77 +963,22 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 }
                 dwellSamplesRef.current.push({ x: gx, y: gy });
 
-                const elapsed = now - dwellStartRef.current;
-                if (elapsed >= DWELL_THRESHOLD_MS) {
-                    // Dwell complete — advance this point
+                if (now - dwellStartRef.current >= DWELL_THRESHOLD_MS) {
                     const samples = dwellSamplesRef.current;
-                    let avgX = 0, avgY = 0;
-                    for (const s of samples) { avgX += s.x; avgY += s.y; }
-                    avgX /= samples.length;
-                    avgY /= samples.length;
-
-                    const targetX = dotX;
-                    const targetY = dotY;
-                    calibrationResidualsRef.current.push({
-                        u: ipx / 100,
-                        v: ipy / 100,
-                        dx: targetX - avgX,
-                        dy: targetY - avgY,
-                    });
-
-                    if (useMP) {
-                        // MediaPipe: calibrate with screen coordinates
-                        gaze.calibrate(targetX, targetY);
-                    } else {
-                        // BlazeGaze: calibrate with normalized coords
-                        const vw = window.innerWidth;
-                        const vh = window.innerHeight;
-                        const [normX, normY] = hybridImagePercentToBlazeNorm(rect, ipx, ipy, vw, vh);
-                        for (let c = 0; c < CALIBRATE_CALLS_PER_POINT; c++) {
-                            gaze.calibrate(normX, normY);
-                        }
-                    }
-
+                    const avgX = samples.reduce((sum, p) => sum + p.x, 0) / samples.length;
+                    const avgY = samples.reduce((sum, p) => sum + p.y, 0) / samples.length;
+                    dwellStartRef.current = null;
+                    dwellSamplesRef.current = [];
+                    recordCalibrationPoint(calibrationIndex, avgX, avgY);
+                    return;
+                }
+            } else if (dwellStartRef.current !== null) {
+                if (dwellExitTimeRef.current === null) {
+                    dwellExitTimeRef.current = now;
+                } else if (now - dwellExitTimeRef.current > DWELL_GRACE_MS) {
                     dwellStartRef.current = null;
                     dwellSamplesRef.current = [];
                     dwellExitTimeRef.current = null;
-
-                    if (idx + 1 >= pts.length) {
-                        // Train MediaPipe ridge after all calibration points — await so
-                        // diagnostics (LOOCV per-point errors) are ready before V3 init
-                        const afterTrain = () => {
-                            calibrationRmsePxRef.current = hybridCalibrationRmsePx(calibrationResidualsRef.current);
-                            if (!isPreviewMode) {
-                                setTimeout(() => setPhase('validating'), 400);
-                            } else {
-                                saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
-                                gazePointsRef.current = [];
-                                setTimeLeft(Math.ceil(viewingDuration / 1000));
-                                setTimeout(() => setPhase('viewing'), 600);
-                            }
-                        };
-                        if (useMP && gaze.trainRidge) {
-                            gaze.trainRidge().then(afterTrain);
-                        } else {
-                            afterTrain();
-                        }
-                    } else {
-                        setCalibrationIndex(idx + 1);
-                    }
-                    return; // stop loop — next point will re-trigger via calibrationIndex change
-                }
-            } else {
-                // Gaze left proximity — start grace period instead of instant reset
-                if (dwellStartRef.current !== null) {
-                    if (dwellExitTimeRef.current === null) {
-                        dwellExitTimeRef.current = now;
-                    } else if (now - dwellExitTimeRef.current > DWELL_GRACE_MS) {
-                        // Grace period expired — reset dwell
-                        dwellStartRef.current = null;
-                        dwellSamplesRef.current = [];
-                        dwellExitTimeRef.current = null;
-                    }
-                    // else: still within grace period, keep dwell timer running
                 }
             }
 
@@ -1094,32 +988,15 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         dwellTimerRef.current = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(dwellTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop
-    }, [phase, calibrationIndex, isDesktop, blaze, viewingDuration, isPreviewMode]);
+    }, [phase, calibrationIndex, blaze, viewingDuration, isPreviewMode]);
 
-    /**
-     * Fallback click handler for mobile/tablet calibration (no gaze → no dwell).
-     * Desktop uses dwell-based auto-advance above.
-     */
-    const handleCalibrationClick = useCallback(() => {
-        if (phase !== 'calibration') return;
-        const pts = HYBRID_IMAGE_CALIBRATION_POINTS;
-        const idx = calibrationIndex;
-        if (idx >= pts.length) return;
-
-        if (idx + 1 >= pts.length) {
-            calibrationRmsePxRef.current = null;
-            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
-            if (isDesktop && !isPreviewMode) {
-                setTimeout(() => setPhase('validating'), 400);
-            } else {
-                gazePointsRef.current = [];
-                setTimeLeft(Math.ceil(viewingDuration / 1000));
-                setTimeout(() => setPhase('viewing'), 600);
-            }
-        } else {
-            setCalibrationIndex(idx + 1);
-        }
-    }, [phase, calibrationIndex, viewingDuration, isDesktop, isPreviewMode, module.id]);
+    /** Tap/click on a calibration point trains the model with the current gaze, same as a completed dwell. */
+    const handleCalibrationClick = () => {
+        if (phase !== 'calibration' || gaze.gazeState !== 'open') return;
+        cancelAnimationFrame(dwellTimerRef.current);
+        const [gx, gy] = gazePosRef.current;
+        recordCalibrationPoint(calibrationIndex, gx, gy);
+    };
 
     // Toggle a setup checkbox
     const toggleCheck = useCallback((index: number) => {
@@ -1141,7 +1018,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     // Desktop dwell loop for validation points
     useEffect(() => {
-        if (phase !== 'validating' || !isDesktop) return;
+        if (phase !== 'validating') return;
         if (validationRmse !== null) return; // all points measured, showing result
 
         validationDwellStartRef.current = null;
@@ -1229,7 +1106,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         validationRafRef.current = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(validationRafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop
-    }, [phase, validationIndex, validationRmse, isDesktop, blaze, viewingDuration, validationPointErrors]);
+    }, [phase, validationIndex, validationRmse, blaze, viewingDuration, validationPointErrors]);
 
     const handleValidationDwellComplete = useCallback(() => {
         if (phase !== 'validating') return;
@@ -1274,14 +1151,12 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     /** Reject session — session quality too low after max attempts. */
     const handleRejectSession = useCallback(() => {
-        if (isDesktop) gaze.stop();
-        if (isDesktop || hasEmotionRecognition) {
-            faceEmotions.stop();
-            stopCamera();
-        }
+        gaze.stop();
+        faceEmotions.stop();
+        stopCamera();
         onComplete?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze/faceEmotions are unstable object literals
-    }, [isDesktop, hasEmotionRecognition, blaze, stopCamera, onComplete]);
+    }, [blaze, stopCamera, onComplete]);
 
     // -----------------------------------------------------------------------
     // Unconfigured
@@ -1324,7 +1199,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         phaseContent = (
             <IntroPhase
                 taskDescription={taskDescription}
-                isDesktop={isDesktop}
                 isBlazeLoaded={gaze.isLoaded}
                 onNext={() => setPhase('setup')}
             />
@@ -1332,13 +1206,11 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     } else if (phase === 'setup') {
         phaseContent = (
             <SetupPhase
-                isDesktop={isDesktop}
                 checks={checks}
                 allChecked={allChecked}
                 onToggleCheck={toggleCheck}
-                onReady={() => setPhase(isDesktop ? 'quality-gate' : 'preparing')}
+                onReady={() => setPhase('quality-gate')}
                 cameraRef={videoRef}
-                hasEmotionRecognition={hasEmotionRecognition}
             />
         );
     } else if (phase === 'quality-gate') {
@@ -1357,7 +1229,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         );
     } else if (phase === 'preparing') {
         phaseContent = (
-            <PreparingPhase isDesktop={isDesktop} />
+            <PreparingPhase />
         );
     } else if (phase === 'calibration') {
         phaseContent = (
@@ -1401,18 +1273,14 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         phaseContent = (
             <>
             <ViewingPhase
-                isDesktop={isDesktop}
                 isVideo={isVideo}
                 resolvedUrl={resolvedUrl}
                 viewingDuration={viewingDuration}
                 timeLeft={timeLeft}
-                fixations={fixations}
-                naturalSize={naturalSize}
                 microDot={microDot}
                 imgRef={imgRef}
                 stimulusVideoRef={stimulusVideoRef}
                 containerRef={containerRef}
-                onImageInteraction={handleImageInteraction}
                 onImageLoad={handleImageLoad}
                 onVideoLoadedMetadata={handleVideoLoadedMetadata}
                 onVideoEnded={handleVideoEnded}
@@ -1432,7 +1300,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     } else if (phase === 'complete') {
         phaseContent = (
             <CompletePhase
-                isDesktop={isDesktop}
                 finalPointCount={finalPointCount}
             />
         );
@@ -1441,7 +1308,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     return (
         <>
             {/* Persistent hidden video — never unmounts across phases */}
-            {(isDesktop || hasEmotionRecognition) && <video ref={videoRef} autoPlay playsInline muted style={{ display: 'none' }} />}
+            <video ref={videoRef} autoPlay playsInline muted style={{ display: 'none' }} />
             {phaseContent}
         </>
     );

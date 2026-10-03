@@ -4,11 +4,10 @@ import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS } from './types';
 
 interface CompletePhaseProps {
-    isDesktop: boolean;
     finalPointCount: number;
 }
 
-export const CompletePhase: React.FC<CompletePhaseProps> = ({ isDesktop, finalPointCount }) => {
+export const CompletePhase: React.FC<CompletePhaseProps> = ({ finalPointCount }) => {
     const { t } = useTranslation();
 
     return (
@@ -25,9 +24,7 @@ export const CompletePhase: React.FC<CompletePhaseProps> = ({ isDesktop, finalPo
                     {t('eyeTracking.complete', 'Test completed. Thank you!')}
                 </p>
                 <p className="text-sm text-gray-500">
-                    {isDesktop
-                        ? t('eyeTracking.gazePointsRecorded', '{{count}} gaze samples recorded.', { count: finalPointCount })
-                        : t('eyeTracking.pointsRecorded', '{{count}} attention points recorded.', { count: finalPointCount })}
+                    {t('eyeTracking.gazePointsRecorded', '{{count}} gaze samples recorded.', { count: finalPointCount })}
                 </p>
             </div>
         </div>
