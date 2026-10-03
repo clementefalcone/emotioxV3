@@ -1,3 +1,11 @@
+## v0.96.11 — Eye Tracking mobile camera gaze + SmartVOC consolidated dashboard (2026-10-03)
+
+### fix: Eye Tracking calibration cache scoped to module
+- **Root cause.** The 2-minute calibration cache in `sessionStorage` was not tied to a module. Reloading or restarting the same ET module within 2 minutes started at `preparing` and jumped straight to the stimulus — intro, setup and calibration were skipped.
+- **Fix.** The cache stores `moduleId`; `loadCalibrationFromSession(moduleId)` only reuses a calibration from a *different* ET module (consecutive modules), never from the same one.
+
+---
+
 ## v0.96.10 — Eye Tracking mobile Safari fixes + IAT repetitions config (2026-09-25)
 
 ### fix: IAT builder translated to Spanish

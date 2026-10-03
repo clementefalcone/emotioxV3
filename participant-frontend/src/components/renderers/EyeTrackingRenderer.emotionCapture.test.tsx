@@ -178,6 +178,7 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         mockDeviceType = 'mobile';
         vi.useFakeTimers({ shouldAdvanceTime: true });
         sessionStorage.setItem('emotiox-et-calibration', JSON.stringify({
+            moduleId: 'previous-et-module',
             residuals: [{ u: 0.5, v: 0.5, dx: 0, dy: 0 }],
             rmsePx: 10,
             timestamp: Date.now(),
@@ -231,6 +232,20 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
             <EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />
         );
         expect(container.querySelector('video')).not.toBeNull();
+    });
+
+    it('calibration cached by the same module is not reused: starts at intro', () => {
+        sessionStorage.setItem('emotiox-et-calibration', JSON.stringify({
+            moduleId: 'test-et-1',
+            residuals: [],
+            rmsePx: null,
+            timestamp: Date.now(),
+        }));
+        const { queryByTestId } = render(
+            <EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />
+        );
+        expect(queryByTestId('intro-next')).not.toBeNull();
+        expect(queryByTestId('preparing-phase')).toBeNull();
     });
 
     it('getSamples() is wired to save payload via faceEmotions mock', () => {

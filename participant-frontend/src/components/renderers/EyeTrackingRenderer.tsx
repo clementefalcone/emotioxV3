@@ -85,9 +85,10 @@ function fisherYatesShuffle<T>(arr: T[]): T[] {
 const ET_CALIBRATION_KEY = 'emotiox-et-calibration';
 const ET_CALIBRATION_TTL_MS = 120_000; // 2 minutes
 
-function saveCalibrationToSession(residuals: HybridCalibrationResidual[], rmsePx: number | null) {
+function saveCalibrationToSession(moduleId: string, residuals: HybridCalibrationResidual[], rmsePx: number | null) {
     try {
         sessionStorage.setItem(ET_CALIBRATION_KEY, JSON.stringify({
+            moduleId,
             residuals,
             rmsePx,
             timestamp: Date.now(),
@@ -95,11 +96,12 @@ function saveCalibrationToSession(residuals: HybridCalibrationResidual[], rmsePx
     } catch { /* storage full or unavailable */ }
 }
 
-function loadCalibrationFromSession(): { residuals: HybridCalibrationResidual[]; rmsePx: number | null } | null {
+function loadCalibrationFromSession(moduleId: string): { residuals: HybridCalibrationResidual[]; rmsePx: number | null } | null {
     try {
         const raw = sessionStorage.getItem(ET_CALIBRATION_KEY);
         if (!raw) return null;
         const data = JSON.parse(raw);
+        if (data.moduleId === moduleId) return null;
         if (Date.now() - data.timestamp > ET_CALIBRATION_TTL_MS) {
             sessionStorage.removeItem(ET_CALIBRATION_KEY);
             return null;
@@ -126,7 +128,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const isShelf = displayMode === 'shelf';
 
     // Skip intro/setup/calibration if a recent ET calibration exists (consecutive ET modules)
-    const cachedCalibration = useMemo(() => loadCalibrationFromSession(), []);
+    const cachedCalibration = useMemo(() => loadCalibrationFromSession(module.id), [module.id]);
     const [phase, setPhase] = useState<ETPhase>(cachedCalibration ? 'preparing' : 'intro');
     const [resolvedUrl, setResolvedUrl] = useState<string>('');
     const [resolvedShelfUrls, setResolvedShelfUrls] = useState<string[]>([]);
@@ -1055,7 +1057,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                             if (!isPreviewMode) {
                                 setTimeout(() => setPhase('validating'), 400);
                             } else {
-                                saveCalibrationToSession(calibrationResidualsRef.current, calibrationRmsePxRef.current);
+                                saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
                                 gazePointsRef.current = [];
                                 setTimeLeft(Math.ceil(viewingDuration / 1000));
                                 setTimeout(() => setPhase('viewing'), 600);
@@ -1106,7 +1108,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
         if (idx + 1 >= pts.length) {
             calibrationRmsePxRef.current = null;
-            saveCalibrationToSession(calibrationResidualsRef.current, calibrationRmsePxRef.current);
+            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
             if (isDesktop && !isPreviewMode) {
                 setTimeout(() => setPhase('validating'), 400);
             } else {
@@ -1117,7 +1119,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         } else {
             setCalibrationIndex(idx + 1);
         }
-    }, [phase, calibrationIndex, viewingDuration, isDesktop, isPreviewMode]);
+    }, [phase, calibrationIndex, viewingDuration, isDesktop, isPreviewMode, module.id]);
 
     // Toggle a setup checkbox
     const toggleCheck = useCallback((index: number) => {
@@ -1196,7 +1198,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
                         if (rmse <= HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX) {
                             // Passed — auto-proceed to viewing
-                            saveCalibrationToSession(calibrationResidualsRef.current, calibrationRmsePxRef.current);
+                            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
                             if (blaze) gaze.resetFrameStats();
                             gazePointsRef.current = [];
                             setTimeLeft(Math.ceil(viewingDuration / 1000));
@@ -1235,14 +1237,14 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         setValidationPointErrors(newErrors);
         if (validationIndex + 1 >= HYBRID_VALIDATION_POINTS.length) {
             setValidationRmse(0);
-            saveCalibrationToSession(calibrationResidualsRef.current, calibrationRmsePxRef.current);
+            saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
             gazePointsRef.current = [];
             setTimeLeft(Math.ceil(viewingDuration / 1000));
             setTimeout(() => setPhase('viewing'), 600);
         } else {
             setValidationIndex(validationIndex + 1);
         }
-    }, [phase, validationIndex, validationPointErrors, viewingDuration]);
+    }, [phase, validationIndex, validationPointErrors, viewingDuration, module.id]);
 
     /** Re-calibrate: reset residuals and go back to calibration phase.
      *  Increments recalibrationCount so auto-retry offer stops after 2 attempts. */
@@ -1259,7 +1261,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     /** Skip validation and proceed to viewing (user chose to continue despite poor accuracy). */
     const handleSkipValidation = useCallback(() => {
-        saveCalibrationToSession(calibrationResidualsRef.current, calibrationRmsePxRef.current);
+        saveCalibrationToSession(module.id, calibrationResidualsRef.current, calibrationRmsePxRef.current);
         if (blaze) gaze.resetFrameStats();
         gazePointsRef.current = [];
         setTimeLeft(Math.ceil(viewingDuration / 1000));
