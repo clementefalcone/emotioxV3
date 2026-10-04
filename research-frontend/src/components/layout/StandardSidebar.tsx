@@ -168,7 +168,7 @@ export const StandardSidebar = () => {
                     )}
                     {!isCollapsed && (
                         <button
-                            onClick={() => navigate('/settings')}
+                            onClick={() => navigate('/profile')}
                             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
                             title="Settings"
                         >

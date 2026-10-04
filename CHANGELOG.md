@@ -1,3 +1,10 @@
+## v0.97.11 — Sidebar Settings opens the account page (2026-10-04)
+
+### fix(research-ui): Settings button led to the 404 page
+- **Root cause.** The sidebar "Settings" button (added in 88a7d25) navigated to `/settings`, a route that was never defined, so it fell through to the `*` error page. The account page (`/profile`: name, email, delete account) existed but nothing linked to it.
+- **Fix.** Settings navigates to `/profile`.
+- **Tests.** `components/layout/__tests__/StandardSidebar.settings.test.tsx`: clicking Settings opens the account page (failed before the fix).
+
 ## v0.97.10 — Security: admin pages and catalog editing hidden from non-admins (2026-10-04)
 
 ### fix(security): admin and catalog edit pages were open to any visitor or researcher
