@@ -4,7 +4,7 @@
  *
  * Closes the gap between unit-tested pure logic and the actual snippet output.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { generateTrackingSnippet } from '../tracking-snippet';
 import {
     computeIrisDisplacement,
@@ -457,5 +457,33 @@ describe('generateTrackingSnippet — emotions respect captureEmotions', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: false, captureGaze: true });
         const fallback = js.slice(js.indexOf('if(useFaceApiFallback){'), js.indexOf('faceapi.detectSingleFace'));
         expect(fallback).toContain('if(!C.emotions)return;');
+    });
+});
+
+describe('generateTrackingSnippet — one shared camera', () => {
+    const loadWithCamera = (js: string) => {
+        const source = js.slice(js.indexOf('var cameraWaiters=null;'), js.indexOf('function startSampling(){'));
+        let resolveStream: (stream: object) => void = () => undefined;
+        const getUserMedia = vi.fn(() => new Promise<object>((resolve) => { resolveStream = resolve; }));
+        const fakeDocument = { createElement: () => ({ setAttribute: () => undefined, style: {} }), body: { appendChild: () => undefined } };
+        const withCamera = new Function('C', 'isMobile', 'navigator', 'document',
+            `var emoVideo=null,emoStream=null;${source}return withCamera;`,
+        )({ gaze: true }, true, { mediaDevices: { getUserMedia } }, fakeDocument) as (cb: (stream: object) => void) => void;
+        return { withCamera, getUserMedia, resolveStream: (stream: object) => resolveStream(stream) };
+    };
+
+    it('opens the camera once when emotions and gaze start together and gives both the same stream', async () => {
+        const { withCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }));
+        const received: object[] = [];
+        withCamera((stream) => received.push(stream));
+        withCamera((stream) => received.push(stream));
+        const stream = {};
+        resolveStream(stream);
+        await Promise.resolve();
+        await Promise.resolve();
+        withCamera((s) => received.push(s));
+
+        expect(getUserMedia).toHaveBeenCalledTimes(1);
+        expect(received).toEqual([stream, stream, stream]);
     });
 });

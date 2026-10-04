@@ -793,10 +793,13 @@ var isMobile="ontouchstart"in window||navigator.maxTouchPoints>0;
 document.addEventListener("mousemove",function(e){lastCursorX=e.clientX;lastCursorY=e.clientY;},true);
 document.addEventListener("touchmove",function(e){var t=e.touches[0];if(t){lastCursorX=t.clientX;lastCursorY=t.clientY;}},true);
 
-function startEmotionCapture(){
-    if(!C.emotions||emoRunning)return;
-    navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:"user"},audio:false})
-    .then(function(stream){
+var cameraWaiters=null;
+function withCamera(cb){
+    if(emoVideo){cb(emoStream);return;}
+    if(cameraWaiters){cameraWaiters.push(cb);return;}
+    cameraWaiters=[cb];
+    var sizes=C.gaze&&isMobile?[[1280,720],[640,480]]:[[320,240]];
+    function attach(stream){
         emoStream=stream;
         var v=document.createElement("video");
         v.setAttribute("autoplay","");v.setAttribute("muted","");v.setAttribute("playsinline","");
@@ -804,14 +807,33 @@ function startEmotionCapture(){
         v.srcObject=stream;
         document.body.appendChild(v);
         emoVideo=v;
+        var waiters=cameraWaiters;cameraWaiters=null;
+        waiters.forEach(function(w){w(stream);});
+    }
+    function openAtSize(i){
+        if(i>=sizes.length){cameraWaiters=null;return;}
+        navigator.mediaDevices.getUserMedia({video:{width:{ideal:sizes[i][0]},height:{ideal:sizes[i][1]},facingMode:"user"},audio:false})
+        .then(attach)
+        .catch(function(){openAtSize(i+1);});
+    }
+    openAtSize(0);
+}
+
+function startSampling(){
+    if(emoRunning)return;
+    emoRunning=true;
+    emoStartTime=Date.now();
+    emoInterval=setInterval(sampleFrame,500);
+}
+
+function startEmotionCapture(){
+    if(!C.emotions||emoRunning)return;
+    withCamera(function(stream){
         loadMediaPipe(function(){
-            emoRunning=true;
-            emoStartTime=Date.now();
-            emoInterval=setInterval(sampleFrame,500);
+            startSampling();
             if(C.emoVideo)startEmoRecording(stream);
         });
-    })
-    .catch(function(e){});
+    });
 }
 
 function onCalDone(W,d,rmse,xBuf,yBuf){
@@ -830,38 +852,13 @@ function startGazeCapture(){
     if(cached){
         try{var c=JSON.parse(cached);if(Date.now()-c.t<600000){gazeWeights=c.w;gazeFeatDim=c.d;gazeRmsePx=c.r||999;gazeQuality=c.r<=80?"good":c.r<=150?"fair":"low";startGazeSampling();return;}}catch(e){}
     }
-    if(emoVideo&&mpLandmarker){
-        runCalibration(C.gazeCal,onCalDone);
-        return;
-    }
-    function initGazeStream(stream){
-        if(!emoStream){emoStream=stream;}
-        if(!emoVideo){
-            var v=document.createElement("video");
-            v.setAttribute("autoplay","");v.setAttribute("muted","");v.setAttribute("playsinline","");
-            v.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
-            v.srcObject=stream;
-            document.body.appendChild(v);
-            emoVideo=v;
-        }
+    withCamera(function(){
         loadMediaPipe(function(){if(mpLandmarker)runCalibration(C.gazeCal,onCalDone);});
-    }
-    navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"},audio:false})
-    .then(initGazeStream)
-    .catch(function(){
-        navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:"user"},audio:false})
-        .then(initGazeStream)
-        .catch(function(){});
     });
 }
 
 function startGazeSampling(){
-    if(!gazeWeights)return;
-    if(!emoRunning){
-        emoRunning=true;
-        emoStartTime=Date.now();
-        emoInterval=setInterval(sampleFrame,500);
-    }
+    if(gazeWeights)startSampling();
 }
 
 function loadMediaPipe(cb){

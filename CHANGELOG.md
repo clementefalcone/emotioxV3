@@ -15,6 +15,11 @@
 - **Fix.** Emotions are only computed when `C.emotions` is true, in both paths.
 - **Tests.** Both emotion paths are gated by `captureEmotions`.
 
+### fix: Website Tracking opened the camera twice
+- **Root cause.** `onSessionReady` calls `startEmotionCapture()` and `startGazeCapture()` in the same tick; each requested its own `getUserMedia` stream and overwrote `emoStream`/`emoVideo`, leaving the other stream orphaned with the camera on. Both paths could also start a second `sampleFrame` interval.
+- **Fix.** `withCamera` opens one stream (1280×720 → 640×480 when mobile gaze is on, 320×240 otherwise), queues concurrent requests and hands every caller the same stream. `startSampling` starts the sampling interval only once.
+- **Tests.** Two simultaneous requests call `getUserMedia` once and both receive the same stream.
+
 ---
 
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)
