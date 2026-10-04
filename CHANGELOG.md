@@ -1,5 +1,10 @@
 ## v0.97.6 — Security: study access in AI and integration modules (2026-10-04)
 
+### fix(security): any user could tag, archive or see the activity of every study
+- **Root cause.** `GET/POST /research/:id/tags`, `DELETE /research/:id/tags/:tag`, `POST /research/:id/archive|unarchive` skipped the ownership check the rest of `research` applies, and `GET /research/activity` listed every study in the system with its owner's email and response counts.
+- **Fix.** Tag and archive routes apply the study access guard. Activity becomes `listAccessibleResearchActivity(userId, role)`, scoped by `buildOwnershipClause` like the study list. On production data (read-only) the busiest researcher goes from 35 visible studies to their 22.
+- **Tests.** `research.controller.access.test.ts`: archive, unarchive, add/remove/read tags on a foreign study → 404 with no service call; activity is requested for the current user.
+
 ### fix(security): any user could run Insights or Cerulean certification on another study
 - **Root cause.** `/insights/research/:id/...` and `/cerulean/research/:id/...` only required a session: any user could re-run paid LLM analysis that overwrites another study's config, certify it on Cerulean or read its certificate. Viewers could write.
 - **Fix.** Both controllers apply the study access guard (Insights already looks the file up inside the study's own config) and keep viewers read-only.

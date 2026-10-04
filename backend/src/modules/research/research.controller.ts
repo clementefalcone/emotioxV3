@@ -8,6 +8,7 @@ import * as authService from '../auth/auth.service';
 import * as publicService from '../public/index';
 import * as researchTagsService from './research-tags.service';
 import { getRequestOrigin } from '../../utils/request';
+import { canAccessResearch, researchNotFound } from './research-access';
 
 export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -58,7 +59,7 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
 
         // GET /research/activity
         if (path === '/research/activity' && httpMethod === 'GET') {
-            const activities = await researchActivityService.listAllResearchActivity();
+            const activities = await researchActivityService.listAccessibleResearchActivity(user.id, user.role);
             return success({ activities }, 200, undefined, origin);
         }
 
@@ -449,6 +450,11 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
         if (path === '/research/tags' && httpMethod === 'GET') {
             const tags = await researchTagsService.getAllTags(user.id, user.role);
             return success({ tags }, 200, undefined, origin);
+        }
+
+        const taggedResearch = path.match(/^\/research\/([^\/]+)\/(?:tags|archive|unarchive)(?:\/|$)/);
+        if (taggedResearch && !(await canAccessResearch(taggedResearch[1], decoded.sub))) {
+            return researchNotFound(taggedResearch[1], decoded.sub, path, origin);
         }
 
         // GET /research/:id/tags

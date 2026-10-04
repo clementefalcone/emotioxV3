@@ -1,4 +1,5 @@
 import pool from '../../config/database';
+import { buildOwnershipClause } from './research.helpers';
 
 export interface ResearchActivityLog {
     id: string;
@@ -20,7 +21,8 @@ export interface ResearchActivityLog {
  * Derives research activity from existing tables (researches, stages, modules, responses, users).
  * No dedicated activity_logs table needed.
  */
-export const listAllResearchActivity = async (): Promise<ResearchActivityLog[]> => {
+export const listAccessibleResearchActivity = async (userId: string, role: string): Promise<ResearchActivityLog[]> => {
+    const ownership = buildOwnershipClause(userId, role);
     const result = await pool.query(
         `SELECT
             r.id AS research_id,
@@ -41,8 +43,9 @@ export const listAllResearchActivity = async (): Promise<ResearchActivityLog[]> 
          FROM researches r
          LEFT JOIN research_techniques rt ON rt.id = r.research_technique_id
          LEFT JOIN users u ON u.id = r.created_by
-         WHERE r.deleted_at IS NULL
-         ORDER BY r.updated_at DESC`
+         WHERE r.deleted_at IS NULL AND ${ownership.clause}
+         ORDER BY r.updated_at DESC`,
+        ownership.params
     );
 
     return result.rows.map((row) => {
