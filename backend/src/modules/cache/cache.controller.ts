@@ -2,12 +2,21 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
 import { getStats, clearAll, clearByPattern } from './cache.service';
 import { getRequestOrigin } from '../../utils/request';
+import { isAuthError, requireAuth } from '../../utils/auth';
+import * as authService from '../auth/auth.service';
 
 export const handleCacheRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
     const origin = getRequestOrigin(event);
 
     try {
+        const decoded = await requireAuth(event);
+        const user = await authService.getMe(decoded.sub);
+        if (user.role !== 'admin') {
+            console.warn(JSON.stringify({ event: 'cache_admin_required', userId: user.id, method: httpMethod, path }));
+            return error('Admin role required', 403, undefined, origin);
+        }
+
         // GET /cache/stats - Get cache statistics
         if (path === '/cache/stats' && httpMethod === 'GET') {
             const stats = getStats();
@@ -38,6 +47,7 @@ export const handleCacheRoutes = async (event: APIGatewayProxyEvent): Promise<AP
 
         return error('Cache route not found', 404, undefined, origin);
     } catch (err: any) {
+        if (isAuthError(err)) return error(err.message, err.statusCode, undefined, origin);
         console.error('Cache controller error:', err);
         return error(err.message || 'Internal server error', 500, undefined, origin);
     }

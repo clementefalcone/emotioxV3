@@ -1,5 +1,10 @@
 ## v0.97.4 — Security: unauthenticated write endpoints (2026-10-04)
 
+### fix(security): anyone could flush the cache
+- **Root cause.** `/cache/stats`, `DELETE /cache/clear` and `DELETE /cache/pattern` had no authentication (`router.ts` notes "admin only - add auth check as needed"); `pattern` is compiled as a caller-supplied regex.
+- **Fix.** All cache routes require a session and the `admin` role (401 / 403, logged as `cache_admin_required`). Only test scripts use them and they already send a token.
+- **Tests.** `cache.controller.test.ts`: no session → 401, researcher → 403, admin clears.
+
 ### fix(security): tracking snapshots could run scripts in the researcher's session (stored XSS)
 - **Root cause.** `POST /public/tracking/:id/snapshot` is unauthenticated (it keeps the first snapshot per page). Snapshots, and `proxy-page` HTML from external sites, were shown in iframes on the app's own origin: `PageSnapshotHeatmap` with `sandbox="allow-same-origin allow-scripts"` (which cancels the sandbox) and `MultiLayerHeatmap` with no sandbox. Only `<script>` tags were stripped, so handlers like `onerror=` ran with the researcher's session.
 - **Fix.** Both iframes use `sandbox="allow-same-origin"` (the parent still reads the DOM to draw the heatmap; nothing inside can execute). `snapshot-html` and `proxy-page` responses send `Content-Security-Policy: script-src 'none'` for direct opens.
