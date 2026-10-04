@@ -255,36 +255,6 @@ app.use('/api/media', express.static(MEDIA_BASE_DIR, {
     index: false,
 }));
 
-// Debug endpoint to verify JWT token
-// GET /api/debug/verify-token?token=xxx
-app.get('/api/debug/verify-token', async (req: Request, res: Response) => {
-    const { token } = req.query;
-
-    console.log('[DEBUG] JWT_SECRET configured:', process.env.JWT_SECRET ? 'YES (custom)' : 'NO (using default)');
-    console.log('[DEBUG] JWT_SECRET value preview:', process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 10) + '...' : 'default');
-
-    if (!token || typeof token !== 'string') {
-        return res.status(400).json({ error: 'Token required', jwtSecretConfigured: !!process.env.JWT_SECRET });
-    }
-
-    try {
-        const decoded = await verifyToken(token);
-        res.json({
-            valid: true,
-            decoded,
-            jwtSecretConfigured: !!process.env.JWT_SECRET
-        });
-    } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        res.status(401).json({
-            valid: false,
-            error: errorMessage,
-            jwtSecretConfigured: !!process.env.JWT_SECRET,
-            jwtSecretPreview: process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 10) + '...' : 'using default'
-        });
-    }
-});
-
 // SSE endpoint for live tracking sessions
 // Registered with both /api and / prefix for Passenger compatibility
 app.get(['/api/tracking/:researchId/live/stream', '/tracking/:researchId/live/stream'], async (req: Request, res: Response) => {

@@ -1,3 +1,10 @@
+## v0.97.8 — Security: debug endpoints removed (2026-10-04)
+
+### fix(security): public debug endpoints exposed headers and study data
+- **Root cause.** `router.ts` served two unauthenticated debug routes left from past investigations: `GET /debug-headers` echoed every request header (including `Authorization`) and `GET /debug/ranking-module` read the modules and full config of the study named "Probando" with no session. The TS entry also had `GET /api/debug/verify-token`, which returned the first 10 characters of `JWT_SECRET` on an invalid token (not reachable in production, where Passenger runs `server-cpanel.js`).
+- **Fix.** All three routes and `modules/debug/debug.controller.ts` deleted. No frontend or script used them.
+- **Tests.** `src/__tests__/router.debug.test.ts`: `/debug-headers` no longer answers 200 nor echoes the token; `/debug/ranking-module` no longer queries the database (both failed before the fix).
+
 ## v0.97.7 — Missing token answered 500 in AI and integration modules (2026-10-04)
 
 ### fix(api): missing or invalid token returned 500 instead of 401
