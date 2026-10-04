@@ -218,12 +218,6 @@ export const route = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
             return await handleUsersRoutes(normalizedEvent);
         }
 
-        // Analysis routes
-        if (path.startsWith('/analysis')) {
-            const { handleAnalysisRoutes } = await import('./modules/analysis/analysis.controller');
-            return await handleAnalysisRoutes(normalizedEvent);
-        }
-
         // Analytics routes
         if (path.startsWith('/analytics')) {
             const { handleAnalyticsRoutes } = await import('./modules/analytics/analytics.controller');

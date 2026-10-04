@@ -152,11 +152,6 @@ const getConfig = async (origin: string | null): Promise<APIGatewayProxyResult> 
                 delete: '/media/:key',
             },
 
-            // Analysis
-            analysis: {
-                research: '/analysis/research/:id',
-            },
-
             // Enterprises
             enterprises: {
                 list: '/enterprises',

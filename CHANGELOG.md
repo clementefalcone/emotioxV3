@@ -3,6 +3,10 @@
 ### refactor(research): one study access guard
 - `research/research-access.ts` holds the study access rule for every controller: `canAccessResearch` (creator or collaborator; admin/viewer see all), `findResearchIdOf` (resolves the owning study of a child resource from a fixed table dictionary), `isStageOfResearch` and `researchNotFound` (404 + `research_access_denied` JSON log). Analytics now uses it instead of its own copy.
 
+### fix(security): remove the broken, unused analysis API
+- **Why.** `POST /analysis/question/:id` would return the raw answers and participant ids of any question to any user. It currently always fails (it selects `responses.answer`, which does not exist, and no response has a `question_id`), and no frontend component calls `analysisService`.
+- **Change.** Removed the backend `analysis` controller and service, its router entry and `/config` entry, and the unused frontend `analysis.service.ts`. The `analysis_modules` table is left untouched.
+
 ### fix(security): any user could read another study's raw answers
 - **Root cause.** `GET /responses/research/:id` and `.../participant/:pid` (also reachable as `/public/responses/...`, which still requires a session) returned up to 10 000 raw answers of any study to any logged-in user.
 - **Fix.** The study access guard runs before both routes.

@@ -9,6 +9,5 @@ export { modulesService } from './modules.service';
 export { mediaService } from './media.service';
 export { responsesService } from './responses.service';
 export { publicService } from './public.service';
-export { analysisService } from './analysis.service';
 export { researchInProgressService } from './researchInProgress.service';
 
