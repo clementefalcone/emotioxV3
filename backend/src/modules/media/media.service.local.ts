@@ -7,6 +7,7 @@ import pool from '../../config/database';
 import { getMediaPath, getMediaUrl, ensureDirectoryExists, initializeMediaDirectory } from '../../config/local-storage';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // Inicializar directorio al cargar el módulo
 initializeMediaDirectory();
@@ -50,19 +51,38 @@ const validateMediaPath = (mediaPath: string): string => {
  * @param contentType - Tipo de contenido
  * @returns Información para el upload
  */
+const UPLOAD_URL_TTL_SECONDS = 3600;
+
+const getUploadSigningKey = (): string => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET is required to sign media upload URLs');
+    return secret;
+};
+
+const signUpload = (researchId: string, mediaPath: string, expires: number): string =>
+    crypto.createHmac('sha256', getUploadSigningKey()).update(`upload\n${researchId}\n${mediaPath}\n${expires}`).digest('hex');
+
+export const isValidUploadSignature = (researchId: string, mediaPath: string, expires: unknown, signature: unknown): boolean => {
+    const expiresAt = Number(expires);
+    if (!Number.isFinite(expiresAt) || expiresAt * 1000 < Date.now() || typeof signature !== 'string') return false;
+    const expected = Buffer.from(signUpload(researchId, mediaPath, expiresAt));
+    const received = Buffer.from(signature);
+    return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+};
+
 export const generateUploadUrl = async (researchId: string, fileName: string, contentType: string) => {
     const timestamp = Date.now();
     const safeFileName = fileName.replace(/[^A-Za-z0-9._-]/g, '_');
     const relativePath = `research/${researchId}/${timestamp}-${safeFileName}`;
-    
-    // Include research_id and media_path in the URL for PUT requests
-    // This allows the frontend to use PUT without needing to send additional params
-    const uploadUrl = `/api/media/upload-direct?research_id=${encodeURIComponent(researchId)}&media_path=${encodeURIComponent(relativePath)}`;
-    
+    const expires = Math.floor(timestamp / 1000) + UPLOAD_URL_TTL_SECONDS;
+    const signature = signUpload(researchId, relativePath, expires);
+
+    const uploadUrl = `/api/media/upload-direct?research_id=${encodeURIComponent(researchId)}&media_path=${encodeURIComponent(relativePath)}&expires=${expires}&signature=${signature}`;
+
     return {
         upload_url: uploadUrl,
         s3_key: relativePath,
-        expires_in: 3600,
+        expires_in: UPLOAD_URL_TTL_SECONDS,
     };
 };
 

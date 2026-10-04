@@ -96,40 +96,6 @@ const upload = multer({
     },
 });
 
-// Handle direct file upload endpoint (multipart/form-data)
-app.post('/api/media/upload-direct', upload.single('file'), async (req: Request, res: Response) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        const { research_id, question_id, media_path } = req.body;
-        if (!research_id || !media_path) {
-            return res.status(400).json({ error: 'research_id and media_path are required' });
-        }
-
-        const { handleDirectUpload } = await import('./modules/media/media.controller.local');
-        
-        const result = await handleDirectUpload(
-            research_id,
-            question_id || null,
-            {
-                name: req.file.originalname,
-                data: req.file.buffer,
-                mimetype: req.file.mimetype,
-            },
-            media_path
-        );
-
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Upload error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-        res.status(500).json({ error: errorMessage });
-    }
-});
-
-// Also support PUT method for raw file uploads (S3-compatible)
 app.put('/api/media/upload-direct', express.raw({ type: '*/*', limit: '50mb' }), async (req: Request, res: Response) => {
     try {
         const research_id = (req.query.research_id as string) || (req.headers['x-research-id'] as string);
@@ -140,6 +106,12 @@ app.put('/api/media/upload-direct', express.raw({ type: '*/*', limit: '50mb' }),
             return res.status(400).json({ 
                 error: 'research_id and media_path are required. Send as query params: ?research_id=...&media_path=...' 
             });
+        }
+
+        const { isValidUploadSignature } = await import('./modules/media/media.service.local');
+        if (!isValidUploadSignature(String(research_id), String(media_path), req.query.expires, req.query.signature)) {
+            console.warn(JSON.stringify({ event: 'media_upload_rejected', researchId: research_id, mediaPath: media_path }));
+            return res.status(403).json({ error: 'Upload URL signature is missing, invalid or expired' });
         }
 
         if (!req.body || (req.body as Buffer).length === 0) {
@@ -175,9 +147,9 @@ app.put('/api/media/upload-direct', express.raw({ type: '*/*', limit: '50mb' }),
 app.post('/api/attention-prediction/upload-heatmap-video', upload.single('file'), async (req: Request, res: Response) => {
     try {
         const { researchId, stimulusMediaId, secret } = req.body || {};
-        const expectedSecret = process.env.HEATMAP_UPLOAD_SECRET || 'emotiox-heatmap-2026';
+        const expectedSecret = process.env.HEATMAP_UPLOAD_SECRET;
 
-        if (secret !== expectedSecret) { res.status(403).json({ error: 'Invalid secret' }); return; }
+        if (!expectedSecret || secret !== expectedSecret) { res.status(403).json({ error: 'Invalid secret' }); return; }
         if (!researchId || !stimulusMediaId || !req.file) { res.status(400).json({ error: 'researchId, stimulusMediaId, and file are required' }); return; }
 
         const timestamp = Date.now();

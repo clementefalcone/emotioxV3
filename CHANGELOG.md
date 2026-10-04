@@ -1,3 +1,10 @@
+## v0.97.4 — Security: unauthenticated write endpoints (2026-10-04)
+
+### fix(security): anyone could upload files to any study
+- **Root cause.** `PUT /api/media/upload-direct` (defined directly in the Passenger entry, outside the authenticated router) accepted `research_id` and `media_path` from anyone, so files could be written over any study's stimuli or uploaded as HTML/SVG served from the API origin. The unused multipart `POST` variant had the same gap. `upload-heatmap-video` fell back to the secret hard-coded in the repo, which is the active one in production because `HEATMAP_UPLOAD_SECRET` is not set.
+- **Fix.** The authenticated `POST /media/upload` now returns an S3-style signed URL: HMAC-SHA256 (keyed by `JWT_SECRET`) over research id, media path and a 1 h expiry. `upload-direct` rejects missing, tampered or expired signatures with 403 and logs `media_upload_rejected`. The multipart `POST` is removed. The heatmap upload has no fallback secret: without `HEATMAP_UPLOAD_SECRET` it is closed. The frontend is unchanged (it already PUTs to the returned URL). Both entry points (`server-cpanel.js`, `server-cpanel.ts`) updated.
+- **Tests.** `uploadSignature.test.ts`: the issued URL is accepted; missing signature, another study, another path and an expired URL are rejected.
+
 ## v0.97.3 — Security: public registration (2026-10-04)
 
 ### fix(security): any researcher could manage users and grant themselves admin
