@@ -7,6 +7,8 @@ import { sendViewerInvitation } from '../email/email.service';
 import { getRequestOrigin } from '../../utils/request';
 import pool from '../../config/database';
 
+const USER_ROLES = ['admin', 'researcher', 'viewer'];
+
 export const handleUsersRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
     const origin = getRequestOrigin(event);
@@ -104,6 +106,16 @@ export const handleUsersRoutes = async (event: APIGatewayProxyEvent): Promise<AP
             return success({ viewers }, 200, undefined, origin);
         }
 
+        if (currentUser.role !== 'admin') {
+            console.warn(JSON.stringify({ event: 'users_admin_required', userId: currentUser.id, method: httpMethod, path }));
+            return error('Admin role required', 403, undefined, origin);
+        }
+
+        const body = JSON.parse(event.body || '{}');
+        if (body.role !== undefined && !USER_ROLES.includes(body.role)) {
+            return error(`Invalid role: expected one of ${USER_ROLES.join(', ')}`, 400, undefined, origin);
+        }
+
         // GET /users
         if (path === '/users' && httpMethod === 'GET') {
             const users = await usersService.getAllUsers();
@@ -123,7 +135,6 @@ export const handleUsersRoutes = async (event: APIGatewayProxyEvent): Promise<AP
 
         // POST /users
         if (path === '/users' && httpMethod === 'POST') {
-            const body = JSON.parse(event.body || '{}');
             try {
                 const user = await usersService.createUser({
                     email: body.email,
@@ -141,7 +152,6 @@ export const handleUsersRoutes = async (event: APIGatewayProxyEvent): Promise<AP
         // PUT /users/:id
         if (matchId && httpMethod === 'PUT') {
             const id = matchId[1];
-            const body = JSON.parse(event.body || '{}');
             try {
                 const user = await usersService.updateUser(id, {
                     email: body.email,

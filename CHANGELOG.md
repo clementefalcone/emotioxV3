@@ -1,5 +1,10 @@
 ## v0.97.3 — Security: public registration (2026-10-04)
 
+### fix(security): any researcher could manage users and grant themselves admin
+- **Root cause.** `/users` (list, get, create, update, delete) only blocked viewers from writing. Any researcher could `PUT /users/<own id> {role:'admin'}`, change another user's email, create admins or delete users, and list every user's email. `role` was written without validation.
+- **Fix.** Those routes now require `admin` (403 `Admin role required`, logged as `users_admin_required`). `role` must be `admin`, `researcher` or `viewer` (400). Researchers keep `/users/invite` and `/users/viewers`, which the share flow uses.
+- **Tests.** `users.controller.test.ts`: researcher cannot promote themselves or list users, can still list viewers; invalid role → 400; admin can change a role.
+
 ### fix(security): public registration could create admins and take over accounts
 - **Root cause.** `POST /auth/register` (no auth) passed the request body straight to `register`, which accepted `role`, so anyone could create an `admin`. For an existing email without a readable `password_hash` (Google users, or any user whose `metadata` came back as a JSON string), it set the caller's password on that account — an account takeover.
 - **Fix.** The public route only forwards `email`, `password`, `firstName`, `lastName`, so it always creates a `researcher` (the same role Google sign-in already grants). `register` answers 409 `User <email> already exists` for any existing email and never modifies it. Role assignment stays internal for `POST /users`.
