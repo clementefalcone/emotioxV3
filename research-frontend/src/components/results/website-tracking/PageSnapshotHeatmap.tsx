@@ -363,7 +363,7 @@ export const PageSnapshotHeatmap = ({
                                     <iframe
                                         ref={iframeRef}
                                         srcDoc={srcdoc}
-                                        sandbox="allow-same-origin allow-scripts"
+                                        sandbox="allow-same-origin"
                                         onLoad={handleIframeLoad}
                                         className="border-0"
                                         style={{

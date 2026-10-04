@@ -1,5 +1,10 @@
 ## v0.97.4 — Security: unauthenticated write endpoints (2026-10-04)
 
+### fix(security): tracking snapshots could run scripts in the researcher's session (stored XSS)
+- **Root cause.** `POST /public/tracking/:id/snapshot` is unauthenticated (it keeps the first snapshot per page). Snapshots, and `proxy-page` HTML from external sites, were shown in iframes on the app's own origin: `PageSnapshotHeatmap` with `sandbox="allow-same-origin allow-scripts"` (which cancels the sandbox) and `MultiLayerHeatmap` with no sandbox. Only `<script>` tags were stripped, so handlers like `onerror=` ran with the researcher's session.
+- **Fix.** Both iframes use `sandbox="allow-same-origin"` (the parent still reads the DOM to draw the heatmap; nothing inside can execute). `snapshot-html` and `proxy-page` responses send `Content-Security-Policy: script-src 'none'` for direct opens.
+- **Tests.** Backend: `snapshot-html` serves the CSP header for a snapshot containing `onerror`. Frontend: `PageSnapshotHeatmap.test.tsx` asserts the iframe sandbox has no `allow-scripts` (fails on the old value).
+
 ### fix(security): tracking proxies could reach the server's private network (SSRF)
 - **Root cause.** `GET /public/tracking/:id/proxy-asset` (no auth), `/tracking/:id/proxy-asset` and `/tracking/:id/proxy-page` fetched any `url` with `redirect: 'follow'`, so a caller could make the server request `localhost` services, the private network or cloud metadata (`169.254.169.254`) and read the response.
 - **Fix.** `fetchPublicUrl` (`public-fetch.ts`) allows only `http`/`https`, resolves DNS and rejects loopback, private, link-local, CGNAT, multicast and IPv6 local addresses (including IPv4-mapped IPv6 in dotted and hex form), and follows up to 5 redirects manually, validating every hop. Blocked URLs answer 400 with the reason. CDN assets keep working because only private targets are refused. Known ceiling: DNS rebinding between the check and the connection; pinning the resolved IP would close it.

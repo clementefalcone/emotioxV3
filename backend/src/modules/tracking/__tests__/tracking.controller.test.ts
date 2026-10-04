@@ -40,7 +40,7 @@ vi.mock('../tracking.service', () => ({
     getLiveSessions: vi.fn().mockResolvedValue([]),
     getAttentionHeatmapData: vi.fn().mockResolvedValue({ points: [] }),
     savePageSnapshot: vi.fn().mockResolvedValue(undefined),
-    getPageSnapshotHtml: vi.fn().mockResolvedValue('<html></html>'),
+    getPageSnapshotHtml: vi.fn().mockResolvedValue('<html><head></head><body><img src=x onerror="alert(1)"></body></html>'),
     getFrictionSummary: vi.fn().mockResolvedValue({ tags: [] }),
     getSessionFrictionTags: vi.fn().mockResolvedValue([]),
     appendRrwebEvents: vi.fn().mockResolvedValue({ appended: 5 }),
@@ -813,5 +813,15 @@ describe('handleTrackingRoutes', () => {
             mockEvent('GET', '/tracking/r1/config'),
         );
         expect(res.statusCode).toBe(500);
+    });
+});
+
+describe('snapshot-html rendering', () => {
+    it('forbids script execution in the served snapshot, including inline handlers', async () => {
+        const res = await handleTrackingRoutes(
+            mockEvent('GET', '/tracking/r1/snapshot-html', { query: { page: 'https://example.com/' } }),
+        );
+        expect(res.statusCode).toBe(200);
+        expect(res.headers?.['Content-Security-Policy']).toBe("script-src 'none'");
     });
 });

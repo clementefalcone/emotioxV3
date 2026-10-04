@@ -528,6 +528,7 @@ export const handleTrackingRoutes = async (
                     statusCode: 200,
                     headers: {
                         'Content-Type': 'text/html; charset=utf-8',
+                        'Content-Security-Policy': "script-src 'none'",
                         'Access-Control-Allow-Origin': origin || '*',
                         'Cache-Control': 'no-cache',
                     },
@@ -803,6 +804,7 @@ export const handleTrackingRoutes = async (
                 statusCode: 200,
                 headers: {
                     'Content-Type': 'text/html; charset=utf-8',
+                    'Content-Security-Policy': "script-src 'none'",
                     'Access-Control-Allow-Origin': origin || '*',
                     'Cache-Control': 'no-cache',
                 },

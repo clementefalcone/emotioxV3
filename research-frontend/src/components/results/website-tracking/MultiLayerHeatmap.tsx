@@ -517,6 +517,7 @@ export const MultiLayerHeatmap = ({
                         <iframe
                             ref={iframeRef}
                             src={proxyUrl}
+                            sandbox="allow-same-origin"
                             onLoad={handleIframeLoad}
                             className="border-0 w-full"
                             style={{
