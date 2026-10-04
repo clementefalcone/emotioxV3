@@ -4,6 +4,7 @@ import { isAuthError, requireAuth } from '../../utils/auth';
 import * as authService from '../auth/auth.service';
 import * as participantsService from './participants.service';
 import { getRequestOrigin } from '../../utils/request';
+import { canAccessResearch, researchNotFound } from '../research/research-access';
 
 /**
  * Parses CSV text into rows. Supports comma and semicolon delimiters.
@@ -62,6 +63,11 @@ export const handleParticipantsRoutes = async (event: APIGatewayProxyEvent): Pro
     // Viewer role: read-only
     if (user.role === 'viewer' && httpMethod !== 'GET') {
         return error('Viewer role is read-only', 403, undefined, origin);
+    }
+
+    const scopedResearch = path.match(/^\/participants\/([^/]+)/);
+    if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+      return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
     }
 
     // GET /participants/:researchId

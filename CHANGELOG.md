@@ -3,6 +3,11 @@
 ### refactor(research): one study access guard
 - `research/research-access.ts` holds the study access rule for every controller: `canAccessResearch` (creator or collaborator; admin/viewer see all), `findResearchIdOf` (resolves the owning study of a child resource from a fixed table dictionary), `isStageOfResearch` and `researchNotFound` (404 + `research_access_denied` JSON log). Analytics now uses it instead of its own copy.
 
+### fix(security): any user could read, wipe or email another study's panel
+- **Root cause.** `/participants/:researchId/...` only required a session: any user could list another study's panel (emails, names), import or delete participants, and send invitation emails to that panel with a caller-chosen `baseUrl` (phishing).
+- **Fix.** One guard at the top of the controller applies the study access rule to the study id in the path; services already filter by `research_id`, so participant-level routes are covered too.
+- **Tests.** `participants.controller.test.ts`: list, delete all, delete one, import, send all and send one on a foreign study → 404 with no service call; owner lists their panel.
+
 ### fix(security): remove the unused questions API
 - **Why.** `/questions` (create, update, delete, reorder) only required a session, so any user could write questions into another study's modules. The feature was never used: the `questions` table has 0 rows in production and no frontend component calls `questionsService`.
 - **Change.** Removed the backend `questions` controller and service, its router entry and its entry in `/config` endpoints, and the unused frontend `questions.service.ts`. The empty table is left untouched.
