@@ -418,3 +418,17 @@ describe('iris landmark indices', () => {
         expect(js).toContain('lm.length>473');
     });
 });
+
+describe('generateTrackingSnippet — emotion and gaze delivery', () => {
+    it('sends emotions and gaze on the periodic flush timer, not only when the tab hides', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        expect(js).toContain('timer=setInterval(function(){flush();flushEmotions();flushGaze();},C.flush);');
+    });
+
+    it('sends pending gaze samples when the page unloads', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const unloadHandler = js.slice(js.indexOf('addEventListener("beforeunload"'), js.indexOf('// SPA navigation'));
+        expect(unloadHandler).toContain('flushEmotions(true);');
+        expect(unloadHandler).toContain('flushGaze(true);');
+    });
+});

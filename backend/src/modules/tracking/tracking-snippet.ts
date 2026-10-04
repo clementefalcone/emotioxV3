@@ -483,6 +483,7 @@ function startCapture(){
         flushRrweb(true);
         stopEmotionCapture();
         flushEmotions(true);
+        flushGaze(true);
         flushEmoVideo();
     });
 
@@ -502,7 +503,7 @@ function startCapture(){
     history.replaceState=function(){origReplace.apply(history,arguments);onNav();};
     window.addEventListener("popstate",onNav);
 
-    timer=setInterval(flush,C.flush);
+    timer=setInterval(function(){flush();flushEmotions();flushGaze();},C.flush);
     setInterval(flushRrweb,RRWEB_FLUSH_MS);
 }
 

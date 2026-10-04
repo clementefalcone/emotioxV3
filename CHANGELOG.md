@@ -1,3 +1,12 @@
+## v0.96.13 — Website Tracking: emotion & gaze reliability (2026-10-04)
+
+### fix: Website Tracking emotions and gaze were rarely delivered
+- **Root cause.** Unlike events (flushed every `flushIntervalMs`), `emoBuf`/`gazeBuf` were only flushed on `visibilitychange: hidden`, and gaze was not flushed on `beforeunload` at all. Both use synchronous XHR at that point, which Chrome blocks during page dismissal and iOS Safari often never fires — a visit that ended without switching tabs lost all emotion and gaze samples.
+- **Fix.** The existing flush timer now also calls `flushEmotions()` and `flushGaze()`; `beforeunload` also flushes gaze. At most the last flush interval is lost.
+- **Tests.** `tracking-snippet-integration.test.ts`: periodic delivery and gaze flush on unload.
+
+---
+
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)
 
 ### fix: Eye Tracking emotions never recorded — broken face landmark model
