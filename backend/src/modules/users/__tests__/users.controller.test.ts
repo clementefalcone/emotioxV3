@@ -17,6 +17,7 @@ vi.mock('../users.service', () => ({
 import { handleUsersRoutes } from '../users.controller';
 import { getMe } from '../../auth/auth.service';
 import { updateUser, getAllUsers } from '../users.service';
+import pool from '../../../config/database';
 
 const mockGetMe = getMe as ReturnType<typeof vi.fn>;
 
@@ -53,6 +54,24 @@ describe('users routes — admin only', () => {
         const res = await request('GET', '/users/viewers');
 
         expect(res.statusCode).toBe(200);
+    });
+
+    it('lists only the viewers each user invited, all of them for an admin', async () => {
+        vi.mocked(pool.query).mockResolvedValue({
+            rows: [
+                { id: 'v1', email: 'mine@x.com', metadata: JSON.stringify({ invited_by: 'u1' }) },
+                { id: 'v2', email: 'other@x.com', metadata: JSON.stringify({ invited_by: 'u9' }) },
+            ],
+        } as never);
+        const emailsFor = async (role: string) => {
+            mockGetMe.mockResolvedValue({ id: 'u1', role });
+            const res = await request('GET', '/users/viewers');
+            return JSON.parse(res.body).viewers.map((viewer: { email: string }) => viewer.email);
+        };
+
+        expect(await emailsFor('researcher')).toEqual(['mine@x.com']);
+        expect(await emailsFor('viewer')).toEqual(['mine@x.com']);
+        expect(await emailsFor('admin')).toEqual(['mine@x.com', 'other@x.com']);
     });
 
     it('rejects a role outside admin, researcher and viewer', async () => {

@@ -1,3 +1,11 @@
+## v0.97.9 — Security: viewer list scoped to inviter (2026-10-04)
+
+### fix(security): every user could read the email of every viewer
+- **Root cause.** `GET /users/viewers` (invite-viewer drawer) returned every viewer in the system, with name and email, to any authenticated account, viewers included.
+- **Decision.** Admin sees all viewers; everyone else sees only the viewers they invited (`metadata.invited_by`). Production today: 2 viewers, both invited by the admin, so nothing visible to the admin changes.
+- **Fix.** `users.controller.ts` filters the list by `invitedBy === currentUser.id` unless the user is admin.
+- **Tests.** `users.controller.test.ts`: researcher and viewer get only their own invitees, admin gets both (failed before the fix).
+
 ## v0.97.8 — Security: debug endpoints removed (2026-10-04)
 
 ### refactor(media): remove unused media and SSE controllers

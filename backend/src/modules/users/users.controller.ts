@@ -104,7 +104,10 @@ export const handleUsersRoutes = async (event: APIGatewayProxyEvent): Promise<AP
                 })(),
                 createdAt: row.created_at,
             }));
-            return success({ viewers }, 200, undefined, origin);
+            const visibleViewers = currentUser.role === 'admin'
+                ? viewers
+                : viewers.filter((viewer) => viewer.invitedBy === currentUser.id);
+            return success({ viewers: visibleViewers }, 200, undefined, origin);
         }
 
         const adminDenied = denyUnlessAdmin(currentUser, event, origin);
