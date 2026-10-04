@@ -43,6 +43,7 @@ import {
 import { isCaptureErrorKind, CAPTURE_ERROR_KINDS } from './capture-errors';
 import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippet';
 import { fetchPublicUrl, BlockedUrlError } from './public-fetch';
+import { canAccessResearch, researchNotFound } from '../research/research-access';
 
 // ─── CORS helpers for public tracking (accepts ANY origin) ───────────
 
@@ -417,7 +418,16 @@ export const handleTrackingRoutes = async (
         if (event.queryStringParameters?.token && !event.headers.Authorization && !event.headers.authorization) {
             event.headers.Authorization = `Bearer ${event.queryStringParameters.token}`;
         }
-        await requireAuth(event);
+        const decoded = await requireAuth(event);
+
+        if (decoded.role === 'viewer' && httpMethod !== 'GET') {
+            return error('Viewer role is read-only', 403, undefined, origin);
+        }
+
+        const scopedResearch = path.match(/^\/tracking\/([^/]+)/);
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+            return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
+        }
 
         // GET /tracking/:researchId/config — get tracking config (authenticated)
         const configGetMatch = path.match(/^\/tracking\/([^/]+)\/config$/);

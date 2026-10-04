@@ -51,6 +51,11 @@ vi.mock('../tracking.service', () => ({
     recordCaptureError: vi.fn().mockResolvedValue({ found: true }),
 }));
 
+vi.mock('../../research/research-access', () => ({
+    canAccessResearch: vi.fn().mockResolvedValue(true),
+    researchNotFound: vi.fn((researchId: string) => ({ statusCode: 404, body: JSON.stringify({ message: `Research ${researchId} not found` }), headers: {} })),
+}));
+
 vi.mock('../tracking-snippet', () => ({
     generateTrackingSnippet: vi.fn().mockReturnValue('/* tracking script */'),
     generateEmbedSnippet: vi.fn().mockReturnValue('<script src="..."></script>'),
@@ -125,6 +130,7 @@ import {
 } from '../tracking.service';
 import { generateTrackingSnippet, generateEmbedSnippet } from '../tracking-snippet';
 import { requireAuth } from '../../../utils/auth.local';
+import { canAccessResearch } from '../../research/research-access';
 
 const mockEvent = (
     method: string,
@@ -823,5 +829,28 @@ describe('snapshot-html rendering', () => {
         );
         expect(res.statusCode).toBe(200);
         expect(res.headers?.['Content-Security-Policy']).toBe("script-src 'none'");
+    });
+});
+
+describe('tracking routes — study access', () => {
+    it('does not expose or modify tracking data of a study the user cannot access', async () => {
+        vi.mocked(canAccessResearch).mockResolvedValueOnce(false).mockResolvedValueOnce(false);
+
+        const sessions = await handleTrackingRoutes(mockEvent('GET', '/tracking/foreign/sessions'));
+        const config = await handleTrackingRoutes(mockEvent('PUT', '/tracking/foreign/config', { body: { allowedDomains: ['evil.example'] } }));
+
+        expect(sessions.statusCode).toBe(404);
+        expect(config.statusCode).toBe(404);
+        expect(getSessions).not.toHaveBeenCalled();
+        expect(saveTrackingConfig).not.toHaveBeenCalled();
+    });
+
+    it('keeps viewers read-only', async () => {
+        vi.mocked(requireAuth).mockResolvedValueOnce({ sub: 'v1', role: 'viewer' } as never);
+
+        const res = await handleTrackingRoutes(mockEvent('PUT', '/tracking/r1/config', { body: {} }));
+
+        expect(res.statusCode).toBe(403);
+        expect(saveTrackingConfig).not.toHaveBeenCalled();
     });
 });

@@ -3,6 +3,11 @@
 ### refactor(research): one study access guard
 - `research/research-access.ts` holds the study access rule for every controller: `canAccessResearch` (creator or collaborator; admin/viewer see all), `findResearchIdOf` (resolves the owning study of a child resource from a fixed table dictionary), `isStageOfResearch` and `researchNotFound` (404 + `research_access_denied` JSON log). Analytics now uses it instead of its own copy.
 
+### fix(security): any user could read session recordings or rewrite tracking config of another study
+- **Root cause.** The 31 authenticated `/tracking/:researchId/...` routes only required a session: any user could read another study's sessions, rrweb recordings, visitor journeys, emotion/gaze data and reports, and `PUT` its config (including allowed domains). Viewers could write.
+- **Fix.** One guard after `requireAuth` applies the study access rule to the path's study id; viewers are read-only (this also blocks viewers from triggering the paid report generation).
+- **Tests.** Foreign sessions and config update → 404 with no service call; viewer `PUT config` → 403. Existing 73 controller tests run with access granted.
+
 ### fix(security): any user could sign uploads to, register or delete another study's media
 - **Root cause.** `/media` only required a session. `POST /media/upload` issued signed upload URLs for any `research_id` (undoing the upload signature for logged-in users), `DELETE /media/:id` removed any study's file, `POST /media` registered files from any folder, and viewers could write.
 - **Fix.** Every route resolves its study (body `research_id`, the media row, or the file path) and applies the study access guard. A file path is accessible if the user can access any study that registers it or owns its folder — 28 production rows of duplicated studies point to the original's folder and keep working. `POST /media` requires the path inside `research/<research_id>/`. Viewers are read-only. Denials log `research_access_denied` / `media_access_denied`.
