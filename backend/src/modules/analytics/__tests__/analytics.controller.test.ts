@@ -71,7 +71,7 @@ describe('research-scoped analytics access', () => {
         const [sql, params] = mockQuery.mock.calls[0];
         expect(sql).toContain('r.id = ? AND (r.created_by = ? OR r.id IN (SELECT research_id FROM research_collaborators WHERE user_id = ?))');
         expect(params).toEqual(['foreign-1', 'user-1', 'user-1']);
-        expect(JSON.parse(warn.mock.calls[0][0] as string)).toMatchObject({ event: 'analytics_access_denied', researchId: 'foreign-1' });
+        expect(JSON.parse(warn.mock.calls[0][0] as string)).toMatchObject({ event: 'research_access_denied', researchId: 'foreign-1' });
         warn.mockRestore();
     });
 
