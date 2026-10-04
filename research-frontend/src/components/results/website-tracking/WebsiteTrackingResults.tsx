@@ -23,6 +23,7 @@ import { resolveMediaUrl } from '../../../services/media.service';
 import { TrackingEmotionsTab } from './TrackingEmotionsTab';
 import { TrackingAttentionTab } from './TrackingAttentionTab';
 import { TrackingFrictionTab } from './TrackingFrictionTab';
+import { CaptureErrorBadges } from './CaptureErrorBadges';
 
 const formatDateTime = (iso: string): string => {
     const d = new Date(iso);
@@ -691,6 +692,7 @@ const VisitorJourneysTab = ({ researchId, onReplay }: { researchId: string; onRe
                                         <span className="text-slate-700 truncate flex-1" title={page.pageUrl}>
                                             {shortenUrl(page.pageUrl)}
                                         </span>
+                                        <CaptureErrorBadges errors={page.captureErrors} />
                                         <div className="w-24">
                                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                                 <div
