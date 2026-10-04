@@ -251,7 +251,7 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                         <CompactToggle label="Gaze Tracking" enabled={config.captureGaze} onToggle={() => handleToggle('captureGaze')} />
                         {config.captureGaze && (
                             <>
-                                <p className="text-[10px] text-gray-400 ml-9">Mobile-only eye gaze calibration via front camera. Visitors complete a brief calibration before browsing. Generates gaze heatmaps without cursor data.</p>
+                                <p className="text-[10px] text-gray-400 ml-9">Eye gaze calibration via the front camera on mobile and desktop. Visitors complete a brief calibration before browsing. Generates gaze heatmaps without cursor data.</p>
                                 <div className="flex items-center gap-2 ml-9">
                                     <span className="text-[10px] text-gray-500">Calibration points:</span>
                                     {([5, 9] as const).map(n => (

@@ -8,6 +8,11 @@
 - **Results.** Sessions tab shows an amber badge per failure on each journey page (`CaptureErrorBadges`), with a description on hover.
 - **Tests.** Controller (invalid kind, foreign session, structured log), dictionary parsing, script reporting (denied without retry, unavailable after every resolution, no camera API, model failures), badges.
 
+### feat: Website Tracking calibrated gaze on desktop
+- **Why.** With `captureGaze` on, desktop visitors got no real gaze: the pipeline (MediaPipe + ridge + One-Euro + I-DT fixations + click retraining) was gated by `isMobile`, so desktop samples used the cursor position as `pageX/pageY`.
+- **Change.** The `isMobile` gates are removed: desktop opens the camera at gaze resolution, shows the same 9/5-point calibration, predicts gaze, emits fixations and retrains every 5 clicks. Before or without a calibration, samples still fall back to the cursor. Backend and results already distinguish calibrated samples (`gazeQuality`), so they are unchanged. Config copy no longer says "Mobile-only".
+- **Tests.** No mobile-only branch left; prediction with calibration and cursor fallback; gaze camera resolution; calibration path runs without a device check.
+
 ### test: realign 11 stale tests with current behavior
 - **Why.** The suites were not green: tests had drifted from intentional changes, so real regressions were hidden among known failures.
 - **Snapshot.** `POST /public/tracking/:id/snapshot` limit is 4 MB since v0.94.6; the test still asserted 2 MB.

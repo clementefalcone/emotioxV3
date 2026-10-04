@@ -439,9 +439,9 @@ function runStartGazeCapture({ storedCalibration, isMediaPipeLoaded }: { storedC
     const withCamera = vi.fn((cb: () => void) => cb());
     const startGazeSampling = vi.fn();
     const runCalibration = vi.fn();
-    new Function('C', 'isMobile', 'load', 'withCamera', 'loadMediaPipe', 'mpLandmarker', 'startGazeSampling', 'runCalibration', 'onCalDone',
+    new Function('C', 'load', 'withCamera', 'loadMediaPipe', 'mpLandmarker', 'startGazeSampling', 'runCalibration', 'onCalDone',
         `var gazeWeights,gazeFeatDim,gazeRmsePx,gazeQuality;${source}startGazeCapture();`,
-    )({ gaze: true, rid: 'r', gazeCal: 9 }, true, () => storedCalibration, withCamera, (cb: () => void) => cb(),
+    )({ gaze: true, rid: 'r', gazeCal: 9 }, () => storedCalibration, withCamera, (cb: () => void) => cb(),
         isMediaPipeLoaded ? {} : null, startGazeSampling, runCalibration, () => undefined);
     return { withCamera, startGazeSampling, runCalibration };
 }
@@ -480,9 +480,9 @@ describe('generateTrackingSnippet — one shared camera', () => {
         const getUserMedia = vi.fn(() => new Promise<object>((resolve) => { resolveStream = resolve; }));
         const reportCaptureError = vi.fn();
         const fakeDocument = { createElement: () => ({ setAttribute: () => undefined, style: {}, remove: () => undefined }), body: { appendChild: () => undefined } };
-        const { withCamera, releaseCamera } = new Function('C', 'isMobile', 'navigator', 'document', 'reportCaptureError',
+        const { withCamera, releaseCamera } = new Function('C', 'navigator', 'document', 'reportCaptureError',
             `var emoVideo=null,emoStream=null;${source}return {withCamera:withCamera,releaseCamera:releaseCamera};`,
-        )({ gaze: true }, true, { mediaDevices: mediaDevices ?? { getUserMedia } }, fakeDocument, reportCaptureError) as {
+        )({ gaze: true }, { mediaDevices: mediaDevices ?? { getUserMedia } }, fakeDocument, reportCaptureError) as {
             withCamera: (cb: (stream: object) => void) => void;
             releaseCamera: () => void;
         };
@@ -629,5 +629,24 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
     it('flushes emotions and gaze before switching to a new session', () => {
         const js = generateTrackingSnippet(defaultConfig);
         expect(extractFunction(js, 'createSession')).toContain('if(sid){flush();flushRrweb();flushEmotions();flushGaze();}');
+    });
+});
+
+describe('generateTrackingSnippet — calibrated gaze on every device', () => {
+    it('has no mobile-only branch left in the gaze pipeline', () => {
+        expect(generateTrackingSnippet({ ...defaultConfig, captureGaze: true })).not.toContain('isMobile');
+    });
+
+    it('predicts gaze from the calibration once it exists and falls back to the cursor before that', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const sampleFrame = js.slice(js.indexOf('function sampleFrame(){'), js.indexOf('function startEmoRecording('));
+        expect(sampleFrame).toContain('if(gazeWeights){\n                var feat=extractGazeFeat(lm,res.facialTransformationMatrixes);');
+        expect(sampleFrame).toContain('gpx=Math.round(lastCursorX+window.scrollX);');
+        expect(sampleFrame).toContain('if(gazeWeights){sample.gazeQuality=gazeQuality;');
+    });
+
+    it('opens the camera at gaze resolution whenever gaze is enabled', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        expect(js).toContain('var sizes=C.gaze?[[1280,720],[640,480]]:[[320,240]];');
     });
 });

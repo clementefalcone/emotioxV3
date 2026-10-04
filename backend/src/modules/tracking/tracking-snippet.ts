@@ -341,7 +341,7 @@ function startCapture(){
             var px=e.pageX;
             var py=e.pageY;
 
-            if(isMobile&&gazeWeights&&mpLandmarker&&emoVideo&&emoVideo.readyState>=2){
+            if(gazeWeights&&mpLandmarker&&emoVideo&&emoVideo.readyState>=2){
                 try{
                     var tapRes=mpLandmarker.detectForVideo(emoVideo,performance.now());
                     if(tapRes.faceLandmarks&&tapRes.faceLandmarks.length&&tapRes.faceLandmarks[0].length>473){
@@ -468,7 +468,7 @@ function startCapture(){
                 paused=false;
                 activeStart=Date.now();
                 startRrwebRecording();
-                if((C.emotions||C.gaze&&isMobile&&gazeWeights)&&emoStream&&!emoRunning){emoRunning=true;emoStartTime=Date.now();emoInterval=setInterval(sampleFrame,500);}
+                if((C.emotions||C.gaze&&gazeWeights)&&emoStream&&!emoRunning){emoRunning=true;emoStartTime=Date.now();emoInterval=setInterval(sampleFrame,500);}
             }
         }
     });
@@ -790,7 +790,6 @@ function classifyEmo(a){
 
 // Last known cursor position
 var lastCursorX=0,lastCursorY=0;
-var isMobile="ontouchstart"in window||navigator.maxTouchPoints>0;
 document.addEventListener("mousemove",function(e){lastCursorX=e.clientX;lastCursorY=e.clientY;},true);
 document.addEventListener("touchmove",function(e){var t=e.touches[0];if(t){lastCursorX=t.clientX;lastCursorY=t.clientY;}},true);
 
@@ -810,7 +809,7 @@ function withCamera(cb){
     if(cameraWaiters){cameraWaiters.push(cb);return;}
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){reportCaptureError("camera-unavailable");return;}
     cameraWaiters=[cb];
-    var sizes=C.gaze&&isMobile?[[1280,720],[640,480]]:[[320,240]];
+    var sizes=C.gaze?[[1280,720],[640,480]]:[[320,240]];
     function attach(stream){
         emoStream=stream;
         var v=document.createElement("video");
@@ -872,7 +871,7 @@ function onCalDone(W,d,rmse,xBuf,yBuf){
 }
 
 function startGazeCapture(){
-    if(!C.gaze||!isMobile)return;
+    if(!C.gaze)return;
     var cached=load("_ecx_gaze_cal_"+C.rid);
     var isCalibrated=false;
     if(cached){
@@ -985,7 +984,7 @@ function sampleFrame(){
             var st=attnState(irisVis,yaw,pitch);
             var vw=window.innerWidth,vh=window.innerHeight;
             var gpx,gpy,cm,score;
-            if(isMobile&&gazeWeights){
+            if(gazeWeights){
                 var feat=extractGazeFeat(lm,res.facialTransformationMatrixes);
                 var rawPred=predictXY(feat,gazeWeights,gazeFeatDim);
                 var filtered=applyOneEuro(Math.max(0,Math.min(rawPred[0],vw)),Math.max(0,Math.min(rawPred[1],vh)));
@@ -1011,7 +1010,7 @@ function sampleFrame(){
                 pageX:gpx,
                 pageY:gpy
             };
-            if(isMobile&&gazeWeights){sample.gazeQuality=gazeQuality;sample.gazeRmse=Math.round(gazeRmsePx);feedFixation(gpx,gpy,ts);}
+            if(gazeWeights){sample.gazeQuality=gazeQuality;sample.gazeRmse=Math.round(gazeRmsePx);feedFixation(gpx,gpy,ts);}
             gazeBuf.push(sample);
         }
     }catch(e){}
