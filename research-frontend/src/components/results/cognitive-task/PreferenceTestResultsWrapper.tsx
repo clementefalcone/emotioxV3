@@ -139,7 +139,6 @@ export const PreferenceTestResultsWrapper = ({
     }
 
     // Compute intensity breakdown per image
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const intensityByImage: Record<number, { slight: number; strong: number }> = {};
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data.responses.forEach((r: any) => {

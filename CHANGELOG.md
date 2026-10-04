@@ -1,5 +1,10 @@
 ## v0.97.1 — Zero lint warnings (2026-10-04)
 
+### chore(research): remove lint warnings
+- `ViewModeTab` drops the unused `icon` prop (and its 10 call sites in `StimulusCard`); unused icon imports removed.
+- `ExecutiveSummaryPanel` print callback no longer lists `researchId`; `PreferenceTestResultsWrapper` drops an unused `eslint-disable`.
+- `DashboardPage` trends: the `useMemo`s depended on arrays rebuilt every render, so they never memoized; replaced by a plain `monthOverMonthTrend`.
+
 ### fix(participant): Enter key could stay blocked after answering
 - **Root cause.** The Enter → continue effect in `ResearchPage` read `buttonDisabled` but did not list it as a dependency. `buttonDisabled` changes when the participant answers, while the listed dependencies (`handleNext`, `currentModule`, store actions) stay stable, so the listener kept the stale "disabled" value.
 - **Fix.** `useEnterToContinue(canContinue, onContinue)` receives the current state each render and re-registers when it changes. Textareas keep Enter for new lines.

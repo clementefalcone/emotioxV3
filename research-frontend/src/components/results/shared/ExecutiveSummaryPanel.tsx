@@ -122,7 +122,7 @@ export const ExecutiveSummaryPanel = ({ researchId, filteredParticipantIds }: { 
         win.document.write(fullHtml);
         win.document.close();
         setTimeout(() => { win.print(); }, 500);
-    }, [summary, researchId]);
+    }, [summary]);
 
     if (isLoading) {
         return (

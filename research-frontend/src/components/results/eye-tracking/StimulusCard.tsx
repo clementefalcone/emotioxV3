@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Eye, Users, Clock, Crosshair, Image, Download, SmilePlus, Sparkles, ShieldCheck, Film, Signal, PenTool } from 'lucide-react';
+import { Eye, Users, Clock, Crosshair, Image, Download, ShieldCheck, Film, Signal, PenTool } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { cn } from '../../../lib/utils';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
@@ -326,7 +326,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
           <ViewModeTab
             active={viewMode === 'heatmap'}
             onClick={() => setViewMode('heatmap')}
-            icon={<Eye className="h-4 w-4" />}
             label="Mapa de calor"
           />
           {!isVideo && !isShelf && (
@@ -334,19 +333,16 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
               <ViewModeTab
                 active={viewMode === 'scanpath'}
                 onClick={() => setViewMode('scanpath')}
-                icon={<Crosshair className="h-4 w-4" />}
                 label="Scan Path"
               />
               <ViewModeTab
                 active={viewMode === 'firstlook'}
                 onClick={() => setViewMode('firstlook')}
-                icon={<Eye className="h-4 w-4" />}
                 label="First Look"
               />
               <ViewModeTab
                 active={viewMode === 'transparency'}
                 onClick={() => setViewMode('transparency')}
-                icon={<Eye className="h-4 w-4" />}
                 label="Transparency"
               />
             </>
@@ -355,7 +351,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             <ViewModeTab
               active={viewMode === 'sequence'}
               onClick={() => setViewMode('sequence')}
-              icon={<Crosshair className="h-4 w-4" />}
               label="Sequence"
             />
           )}
@@ -363,7 +358,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             <ViewModeTab
               active={viewMode === 'image'}
               onClick={() => setViewMode('image')}
-              icon={<Image className="h-4 w-4" />}
               label="Image"
             />
           )}
@@ -371,7 +365,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             <ViewModeTab
               active={viewMode === 'emotions'}
               onClick={() => setViewMode('emotions')}
-              icon={<SmilePlus className="h-4 w-4" />}
               label="Emotions"
             />
           )}
@@ -379,7 +372,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             <ViewModeTab
               active={viewMode === 'comparison'}
               onClick={() => setViewMode('comparison')}
-              icon={<Signal className="h-4 w-4" />}
               label="Comparativa"
             />
           )}
@@ -387,7 +379,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             <ViewModeTab
               active={viewMode === 'prediction'}
               onClick={() => setViewMode('prediction')}
-              icon={<Sparkles className="h-4 w-4" />}
               label="Prediction"
             />
           )}
@@ -395,7 +386,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             <ViewModeTab
               active={viewMode === 'video'}
               onClick={() => setViewMode('video')}
-              icon={<Eye className="h-4 w-4" />}
               label="Video Gaze"
             />
           )}

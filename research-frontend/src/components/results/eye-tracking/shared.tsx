@@ -47,12 +47,10 @@ export const MetricBadge = ({ icon, label, value }: { icon: React.ReactNode; lab
 export const ViewModeTab = ({
   active,
   onClick,
-  icon: _icon,
   label,
 }: {
   active: boolean;
   onClick: () => void;
-  icon?: React.ReactNode;
   label: string;
 }) => (
   <button

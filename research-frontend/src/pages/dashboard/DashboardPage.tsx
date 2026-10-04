@@ -168,24 +168,18 @@ TableSkeletonRow.displayName = 'TableSkeletonRow';
 
 /* ─── Summary Cards (with trends + sparklines) ─────────────────── */
 
+function monthOverMonthTrend(series: number[]) {
+    if (series.length < 2) return null;
+    return { value: series[series.length - 1] - series[series.length - 2], label: 'this month' };
+}
+
 function SummaryCards({ summary }: { summary: DashboardSummary | undefined }) {
     const researchSpark = summary?.researchesOverTime?.map(d => d.count) ?? [];
     const participantSpark = summary?.participantsOverTime?.map(d => d.count) ?? [];
 
     // Month-over-month trend: last vs previous
-    const researchTrend = useMemo(() => {
-        if (!researchSpark || researchSpark.length < 2) return null;
-        const curr = researchSpark[researchSpark.length - 1];
-        const prev = researchSpark[researchSpark.length - 2];
-        return { value: curr - prev, label: 'this month' };
-    }, [researchSpark]);
-
-    const participantTrend = useMemo(() => {
-        if (!participantSpark || participantSpark.length < 2) return null;
-        const curr = participantSpark[participantSpark.length - 1];
-        const prev = participantSpark[participantSpark.length - 2];
-        return { value: curr - prev, label: 'this month' };
-    }, [participantSpark]);
+    const researchTrend = monthOverMonthTrend(researchSpark);
+    const participantTrend = monthOverMonthTrend(participantSpark);
 
     const activeCount = summary?.byStatus?.active ?? 0;
     const draftCount = summary?.byStatus?.draft ?? 0;
