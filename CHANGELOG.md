@@ -1,5 +1,9 @@
 ## v0.97.6 — Security: study access in AI and integration modules (2026-10-04)
 
+### fix(security): session tokens were written to the server log
+- **Root cause.** `research-types.controller.ts` logged the full request headers (including `Authorization: Bearer <JWT>`) on every `GET /research-types/:id/techniques`, and `research.controller.ts` did the same on every failed authentication. Anyone with log access could reuse those tokens.
+- **Fix.** Both header dumps removed; the remaining logs only record the path and the error message.
+
 ### fix(security): any user could tag, archive or see the activity of every study
 - **Root cause.** `GET/POST /research/:id/tags`, `DELETE /research/:id/tags/:tag`, `POST /research/:id/archive|unarchive` skipped the ownership check the rest of `research` applies, and `GET /research/activity` listed every study in the system with its owner's email and response counts.
 - **Fix.** Tag and archive routes apply the study access guard. Activity becomes `listAccessibleResearchActivity(userId, role)`, scoped by `buildOwnershipClause` like the study list. On production data (read-only) the busiest researcher goes from 35 visible studies to their 22.

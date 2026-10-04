@@ -103,7 +103,6 @@ export const handleResearchTypesRoutes = async (event: APIGatewayProxyEvent): Pr
             const id = techniquesMatch[1];
             console.log(`[Research Types Controller] GET /research-types/${id}/techniques - Request received`);
             console.log(`[Research Types Controller] Request origin: ${origin}`);
-            console.log(`[Research Types Controller] Request headers:`, JSON.stringify(event.headers || {}, null, 2));
             
             try {
                 console.log(`[Research Types Controller] Calling getTechniquesByType for id: ${id}`);

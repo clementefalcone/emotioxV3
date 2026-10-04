@@ -38,7 +38,6 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
         } catch (authError: unknown) {
             const authErrorMessage = authError instanceof Error ? authError.message : 'Authentication failed';
             console.error('Auth error for', path, ':', authErrorMessage);
-            console.error('Headers:', JSON.stringify(event.headers, null, 2));
             if (isAuthError(authError)) {
                 return error(authErrorMessage, authError.statusCode, undefined, origin);
             }
