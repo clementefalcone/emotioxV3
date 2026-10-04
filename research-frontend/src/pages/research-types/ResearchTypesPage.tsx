@@ -6,10 +6,12 @@ import { researchTypesService, type ResearchType } from '../../services/research
 import { researchTechniquesService, type ResearchTechnique } from '../../services/researchTechniques.service';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../hooks/useToast';
+import { useAuthStore } from '../../stores/auth.store';
 
 export const ResearchTypesPage = () => {
     const navigate = useNavigate();
     const toast = useToast();
+    const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
     const [searchQuery, setSearchQuery] = useState('');
 
     const [researchTypes, setResearchTypes] = useState<ResearchType[]>([]);
@@ -71,20 +73,22 @@ export const ResearchTypesPage = () => {
                     <h1 className="text-lg font-semibold text-gray-900">Research Types</h1>
                     <p className="text-[13px] text-gray-400 mt-0.5">Manage types and techniques</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => navigate('/research-types/new')}
-                        className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors active:scale-[0.98]"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> New Type
-                    </button>
-                    <button
-                        onClick={() => navigate('/research-techniques/new')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> New Technique
-                    </button>
-                </div>
+                {isAdmin && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => navigate('/research-types/new')}
+                            className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors active:scale-[0.98]"
+                        >
+                            <Plus className="h-3.5 w-3.5" /> New Type
+                        </button>
+                        <button
+                            onClick={() => navigate('/research-techniques/new')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            <Plus className="h-3.5 w-3.5" /> New Technique
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Search */}
@@ -130,29 +134,31 @@ export const ResearchTypesPage = () => {
                                             Updated {new Date(type.updated_at || type.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                        <button
-                                            onClick={() => { setTypeToAssign(type); setAssignModalOpen(true); }}
-                                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                                            title="Assign techniques"
-                                        >
-                                            <Link className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button
-                                            onClick={() => navigate(`/research-types/${type.id}`)}
-                                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                                            title="Edit"
-                                        >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button
-                                            onClick={() => { setTypeToDelete(type); setDeleteTypeModalOpen(true); }}
-                                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                                            title="Delete"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                    </div>
+                                    {isAdmin && (
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                            <button
+                                                onClick={() => { setTypeToAssign(type); setAssignModalOpen(true); }}
+                                                className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                                title="Assign techniques"
+                                            >
+                                                <Link className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/research-types/${type.id}`)}
+                                                className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => { setTypeToDelete(type); setDeleteTypeModalOpen(true); }}
+                                                className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -186,22 +192,24 @@ export const ResearchTypesPage = () => {
                                             <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-1">{technique.description}</p>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                        <button
-                                            onClick={() => navigate(`/research-techniques/${technique.id}`)}
-                                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                                            title="Edit"
-                                        >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button
-                                            onClick={() => { setTechniqueToDelete(technique); setDeleteTechniqueModalOpen(true); }}
-                                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                                            title="Delete"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                    </div>
+                                    {isAdmin && (
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                            <button
+                                                onClick={() => navigate(`/research-techniques/${technique.id}`)}
+                                                className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => { setTechniqueToDelete(technique); setDeleteTechniqueModalOpen(true); }}
+                                                className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}

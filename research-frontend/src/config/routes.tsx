@@ -79,10 +79,9 @@ export const routesConfig: RouteConfig[] = [
         errorBoundary: { context: 'auth', pageName: 'Auth Callback' },
     },
 
-    // Public Admin Routes (No Auth)
     {
         path: '/admin/users',
-        element: <UserManagementPage />,
+        element: <ProtectedRoute requireAdmin><UserManagementPage /></ProtectedRoute>,
         layout: 'none',
         errorBoundary: { context: 'general', pageName: 'User Management' },
     },
@@ -210,14 +209,14 @@ export const routesConfig: RouteConfig[] = [
     },
     {
         path: '/modules/new',
-        element: <ModuleBuilderPage />,
+        element: <ProtectedRoute requireAdmin><ModuleBuilderPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Create Module' },
     },
     {
         path: '/modules/:id',
-        element: <ModuleBuilderPage />,
+        element: <ProtectedRoute requireAdmin><ModuleBuilderPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Edit Module' },
@@ -231,21 +230,21 @@ export const routesConfig: RouteConfig[] = [
     },
     {
         path: '/research-types/new',
-        element: <ResearchTypeBuilderPage />,
+        element: <ProtectedRoute requireAdmin><ResearchTypeBuilderPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Create Research Type' },
     },
     {
         path: '/research-types/:id',
-        element: <ResearchTypeBuilderPage />,
+        element: <ProtectedRoute requireAdmin><ResearchTypeBuilderPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Edit Research Type' },
     },
     {
         path: '/research-types/:id/module-template-assignation',
-        element: <ModuleTemplateAssignationPage />,
+        element: <ProtectedRoute requireAdmin><ModuleTemplateAssignationPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Assign Module Templates' },
@@ -259,14 +258,14 @@ export const routesConfig: RouteConfig[] = [
     },
     {
         path: '/research-techniques/new',
-        element: <ResearchTechniqueBuilderPage />,
+        element: <ProtectedRoute requireAdmin><ResearchTechniqueBuilderPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Create Research Technique' },
     },
     {
         path: '/research-techniques/:id',
-        element: <ResearchTechniqueBuilderPage />,
+        element: <ProtectedRoute requireAdmin><ResearchTechniqueBuilderPage /></ProtectedRoute>,
         layout: 'dashboard',
         isProtected: true,
         errorBoundary: { context: 'dashboard', pageName: 'Edit Research Technique' },

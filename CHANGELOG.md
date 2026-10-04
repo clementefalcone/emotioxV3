@@ -1,3 +1,11 @@
+## v0.97.10 — Security: admin pages and catalog editing hidden from non-admins (2026-10-04)
+
+### fix(security): admin and catalog edit pages were open to any visitor or researcher
+- **Root cause.** `/admin/users` was declared as a public route (no session at all), and the catalog builders (`/modules/new|:id`, `/research-types/new|:id|:id/module-template-assignation`, `/research-techniques/new|:id`) plus their New/Edit/Delete/Duplicate/Assign buttons were shown to every researcher. Since v0.97.6 the backend rejects those writes with 403, so researchers got pages that could only fail.
+- **Decision.** `/admin/users`: session + admin. Catalogs: lists stay visible to everyone (Clients unchanged); builders and write buttons are admin-only.
+- **Fix.** `ProtectedRoute` takes `requireAdmin` (non-admin → `/dashboard`, no session → `/login`) and wraps the 8 routes above. `ResearchTypesPage`, `ResearchTechniquesPage` and `ModulesPage` hide create/edit/delete/duplicate/assign and bulk delete for non-admins; a module card opens the read-only preview instead of the builder, and `ModulePreviewModal` shows "Edit Module" only when given `onEdit`.
+- **Tests.** `config/__tests__/routes.admin.test.tsx`: researcher sent from each of the 8 routes to the dashboard, visitor from `/admin/users` to login, admin let through. `pages/__tests__/catalogPages.admin.test.tsx`: types, techniques and modules render without write controls for a researcher (all failed before the fix), admin keeps them.
+
 ## v0.97.9 — Security: viewer list scoped to inviter (2026-10-04)
 
 ### refactor(research): remove unreachable all-tags route

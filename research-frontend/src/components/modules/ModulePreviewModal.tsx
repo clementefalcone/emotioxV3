@@ -8,7 +8,7 @@ interface ModulePreviewModalProps {
     module: ModuleTemplate | null;
     isOpen: boolean;
     onClose: () => void;
-    onEdit: () => void;
+    onEdit?: () => void;
 }
 
 const getComponentLabel = (type: string): string => {
@@ -46,16 +46,17 @@ export const ModulePreviewModal = ({ module, isOpen, onClose, onEdit }: ModulePr
             size="lg"
         >
             <div className="space-y-6">
-                {/* Actions */}
-                <div className="flex justify-end">
-                    <button
-                        onClick={onEdit}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                        <Pencil className="w-4 h-4" />
-                        Edit Module
-                    </button>
-                </div>
+                {onEdit && (
+                    <div className="flex justify-end">
+                        <button
+                            onClick={onEdit}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                            <Pencil className="w-4 h-4" />
+                            Edit Module
+                        </button>
+                    </div>
+                )}
 
                 {/* Module Description */}
                 {module.description && (

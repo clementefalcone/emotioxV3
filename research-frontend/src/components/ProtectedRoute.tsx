@@ -6,9 +6,10 @@ import { useIsAuthenticated, useAuthStore } from '../stores/auth.store';
  * Verifies authentication before rendering
  * Waits for session bootstrap to complete before redirecting
  */
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+export const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) => {
     const isAuthenticated = useIsAuthenticated();
     const isLoading = useAuthStore((state) => state.isLoading);
+    const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
 
     // Wait for session verification to complete
     if (isLoading) {
@@ -21,6 +22,9 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
+    }
+    if (requireAdmin && !isAdmin) {
+        return <Navigate to="/dashboard" replace />;
     }
     return <>{children}</>;
 };

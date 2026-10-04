@@ -6,10 +6,12 @@ import { researchTechniquesService, type ResearchTechnique } from '../../service
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../hooks/useToast';
 import { SearchInput } from '../../components/ui/SearchInput';
+import { useAuthStore } from '../../stores/auth.store';
 
 export const ResearchTechniquesPage = () => {
     const navigate = useNavigate();
     const toast = useToast();
+    const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
     const [searchQuery, setSearchQuery] = useState('');
     const [techniques, setTechniques] = useState<ResearchTechnique[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -72,10 +74,12 @@ export const ResearchTechniquesPage = () => {
                         Manage research techniques and their configurations
                     </p>
                 </div>
-                <Button onClick={() => navigate('/research-techniques/new')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Technique
-                </Button>
+                {isAdmin && (
+                    <Button onClick={() => navigate('/research-techniques/new')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Technique
+                    </Button>
+                )}
             </div>
 
             <div className="w-full max-w-md">
@@ -104,12 +108,14 @@ export const ResearchTechniquesPage = () => {
                     <p className="mt-2 text-gray-500">
                         Get started by creating a new research technique.
                     </p>
-                    <div className="mt-6">
-                        <Button onClick={() => navigate('/research-techniques/new')}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Technique
-                        </Button>
-                    </div>
+                    {isAdmin && (
+                        <div className="mt-6">
+                            <Button onClick={() => navigate('/research-techniques/new')}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Technique
+                            </Button>
+                        </div>
+                    )}
                 </div>
             ) : filteredTechniques.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
@@ -123,22 +129,24 @@ export const ResearchTechniquesPage = () => {
                             className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow relative"
                         >
                             {/* Action buttons - top right */}
-                            <div className="absolute top-4 right-4 flex gap-2">
-                                <button
-                                    onClick={() => navigate(`/research-techniques/${technique.id}`)}
-                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                    title="Edit"
-                                >
-                                    <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteClick(technique)}
-                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                    title="Delete"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
+                            {isAdmin && (
+                                <div className="absolute top-4 right-4 flex gap-2">
+                                    <button
+                                        onClick={() => navigate(`/research-techniques/${technique.id}`)}
+                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                        title="Edit"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteClick(technique)}
+                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                        title="Delete"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Icon */}
                             <div className="mb-4">

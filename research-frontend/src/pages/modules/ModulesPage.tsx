@@ -12,10 +12,12 @@ import { CustomSelect } from '../../components/ui/CustomSelect';
 import { cn } from '../../lib/utils';
 import { flat } from '../../utils/radashi';
 import { useModuleTemplates, useModuleTemplate, useDeleteModuleTemplate } from '../../hooks/useModuleTemplatesQuery';
+import { useAuthStore } from '../../stores/auth.store';
 
 export const ModulesPage = () => {
     const navigate = useNavigate();
     const toast = useToast();
+    const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
     const sortSelectId = useId();
     
     // React Query hooks
@@ -325,7 +327,11 @@ export const ModulesPage = () => {
         return (
             <div
                 key={module.id}
-                onClick={() => !isMultiSelectMode && navigate(`/modules/${module.id}`)}
+                onClick={() => {
+                    if (isMultiSelectMode) return;
+                    if (isAdmin) navigate(`/modules/${module.id}`);
+                    else handlePreview(module.id);
+                }}
                 className={cn(
                     "rounded-xl border bg-white px-4 py-3.5 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer group relative",
                     isSelected ? "border-blue-400 ring-1 ring-blue-200" : "border-gray-100"
@@ -340,7 +346,7 @@ export const ModulesPage = () => {
                     <div className="p-1.5 bg-blue-50 rounded-lg">
                         <Boxes className="h-4 w-4 text-blue-600" />
                     </div>
-                    {fullModule && !isMultiSelectMode && (
+                    {fullModule && !isMultiSelectMode && isAdmin && (
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={(e) => handleDuplicateClick(fullModule, e)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors" title="Duplicate">
                                 <Copy className="h-3.5 w-3.5" />
@@ -388,12 +394,14 @@ export const ModulesPage = () => {
                             >
                                 <CheckSquare className="h-3.5 w-3.5" /> Select
                             </button>
-                            <button
-                                onClick={() => navigate('/modules/new')}
-                                className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors active:scale-[0.98]"
-                            >
-                                <Plus className="h-3.5 w-3.5" /> New Module
-                            </button>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => navigate('/modules/new')}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors active:scale-[0.98]"
+                                >
+                                    <Plus className="h-3.5 w-3.5" /> New Module
+                                </button>
+                            )}
                         </>
                     ) : (
                         <button
@@ -461,9 +469,11 @@ export const ModulesPage = () => {
                             <button onClick={handleExportSelected} className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-white transition-colors">
                                 <Download className="h-3.5 w-3.5" /> Export
                             </button>
-                            <button onClick={handleBulkDelete} disabled={isDeleting} className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
-                                <Trash2 className="h-3.5 w-3.5" /> Delete
-                            </button>
+                            {isAdmin && (
+                                <button onClick={handleBulkDelete} disabled={isDeleting} className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+                                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -513,7 +523,7 @@ export const ModulesPage = () => {
                 <div className="rounded-xl border border-gray-100 bg-white p-12 text-center">
                     <Boxes className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-[13px] text-gray-400">{searchQuery ? 'No modules match search' : 'Module templates will appear here. Create one from the builder.'}</p>
-                    {!searchQuery && (
+                    {!searchQuery && isAdmin && (
                         <button onClick={() => navigate('/modules/new')} className="mt-3 text-[13px] text-blue-600 hover:text-blue-700 font-medium">Create first module</button>
                     )}
                 </div>
@@ -543,11 +553,11 @@ export const ModulesPage = () => {
                 module={selectedModule}
                 isOpen={showPreview}
                 onClose={() => setShowPreview(false)}
-                onEdit={() => {
+                onEdit={isAdmin ? () => {
                     if (selectedModule) {
                         navigate(`/modules/${selectedModule.id}`);
                     }
-                }}
+                } : undefined}
             />
 
             <ConfirmationModal
