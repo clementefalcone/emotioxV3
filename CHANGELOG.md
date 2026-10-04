@@ -1,3 +1,13 @@
+## v0.97.5 — Security: study access in every module (2026-10-04)
+
+### refactor(research): one study access guard
+- `research/research-access.ts` holds the study access rule for every controller: `canAccessResearch` (creator or collaborator; admin/viewer see all), `findResearchIdOf` (resolves the owning study of a child resource from a fixed table dictionary), `isStageOfResearch` and `researchNotFound` (404 + `research_access_denied` JSON log). Analytics now uses it instead of its own copy.
+
+### fix(security): any user could edit or delete another study's modules
+- **Root cause.** `/modules` (create, update, delete, reorder) only required a session; the service filtered by module id alone, and `create` accepted a `stage_id` from any study.
+- **Fix.** Every route resolves the owning study (path id, `research_id` body field, or the module's `research_id`) and applies the study access guard; `stage_id` must belong to the same study (400). Unknown module → 404 `Module <id> not found`.
+- **Tests.** `modules.controller.test.ts`: foreign delete/edit/reorder/create → 404 with no service call; foreign stage → 400; missing module → 404; owner can edit and delete.
+
 ## v0.97.4 — Security: unauthenticated write endpoints (2026-10-04)
 
 ### fix(security): anyone could flush the cache

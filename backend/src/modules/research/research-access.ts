@@ -29,6 +29,11 @@ export const findResearchIdOf = async (resource: ResearchOwnedResource, id: stri
     return (result.rows[0]?.research_id as string | undefined) ?? null;
 };
 
+export const isStageOfResearch = async (stageId: string, researchId: string): Promise<boolean> => {
+    const result = await pool.query('SELECT 1 FROM stages WHERE id = ? AND research_id = ?', [stageId, researchId]);
+    return result.rows.length > 0;
+};
+
 export const researchNotFound = (researchId: string, userSub: string, path: string, origin: string | null): APIGatewayProxyResult => {
     console.warn(JSON.stringify({ event: 'research_access_denied', researchId, userSub, path }));
     return error(`Research ${researchId} not found`, 404, undefined, origin);
