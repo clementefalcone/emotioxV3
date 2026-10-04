@@ -279,8 +279,8 @@ describe('handlePublicTrackingRoutes', () => {
         expect(res.body).toContain('Missing pageUrl or html');
     });
 
-    it('POST snapshot rejects payloads > 2MB', async () => {
-        const bigHtml = 'x'.repeat(2_097_153);
+    it('POST snapshot rejects payloads > 4MB', async () => {
+        const bigHtml = 'x'.repeat(4_194_305);
         const res = await handlePublicTrackingRoutes(
             mockEvent('POST', '/public/tracking/r1/snapshot', {
                 body: { pageUrl: 'https://x.com', html: bigHtml },

@@ -44,7 +44,7 @@ describe('StimulusFullscreenModal — structure & a11y', () => {
 
     it('close button has descriptive aria-label', () => {
         render(<StimulusFullscreenModal {...baseProps} />);
-        expect(screen.getByLabelText('Cerrar vista completa')).toBeInTheDocument();
+        expect(screen.getByLabelText('Close fullscreen view')).toBeInTheDocument();
     });
 
     it('uses fixed positioning with z-50 (covers entire viewport)', () => {
@@ -72,9 +72,9 @@ describe('StimulusFullscreenModal — toolbar', () => {
         expect(screen.getByText(baseProps.title)).toBeInTheDocument();
     });
 
-    it('displays "Descargar imagen" button', () => {
+    it('displays "Download image" button', () => {
         render(<StimulusFullscreenModal {...baseProps} />);
-        expect(screen.getByText('Descargar imagen')).toBeInTheDocument();
+        expect(screen.getByText('Download image')).toBeInTheDocument();
     });
 
     it('title truncates with max-w-md', () => {
@@ -94,7 +94,7 @@ describe('StimulusFullscreenModal — close behavior', () => {
     it('calls onClose when close button clicked', () => {
         const onClose = vi.fn();
         render(<StimulusFullscreenModal {...baseProps} onClose={onClose} />);
-        fireEvent.click(screen.getByLabelText('Cerrar vista completa'));
+        fireEvent.click(screen.getByLabelText('Close fullscreen view'));
         expect(onClose).toHaveBeenCalledOnce();
     });
 

@@ -423,8 +423,8 @@ describe('getEyeTrackingResults', () => {
       const s = result.stimuli[0];
 
       // p-low excluded from aggregates
-      expect(s.heatmapData).toHaveLength(3); // only p-good fixations
-      expect(s.fixations).toHaveLength(3);
+      expect(s.heatmapData).toHaveLength(3);
+      expect(s.fixations).toHaveLength(4);
       expect(s.uniqueParticipants).toBe(1); // only p-good
       // But both appear in participants list
       expect(s.participants).toHaveLength(2);
@@ -462,8 +462,8 @@ describe('getEyeTrackingResults', () => {
 
   describe('AOI metrics', () => {
     const aois = [
-      { id: 'aoi-1', label: 'Logo', x: 0, y: 0, width: 100, height: 100 },
-      { id: 'aoi-2', label: 'CTA', x: 200, y: 200, width: 100, height: 100 },
+      { id: 'aoi-1', label: 'Logo', x: 0, y: 0, width: 10, height: 10 },
+      { id: 'aoi-2', label: 'CTA', x: 20, y: 20, width: 10, height: 10 },
     ];
 
     it('computes high dwellTimePercent for fixation inside AOI', async () => {
@@ -474,6 +474,8 @@ describe('getEyeTrackingResults', () => {
         ],
         calibrationRmsePx: 60,
         integrityScore: 0.9,
+        viewportWidth: 1000,
+        viewportHeight: 1000,
       });
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
@@ -500,6 +502,8 @@ describe('getEyeTrackingResults', () => {
         ],
         calibrationRmsePx: 60,
         integrityScore: 0.9,
+        viewportWidth: 1000,
+        viewportHeight: 1000,
       });
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
@@ -513,8 +517,6 @@ describe('getEyeTrackingResults', () => {
     });
 
     it('soft Gaussian: fixation just outside AOI contributes partial weight', async () => {
-      // AOI is at (0,0) 100x100. Fixation at (110, 50) is 10px outside the right edge.
-      // With sigma = max(100,100)*0.35 = 35, edgeDist = 10 => weight ~= exp(-10^2/(2*35^2)) ~= 0.96
       const row = buildRow('p1', {
         fixations: [
           { x: 110, y: 50, duration: 500, timestamp: 0 },
@@ -523,6 +525,8 @@ describe('getEyeTrackingResults', () => {
         ],
         calibrationRmsePx: 60,
         integrityScore: 0.9,
+        viewportWidth: 1000,
+        viewportHeight: 1000,
       });
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
@@ -546,6 +550,8 @@ describe('getEyeTrackingResults', () => {
         ],
         calibrationRmsePx: 60,
         integrityScore: 0.9,
+        viewportWidth: 1000,
+        viewportHeight: 1000,
       });
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
@@ -570,8 +576,8 @@ describe('getEyeTrackingResults', () => {
   describe('sequence analysis', () => {
     it('builds transition matrix A->B = 100% for sequential fixations', async () => {
       const aois = [
-        { id: 'aoi-A', label: 'A', x: 0, y: 0, width: 100, height: 100 },
-        { id: 'aoi-B', label: 'B', x: 200, y: 0, width: 100, height: 100 },
+        { id: 'aoi-A', label: 'A', x: 0, y: 0, width: 10, height: 10 },
+        { id: 'aoi-B', label: 'B', x: 20, y: 0, width: 10, height: 10 },
       ];
       const row = buildRow('p1', {
         fixations: [
@@ -580,6 +586,8 @@ describe('getEyeTrackingResults', () => {
         ],
         calibrationRmsePx: 60,
         integrityScore: 0.9,
+        viewportWidth: 1000,
+        viewportHeight: 1000,
       });
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
@@ -599,8 +607,8 @@ describe('getEyeTrackingResults', () => {
 
     it('deduplicates consecutive same-AOI fixations in sequence', async () => {
       const aois = [
-        { id: 'aoi-A', label: 'A', x: 0, y: 0, width: 100, height: 100 },
-        { id: 'aoi-B', label: 'B', x: 200, y: 0, width: 100, height: 100 },
+        { id: 'aoi-A', label: 'A', x: 0, y: 0, width: 10, height: 10 },
+        { id: 'aoi-B', label: 'B', x: 20, y: 0, width: 10, height: 10 },
       ];
       const row = buildRow('p1', {
         fixations: [
@@ -610,6 +618,8 @@ describe('getEyeTrackingResults', () => {
         ],
         calibrationRmsePx: 60,
         integrityScore: 0.9,
+        viewportWidth: 1000,
+        viewportHeight: 1000,
       });
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],

@@ -540,19 +540,27 @@ describe('getFrictionSummary', () => {
                 { metadata: JSON.stringify({ friction: 'dead-click' }), cnt: 3 },
             ],
         });
+        mockQuery.mockResolvedValueOnce({
+            rows: [
+                { friction_type: 'rage-click', target_selector: '#buy', target_text: 'Buy', cnt: 4 },
+            ],
+        });
 
         const result = await getFrictionSummary('r1');
 
         expect(result.tags['rage-click']).toBe(5);
         expect(result.tags['dead-click']).toBe(3);
+        expect(result.topElements['rage-click']).toEqual([{ selector: '#buy', text: 'Buy', count: 4 }]);
     });
 
     it('returns empty tags when no friction events', async () => {
+        mockQuery.mockResolvedValueOnce({ rows: [] });
         mockQuery.mockResolvedValueOnce({ rows: [] });
 
         const result = await getFrictionSummary('r1');
 
         expect(result.tags).toEqual({});
+        expect(result.topElements).toEqual({});
     });
 });
 

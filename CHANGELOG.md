@@ -8,6 +8,14 @@
 - **Results.** Sessions tab shows an amber badge per failure on each journey page (`CaptureErrorBadges`), with a description on hover.
 - **Tests.** Controller (invalid kind, foreign session, structured log), dictionary parsing, script reporting (denied without retry, unavailable after every resolution, no camera API, model failures), badges.
 
+### test: realign 11 stale tests with current behavior
+- **Why.** The suites were not green: tests had drifted from intentional changes, so real regressions were hidden among known failures.
+- **Snapshot.** `POST /public/tracking/:id/snapshot` limit is 4 MB since v0.94.6; the test still asserted 2 MB.
+- **Friction.** `getFrictionSummary` runs a second query for top friction elements; the mock now covers it and the test asserts `topElements`.
+- **Eye Tracking analytics.** Fixations are normalized to percent since v0.93.0, the unit `AOIDrawer` stores AOIs in; tests now use percent AOIs with a real viewport. `fixations` includes low-quality participants on purpose since `b6844fa` (filtered in the frontend).
+- **StimulusFullscreenModal.** The component copy is English since v0.93.0; tests looked for the old Spanish labels.
+- **Result.** Backend 544/544, participant-frontend 1138/1138, research-frontend 612/612.
+
 ## v0.96.13 — Website Tracking: emotion & gaze reliability (2026-10-04)
 
 ### fix: Website Tracking emotions and gaze were rarely delivered
