@@ -1,5 +1,9 @@
 ## v0.97.8 — Security: debug endpoints removed (2026-10-04)
 
+### refactor(media): remove unused media and SSE controllers
+- `media.controller.local.ts` kept a second `handleMediaRoutes` without the study access guard; the router only imports `media.controller.ts`, so it was dead but one wrong import away from reopening the hole. Removed, with its now-unused imports (`handleDirectUpload` stays).
+- `monitor/monitor-sse.controller.ts` (`handleSSEConnection`) had no importer; live SmartVOC is served from the Passenger entries. Removed.
+
 ### fix(security): public debug endpoints exposed headers and study data
 - **Root cause.** `router.ts` served two unauthenticated debug routes left from past investigations: `GET /debug-headers` echoed every request header (including `Authorization`) and `GET /debug/ranking-module` read the modules and full config of the study named "Probando" with no session. The TS entry also had `GET /api/debug/verify-token`, which returned the first 10 characters of `JWT_SECRET` on an invalid token (not reachable in production, where Passenger runs `server-cpanel.js`).
 - **Fix.** All three routes and `modules/debug/debug.controller.ts` deleted. No frontend or script used them.
