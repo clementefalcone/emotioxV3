@@ -6,7 +6,6 @@ export { authService } from './auth.service';
 export { researchService } from './research.service';
 export { researchTypesService } from './researchTypes.service';
 export { modulesService } from './modules.service';
-export { questionsService } from './questions.service';
 export { mediaService } from './media.service';
 export { responsesService } from './responses.service';
 export { publicService } from './public.service';

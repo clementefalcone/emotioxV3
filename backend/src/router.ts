@@ -159,12 +159,6 @@ export const route = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
             return await handleStageTemplatesRoutes(normalizedEvent);
         }
 
-        // Questions routes
-        if (path.startsWith('/questions')) {
-            const { handleQuestionsRoutes } = await import('./modules/questions/questions.controller');
-            return await handleQuestionsRoutes(normalizedEvent);
-        }
-
         // Media routes
         if (path.startsWith('/media')) {
             const { handleMediaRoutes } = await import('./modules/media/media.controller');

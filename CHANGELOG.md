@@ -3,6 +3,10 @@
 ### refactor(research): one study access guard
 - `research/research-access.ts` holds the study access rule for every controller: `canAccessResearch` (creator or collaborator; admin/viewer see all), `findResearchIdOf` (resolves the owning study of a child resource from a fixed table dictionary), `isStageOfResearch` and `researchNotFound` (404 + `research_access_denied` JSON log). Analytics now uses it instead of its own copy.
 
+### fix(security): remove the unused questions API
+- **Why.** `/questions` (create, update, delete, reorder) only required a session, so any user could write questions into another study's modules. The feature was never used: the `questions` table has 0 rows in production and no frontend component calls `questionsService`.
+- **Change.** Removed the backend `questions` controller and service, its router entry and its entry in `/config` endpoints, and the unused frontend `questions.service.ts`. The empty table is left untouched.
+
 ### fix(security): any user could edit or delete another study's modules
 - **Root cause.** `/modules` (create, update, delete, reorder) only required a session; the service filtered by module id alone, and `create` accepted a `stage_id` from any study.
 - **Fix.** Every route resolves the owning study (path id, `research_id` body field, or the module's `research_id`) and applies the study access guard; `stage_id` must belong to the same study (400). Unknown module → 404 `Module <id> not found`.

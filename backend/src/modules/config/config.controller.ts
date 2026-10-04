@@ -134,15 +134,6 @@ const getConfig = async (origin: string | null): Promise<APIGatewayProxyResult> 
                 delete: '/module-templates/:id',
             },
 
-            // Questions
-            questions: {
-                list: '/questions',
-                create: '/questions',
-                getById: '/questions/:id',
-                update: '/questions/:id',
-                delete: '/questions/:id',
-            },
-
             // Public endpoints (participant-frontend)
             public: {
                 research: '/public/research/:id',
