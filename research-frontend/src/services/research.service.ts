@@ -427,11 +427,6 @@ class ResearchService {
         return res.tags;
     }
 
-    async getAllTags(): Promise<string[]> {
-        const res = await apiClient.get<{ tags: string[] }>('/research/tags');
-        return res.tags;
-    }
-
     async addTag(researchId: string, tag: string): Promise<void> {
         await apiClient.post(`/research/${researchId}/tags`, { tag });
     }

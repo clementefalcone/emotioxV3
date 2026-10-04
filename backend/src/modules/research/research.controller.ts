@@ -445,12 +445,6 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
             return success({ message: 'Collaborator removed' }, 200, undefined, origin);
         }
 
-        // GET /research/tags — all unique tags for user
-        if (path === '/research/tags' && httpMethod === 'GET') {
-            const tags = await researchTagsService.getAllTags(user.id, user.role);
-            return success({ tags }, 200, undefined, origin);
-        }
-
         const taggedResearch = path.match(/^\/research\/([^\/]+)\/(?:tags|archive|unarchive)(?:\/|$)/);
         if (taggedResearch && !(await canAccessResearch(taggedResearch[1], decoded.sub))) {
             return researchNotFound(taggedResearch[1], decoded.sub, path, origin);

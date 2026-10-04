@@ -1,5 +1,4 @@
 import pool from '../../config/database';
-import { buildOwnershipClause } from './research.helpers';
 
 export interface ResearchTag {
     id: string;
@@ -12,19 +11,6 @@ export const getTagsForResearch = async (researchId: string): Promise<string[]> 
     const result = await pool.query(
         'SELECT tag FROM research_tags WHERE research_id = ? ORDER BY tag ASC',
         [researchId]
-    );
-    return result.rows.map((r) => (r as { tag: string }).tag);
-};
-
-export const getAllTags = async (userId: string, role?: string): Promise<string[]> => {
-    const { clause, params } = buildOwnershipClause(userId, role);
-    const result = await pool.query(
-        `SELECT DISTINCT rt.tag
-         FROM research_tags rt
-         JOIN researches r ON r.id = rt.research_id
-         WHERE r.deleted_at IS NULL AND ${clause}
-         ORDER BY rt.tag ASC`,
-        params
     );
     return result.rows.map((r) => (r as { tag: string }).tag);
 };

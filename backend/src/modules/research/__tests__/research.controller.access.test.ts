@@ -14,7 +14,6 @@ vi.mock('../research-tags.service', () => ({
     removeTag: vi.fn(),
     archiveResearch: vi.fn(),
     unarchiveResearch: vi.fn(),
-    getAllTags: vi.fn(),
 }));
 vi.mock('../research-activity.service', () => ({ listAccessibleResearchActivity: vi.fn().mockResolvedValue([]) }));
 vi.mock('../research-access', () => ({

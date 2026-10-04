@@ -1,5 +1,9 @@
 ## v0.97.9 — Security: viewer list scoped to inviter (2026-10-04)
 
+### refactor(research): remove unreachable all-tags route
+- `GET /research/tags` was declared after `GET /research/:id`, which captured it with `id = 'tags'` and answered 404 "Research not found"; it never ran. No component called the frontend `getAllTags()` either.
+- **Decision.** Remove it rather than reorder it. Route, backend `getAllTags` and frontend `getAllTags` deleted; per-study tags (`/research/:id/tags`) unchanged.
+
 ### fix(security): every user could read the email of every viewer
 - **Root cause.** `GET /users/viewers` (invite-viewer drawer) returned every viewer in the system, with name and email, to any authenticated account, viewers included.
 - **Decision.** Admin sees all viewers; everyone else sees only the viewers they invited (`metadata.invited_by`). Production today: 2 viewers, both invited by the admin, so nothing visible to the admin changes.
