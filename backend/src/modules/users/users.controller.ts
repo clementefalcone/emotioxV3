@@ -6,6 +6,7 @@ import * as usersService from './users.service';
 import { sendViewerInvitation } from '../email/email.service';
 import { getRequestOrigin } from '../../utils/request';
 import pool from '../../config/database';
+import { denyUnlessAdmin } from '../auth/admin-guard';
 
 const USER_ROLES = ['admin', 'researcher', 'viewer'];
 
@@ -106,10 +107,8 @@ export const handleUsersRoutes = async (event: APIGatewayProxyEvent): Promise<AP
             return success({ viewers }, 200, undefined, origin);
         }
 
-        if (currentUser.role !== 'admin') {
-            console.warn(JSON.stringify({ event: 'users_admin_required', userId: currentUser.id, method: httpMethod, path }));
-            return error('Admin role required', 403, undefined, origin);
-        }
+        const adminDenied = denyUnlessAdmin(currentUser, event, origin);
+        if (adminDenied) return adminDenied;
 
         const body = JSON.parse(event.body || '{}');
         if (body.role !== undefined && !USER_ROLES.includes(body.role)) {

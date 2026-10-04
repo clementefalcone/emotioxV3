@@ -4,6 +4,7 @@ import { getStats, clearAll, clearByPattern } from './cache.service';
 import { getRequestOrigin } from '../../utils/request';
 import { isAuthError, requireAuth } from '../../utils/auth';
 import * as authService from '../auth/auth.service';
+import { denyUnlessAdmin } from '../auth/admin-guard';
 
 export const handleCacheRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -12,10 +13,8 @@ export const handleCacheRoutes = async (event: APIGatewayProxyEvent): Promise<AP
     try {
         const decoded = await requireAuth(event);
         const user = await authService.getMe(decoded.sub);
-        if (user.role !== 'admin') {
-            console.warn(JSON.stringify({ event: 'cache_admin_required', userId: user.id, method: httpMethod, path }));
-            return error('Admin role required', 403, undefined, origin);
-        }
+        const adminDenied = denyUnlessAdmin(user, event, origin);
+        if (adminDenied) return adminDenied;
 
         // GET /cache/stats - Get cache statistics
         if (path === '/cache/stats' && httpMethod === 'GET') {

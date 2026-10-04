@@ -19,6 +19,9 @@
 - **Fix.** Both controllers apply the study access guard (Insights already looks the file up inside the study's own config) and keep viewers read-only.
 - **Tests.** `insights/__tests__/studyAccess.test.ts`: foreign analyze, certify and certificate → 404 with no side effect; viewer analyze → 403.
 
+### refactor(auth): one admin guard
+- `auth/admin-guard.ts` → `denyUnlessAdmin(user, event, origin)`: 403 `Admin role required` and an `admin_required` JSON log. `users` and `cache` use it instead of their own copies (their log events were `users_admin_required` / `cache_admin_required`).
+
 ### fix(security): any user could run predictions and AI analysis on another study
 - **Root cause.** The 7 `/attention-prediction/research/:id/...` routes only required a session: any user could start CPU-heavy TranSalNet/DINO jobs and paid LLM analysis on another study and overwrite its `config.stimuli`. Viewers could trigger them too.
 - **Fix.** The study access guard runs before every route (media and modules were already checked against the path's study); viewers are read-only.
