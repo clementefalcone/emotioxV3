@@ -20,6 +20,11 @@
 - **Fix.** `withCamera` opens one stream (1280×720 → 640×480 when mobile gaze is on, 320×240 otherwise), queues concurrent requests and hands every caller the same stream. `startSampling` starts the sampling interval only once.
 - **Tests.** Two simultaneous requests call `getUserMedia` once and both receive the same stream.
 
+### fix: Website Tracking mobile gaze never sampled with a stored calibration
+- **Root cause.** When `startGazeCapture` found a calibration stored in the last 10 minutes it called `startGazeSampling()` and returned without opening the camera or loading MediaPipe. With emotions off, `sampleFrame` had no video and no landmarker, so a reload or a resumed session produced no gaze.
+- **Fix.** The stored calibration only skips the calibration overlay; the camera and MediaPipe are always set up first.
+- **Tests.** Stored calibration opens the camera and samples without recalibrating; no stored calibration calibrates; no overlay without MediaPipe.
+
 ---
 
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)

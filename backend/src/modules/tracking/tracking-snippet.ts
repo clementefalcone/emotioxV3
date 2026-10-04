@@ -849,11 +849,15 @@ function onCalDone(W,d,rmse,xBuf,yBuf){
 function startGazeCapture(){
     if(!C.gaze||!isMobile)return;
     var cached=load("_ecx_gaze_cal_"+C.rid);
+    var isCalibrated=false;
     if(cached){
-        try{var c=JSON.parse(cached);if(Date.now()-c.t<600000){gazeWeights=c.w;gazeFeatDim=c.d;gazeRmsePx=c.r||999;gazeQuality=c.r<=80?"good":c.r<=150?"fair":"low";startGazeSampling();return;}}catch(e){}
+        try{var c=JSON.parse(cached);if(Date.now()-c.t<600000){gazeWeights=c.w;gazeFeatDim=c.d;gazeRmsePx=c.r||999;gazeQuality=c.r<=80?"good":c.r<=150?"fair":"low";isCalibrated=true;}}catch(e){}
     }
     withCamera(function(){
-        loadMediaPipe(function(){if(mpLandmarker)runCalibration(C.gazeCal,onCalDone);});
+        loadMediaPipe(function(){
+            if(!mpLandmarker)return;
+            if(isCalibrated)startGazeSampling();else runCalibration(C.gazeCal,onCalDone);
+        });
     });
 }
 

@@ -433,6 +433,19 @@ describe('generateTrackingSnippet — emotion and gaze delivery', () => {
     });
 });
 
+function runStartGazeCapture({ storedCalibration, isMediaPipeLoaded }: { storedCalibration: string | null; isMediaPipeLoaded: boolean }) {
+    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+    const source = js.slice(js.indexOf('function startGazeCapture(){'), js.indexOf('function startGazeSampling(){'));
+    const withCamera = vi.fn((cb: () => void) => cb());
+    const startGazeSampling = vi.fn();
+    const runCalibration = vi.fn();
+    new Function('C', 'isMobile', 'load', 'withCamera', 'loadMediaPipe', 'mpLandmarker', 'startGazeSampling', 'runCalibration', 'onCalDone',
+        `var gazeWeights,gazeFeatDim,gazeRmsePx,gazeQuality;${source}startGazeCapture();`,
+    )({ gaze: true, rid: 'r', gazeCal: 9 }, true, () => storedCalibration, withCamera, (cb: () => void) => cb(),
+        isMediaPipeLoaded ? {} : null, startGazeSampling, runCalibration, () => undefined);
+    return { withCamera, startGazeSampling, runCalibration };
+}
+
 describe('generateTrackingSnippet — calibration overlay always closes', () => {
     it('counts every calibration tick even when MediaPipe or the camera is not ready', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
@@ -442,8 +455,8 @@ describe('generateTrackingSnippet — calibration overlay always closes', () => 
     });
 
     it('does not open the calibration overlay when MediaPipe failed to load', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
-        expect(js).toContain('loadMediaPipe(function(){if(mpLandmarker)runCalibration(C.gazeCal,onCalDone);});');
+        const { runCalibration } = runStartGazeCapture({ storedCalibration: null, isMediaPipeLoaded: false });
+        expect(runCalibration).not.toHaveBeenCalled();
     });
 });
 
@@ -485,5 +498,23 @@ describe('generateTrackingSnippet — one shared camera', () => {
 
         expect(getUserMedia).toHaveBeenCalledTimes(1);
         expect(received).toEqual([stream, stream, stream]);
+    });
+});
+
+describe('generateTrackingSnippet — mobile gaze with a stored calibration', () => {
+    it('opens the camera and loads MediaPipe before sampling, without recalibrating', () => {
+        const { withCamera, startGazeSampling, runCalibration } = runStartGazeCapture({
+            storedCalibration: JSON.stringify({ w: [1], d: 1, r: 60, t: Date.now() }),
+            isMediaPipeLoaded: true,
+        });
+        expect(withCamera).toHaveBeenCalledTimes(1);
+        expect(startGazeSampling).toHaveBeenCalledTimes(1);
+        expect(runCalibration).not.toHaveBeenCalled();
+    });
+
+    it('calibrates when no stored calibration exists', () => {
+        const { runCalibration, startGazeSampling } = runStartGazeCapture({ storedCalibration: null, isMediaPipeLoaded: true });
+        expect(runCalibration).toHaveBeenCalledTimes(1);
+        expect(startGazeSampling).not.toHaveBeenCalled();
     });
 });
