@@ -166,7 +166,12 @@ export const handleAuthRoutes = async (event: APIGatewayProxyEvent): Promise<API
         // POST /auth/register
         if (path === '/auth/register' && httpMethod === 'POST') {
             const body = JSON.parse(event.body || '{}');
-            const user = await authService.register(body);
+            const user = await authService.register({
+                email: body.email,
+                password: body.password,
+                firstName: body.firstName,
+                lastName: body.lastName,
+            });
             return success({ user }, 201, undefined, origin);
         }
 

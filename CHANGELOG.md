@@ -1,3 +1,11 @@
+## v0.97.3 — Security: public registration (2026-10-04)
+
+### fix(security): public registration could create admins and take over accounts
+- **Root cause.** `POST /auth/register` (no auth) passed the request body straight to `register`, which accepted `role`, so anyone could create an `admin`. For an existing email without a readable `password_hash` (Google users, or any user whose `metadata` came back as a JSON string), it set the caller's password on that account — an account takeover.
+- **Fix.** The public route only forwards `email`, `password`, `firstName`, `lastName`, so it always creates a `researcher` (the same role Google sign-in already grants). `register` answers 409 `User <email> already exists` for any existing email and never modifies it. Role assignment stays internal for `POST /users`.
+- **Production check (read-only).** The only admin is the owner's Google account; the 14 local-password accounts are test accounts, all `researcher`.
+- **Tests.** `register.test.ts`: a caller-sent `role: admin` still inserts `researcher`; an existing email returns 409 with no further query.
+
 ## v0.97.2 — Enterprise SmartVOC access control (2026-10-04)
 
 ### fix(security): study analytics readable by any authenticated user

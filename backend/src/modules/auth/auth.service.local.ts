@@ -62,57 +62,16 @@ export const register = async (data: RegisterData) => {
     }
     
     try {
-        // Verificar si el usuario ya existe
-        const existingUserQuery = `
-            SELECT id, email, cognito_sub, role, first_name, last_name, metadata, created_at
-            FROM users
-            WHERE email = ? AND deleted_at IS NULL
-            LIMIT 1
-        `;
-        const existingUserResult = await pool.query(existingUserQuery, [email]);
-        
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, getBcryptRounds());
-        
+        const existingUserResult = await pool.query(
+            'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1',
+            [email]
+        );
         if (existingUserResult.rows.length > 0) {
-            // Usuario existe, verificar si tiene password_hash
-            const existingUser = existingUserResult.rows[0];
-            const existingMetadata = (existingUser.metadata as Record<string, unknown>) || {};
-            const hasPasswordHash = existingMetadata.password_hash as string | undefined;
-            
-            // Si el usuario no tiene password_hash, actualizarlo
-            if (!hasPasswordHash) {
-                const updatedMetadata = {
-                    ...existingMetadata,
-                    password_hash: hashedPassword,
-                    auth_provider: 'local',
-                };
-                
-                const updateQuery = `
-                    UPDATE users 
-                    SET metadata = ?, updated_at = NOW()
-                    WHERE email = ? AND deleted_at IS NULL
-                `;
-                
-                await pool.query(updateQuery, [
-                    JSON.stringify(updatedMetadata),
-                    email
-                ]);
-                
-                console.log(`Updated password_hash for existing user: ${email}`);
-            }
-            
-            // Retornar usuario (actualizado o existente)
-            const getUserQuery = `
-                SELECT id, email, role, first_name, last_name, created_at
-                FROM users
-                WHERE email = ? AND deleted_at IS NULL
-                LIMIT 1
-            `;
-            const result = await pool.query(getUserQuery, [email]);
-            return result.rows[0];
+            throw new Error(`User ${email} already exists`);
         }
-        
+
+        const hashedPassword = await bcrypt.hash(password, getBcryptRounds());
+
         // Usuario no existe, crear nuevo
         const userSub = generateUserSub();
         
