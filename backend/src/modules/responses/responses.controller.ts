@@ -2,12 +2,18 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
 import { isAuthError, requireAuth } from '../../utils/auth';
 import * as responsesService from './responses.service';
+import { canAccessResearch, researchNotFound } from '../research/research-access';
 
 export const handleResponsesRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
     const origin: string | null = (event.headers.Origin || event.headers.origin || null) as string | null;
     try {
-        await requireAuth(event);
+        const decoded = await requireAuth(event);
+
+        const scopedResearch = path.match(/^\/responses\/research\/([^\/]+)/);
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+            return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
+        }
 
         const match = path.match(/^\/responses\/research\/([^\/]+)$/);
         if (match && httpMethod === 'GET') {

@@ -3,6 +3,11 @@
 ### refactor(research): one study access guard
 - `research/research-access.ts` holds the study access rule for every controller: `canAccessResearch` (creator or collaborator; admin/viewer see all), `findResearchIdOf` (resolves the owning study of a child resource from a fixed table dictionary), `isStageOfResearch` and `researchNotFound` (404 + `research_access_denied` JSON log). Analytics now uses it instead of its own copy.
 
+### fix(security): any user could read another study's raw answers
+- **Root cause.** `GET /responses/research/:id` and `.../participant/:pid` (also reachable as `/public/responses/...`, which still requires a session) returned up to 10 000 raw answers of any study to any logged-in user.
+- **Fix.** The study access guard runs before both routes.
+- **Tests.** `responses.controller.test.ts`: foreign study → 404 with no answers read; accessible study → 200.
+
 ### fix(security): any user could read, wipe or email another study's panel
 - **Root cause.** `/participants/:researchId/...` only required a session: any user could list another study's panel (emails, names), import or delete participants, and send invitation emails to that panel with a caller-chosen `baseUrl` (phishing).
 - **Fix.** One guard at the top of the controller applies the study access rule to the study id in the path; services already filter by `research_id`, so participant-level routes are covered too.
