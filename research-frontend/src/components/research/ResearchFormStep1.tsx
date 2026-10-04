@@ -13,7 +13,7 @@ interface ResearchFormStep1Props {
     onNameChange: (value: string) => void;
     onEnterpriseChange: (value: string) => void;
     onEnterpriseSelect: (option: AutocompleteOption) => void;
-    onCreateEnterprise: (name: string) => Promise<void>;
+    onCreateEnterprise?: (name: string) => Promise<void>;
 }
 
 export const ResearchFormStep1 = ({
@@ -50,7 +50,7 @@ export const ResearchFormStep1 = ({
                     onSelect={onEnterpriseSelect}
                     onCreateNew={onCreateEnterprise}
                     error={enterpriseError}
-                    placeholder={loadingEnterprises ? 'Loading...' : 'Select or create Enterprise'}
+                    placeholder={loadingEnterprises ? 'Loading...' : onCreateEnterprise ? 'Select or create Enterprise' : 'Select Enterprise'}
                     options={enterprises.map((enterprise) => ({
                         value: enterprise.id,
                         label: enterprise.name,

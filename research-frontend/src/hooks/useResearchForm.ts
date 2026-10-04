@@ -3,6 +3,7 @@ import { researchTypesService, type ModuleTemplateRef } from '../services/resear
 import { type ResearchTechnique, type DefaultStageRef } from '../services/researchTechniques.service';
 import { useCreateResearch } from './useResearchQuery';
 import type { CreateResearchData } from '../services/research.service';
+import { useAuthStore } from '../stores/auth.store';
 
 interface CreateResearchFormData {
     name: string;
@@ -24,6 +25,7 @@ interface ResearchFormErrors {
 }
 
 export const useResearchForm = () => {
+    const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
     const [formData, setFormData] = useState<CreateResearchFormData>({
         name: '',
         enterpriseId: '',
@@ -198,6 +200,8 @@ export const useResearchForm = () => {
 
         if (!formData.enterpriseId && !formData.enterpriseName.trim()) {
             newErrors.enterpriseId = 'Enterprise is required';
+        } else if (!formData.enterpriseId && !isAdmin) {
+            newErrors.enterpriseId = 'Select an existing client';
         }
 
         setFormErrors(newErrors);

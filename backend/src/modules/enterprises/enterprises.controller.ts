@@ -5,6 +5,7 @@ import * as enterprisesService from './enterprises.service';
 import * as authService from '../auth/auth.service';
 import * as researchService from '../research';
 import { getRequestOrigin } from '../../utils/request';
+import { denyUnlessAdmin } from '../auth/admin-guard';
 
 export const handleEnterprisesRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -24,9 +25,9 @@ export const handleEnterprisesRoutes = async (event: APIGatewayProxyEvent): Prom
             throw authError;
         }
 
-        // Viewer role: read-only
-        if (user.role === 'viewer' && httpMethod !== 'GET') {
-            return error('Viewer role is read-only', 403, undefined, origin);
+        if (httpMethod !== 'GET') {
+            const denied = denyUnlessAdmin(user, event, origin);
+            if (denied) return denied;
         }
 
         // GET /enterprises

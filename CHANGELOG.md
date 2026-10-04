@@ -19,6 +19,12 @@
 - **Fix.** Both controllers apply the study access guard (Insights already looks the file up inside the study's own config) and keep viewers read-only.
 - **Tests.** `insights/__tests__/studyAccess.test.ts`: foreign analyze, certify and certificate → 404 with no side effect; viewer analyze → 403.
 
+### fix(security): any account could change or delete global catalogs and enterprises
+- **Root cause.** Module templates, stage templates, research types, research techniques and enterprises are global (every new study is seeded from the catalogs), yet any authenticated account — researchers, and viewers except on enterprises — could create, edit or delete them.
+- **Decision.** Writes are admin-only for all five; everyone keeps read access.
+- **Fix.** Each controller runs `denyUnlessAdmin` on non-GET requests. In the research frontend, "create new client" while creating a study is only offered to admins (`onCreateEnterprise` passed only for admins) and a researcher who types a client that does not exist gets "Select an existing client" instead of a silent failure.
+- **Tests.** Backend `catalogs.admin.test.ts`: researcher cannot create an enterprise or module template, can still read both; admin creates an enterprise. Frontend `useResearchForm.enterprise.test.tsx`: researcher must pick an existing client, admin can continue with a new name.
+
 ### refactor(auth): one admin guard
 - `auth/admin-guard.ts` → `denyUnlessAdmin(user, event, origin)`: 403 `Admin role required` and an `admin_required` JSON log. `users` and `cache` use it instead of their own copies (their log events were `users_admin_required` / `cache_admin_required`).
 

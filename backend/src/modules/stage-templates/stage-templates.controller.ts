@@ -4,6 +4,7 @@ import { isAuthError, requireAuth } from '../../utils/auth';
 import * as stageTemplatesService from './stage-templates.service';
 import * as authService from '../auth/auth.service';
 import { getRequestOrigin } from '../../utils/request';
+import { denyUnlessAdmin } from '../auth/admin-guard';
 
 export const handleStageTemplatesRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -21,6 +22,11 @@ export const handleStageTemplatesRoutes = async (event: APIGatewayProxyEvent): P
                 return error(authErrorMessage, authError.statusCode, undefined, origin);
             }
             throw authError;
+        }
+
+        if (httpMethod !== 'GET') {
+            const denied = denyUnlessAdmin(user, event, origin);
+            if (denied) return denied;
         }
 
         // GET /stage-templates

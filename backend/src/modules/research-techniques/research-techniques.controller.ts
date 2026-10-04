@@ -4,6 +4,7 @@ import { isAuthError, requireAuth } from '../../utils/auth';
 import * as researchTechniquesService from './research-techniques.service';
 import * as authService from '../auth/auth.service';
 import { getRequestOrigin } from '../../utils/request';
+import { denyUnlessAdmin } from '../auth/admin-guard';
 
 export const handleResearchTechniquesRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -21,6 +22,11 @@ export const handleResearchTechniquesRoutes = async (event: APIGatewayProxyEvent
                 return error(authErrorMessage, authError.statusCode, undefined, origin);
             }
             throw authError;
+        }
+
+        if (httpMethod !== 'GET') {
+            const denied = denyUnlessAdmin(user, event, origin);
+            if (denied) return denied;
         }
 
         // GET /research-techniques

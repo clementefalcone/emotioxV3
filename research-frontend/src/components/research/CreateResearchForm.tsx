@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { ResearchFormStep1 } from './ResearchFormStep1';
 import { ResearchFormStep2 } from './ResearchFormStep2';
 import { useResearchForm } from '../../hooks/useResearchForm';
+import { useAuthStore } from '../../stores/auth.store';
 import { useEnterprise } from '../../hooks/useEnterprise';
 import { type AutocompleteOption } from '../ui/Autocomplete';
 import { Drawer } from '../ui/Drawer';
@@ -140,6 +141,7 @@ export const CreateResearchForm = ({ onSuccess }: CreateResearchFormProps = {}) 
     }, [isFileBasedResearch, formData.useDefaultModules]);
 
     const { enterprises, loadingEnterprises, createEnterprise } = useEnterprise();
+    const isAdmin = useAuthStore((state) => state.user?.role === 'admin');
 
     const handleEnterpriseSelect = (option: AutocompleteOption): void => {
         setFormData((prev) => ({
@@ -394,7 +396,7 @@ export const CreateResearchForm = ({ onSuccess }: CreateResearchFormProps = {}) 
                                             }));
                                         }}
                                         onEnterpriseSelect={handleEnterpriseSelect}
-                                        onCreateEnterprise={handleCreateEnterpriseFromAutocomplete}
+                                        onCreateEnterprise={isAdmin ? handleCreateEnterpriseFromAutocomplete : undefined}
                                     />
                                 )}
 
