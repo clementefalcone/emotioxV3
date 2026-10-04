@@ -2,17 +2,12 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS, HYBRID_CALIB_POINT_COUNT } from './types';
-import type { ShelfConfig } from './types';
 import { HYBRID_IMAGE_CALIBRATION_POINTS } from '../../../lib/eyeTracking';
 
 interface CalibrationPhaseProps {
     calibrationIndex: number;
     isDesktop: boolean;
-    resolvedUrl: string;
-    imgRef: React.RefObject<HTMLImageElement | null>;
     onCalibrationClick: () => void;
-    onImageLoad: () => void;
-    shelfConfig: ShelfConfig | null;
     cameraRef?: React.RefObject<HTMLVideoElement | null>;
     calibrationAreaRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -20,11 +15,7 @@ interface CalibrationPhaseProps {
 export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
     calibrationIndex,
     isDesktop,
-    resolvedUrl: _resolvedUrl,
-    imgRef: _imgRef,
     onCalibrationClick,
-    onImageLoad: _onImageLoad,
-    shelfConfig: _shelfConfig,
     cameraRef,
     calibrationAreaRef,
 }) => {

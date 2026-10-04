@@ -7,7 +7,7 @@
  * Tests the full pipeline with real-world data without needing a browser or webcam.
  */
 import { describe, it, expect } from 'vitest';
-import { extractGazeFeatures, averageFeatureVectors } from '../featureExtraction';
+import { extractGazeFeatures } from '../featureExtraction';
 import { RidgeRegression } from '../ridgeRegression';
 import { GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from '../constants';
 import { extractActionUnits, classifyEmotion } from '../facsClassifier';

@@ -191,8 +191,8 @@ describe('detectMicroExpressions — multiple transients', () => {
     ];
     const result = detectMicroExpressions(samples);
     const emotions = result.map(r => r.emotion);
-    // Should find at least one of each (baseline may vary due to windowing)
-    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(emotions).toContain('joy');
+    expect(emotions).toContain('anger');
   });
 
   it('consecutive different transients detected separately', () => {

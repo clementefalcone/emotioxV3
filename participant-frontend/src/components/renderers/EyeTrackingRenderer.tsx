@@ -1179,9 +1179,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 gazeActive={gaze.gazeState === 'open'}
                 faceConfidence={mpGaze.lastLandmarksRef.current ? (mpGaze.gazeState === 'open' ? 1.0 : 0.85) : 0}
                 headPoseRef={mpGaze.headPoseRef}
-                earRef={mpGaze.earRef}
                 landmarksRef={mpGaze.lastLandmarksRef}
-                frameStatsGetter={mpGaze.getFrameStats}
                 onPass={() => setPhase('preparing')}
                 onReject={() => setPhase('preparing')}
             />
@@ -1201,11 +1199,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 <CalibrationPhase
                     calibrationIndex={calibrationIndex}
                     isDesktop={isDesktop}
-                    resolvedUrl={resolvedUrl}
-                    imgRef={imgRef}
                     onCalibrationClick={handleCalibrationClick}
-                    onImageLoad={handleImageLoad}
-                    shelfConfig={shelfConfig}
                     cameraRef={videoRef}
                     calibrationAreaRef={calibrationAreaRef}
                 />

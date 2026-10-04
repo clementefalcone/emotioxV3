@@ -29,12 +29,8 @@ interface SessionQualityGateProps {
     faceConfidence?: number;
     /** Live head pose from MediaPipe (pitch/yaw degrees). */
     headPoseRef?: React.RefObject<{ pitch: number; yaw: number }>;
-    /** Live EAR (eye aspect ratio) from MediaPipe. */
-    earRef?: React.RefObject<number>;
     /** Last 478 face landmarks from MediaPipe (normalized 0-1). */
     landmarksRef?: React.RefObject<Array<{ x: number; y: number; z: number }> | null>;
-    /** Frame stats getter from MediaPipe hook. */
-    frameStatsGetter?: () => { validGazeFrames: number; noValidGazeFrames: number; captureWidthPx: number | null; captureHeightPx: number | null };
     onPass: () => void;
     onReject?: () => void;
 }
@@ -67,9 +63,7 @@ export const SessionQualityGate: React.FC<SessionQualityGateProps> = ({
     gazeActive,
     faceConfidence,
     headPoseRef,
-    earRef: _earRef,
     landmarksRef,
-    frameStatsGetter: _frameStatsGetter,
     onPass,
 }) => {
     const { t } = useTranslation();

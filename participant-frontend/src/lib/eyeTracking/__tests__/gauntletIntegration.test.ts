@@ -268,7 +268,6 @@ describe('Pipeline: soft zone weights → heatmap AOI', () => {
 
     // Center zone should have one of the highest weights
     const sortedWeights = Object.entries(weights).sort((a, b) => b[1] - a[1]);
-    const topZone = sortedWeights[0][0];
     expect(sortedWeights[0][1]).toBeGreaterThan(0);
 
     // Zone from hard classification should be consistent — in top 2

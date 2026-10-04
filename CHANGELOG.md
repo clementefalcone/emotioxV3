@@ -1,3 +1,9 @@
+## v0.97.1 — Zero lint warnings (2026-10-04)
+
+### chore(participant): remove unused props and variables
+- `CalibrationPhase` no longer takes `resolvedUrl`, `imgRef`, `onImageLoad`, `shelfConfig`; `SessionQualityGate` no longer takes `earRef`, `frameStatsGetter` (received but never read). Removed an unused import and variable in gaze tests.
+- `microExpressionDetector` multi-transient test now asserts both `joy` and `anger` are detected instead of only `length >= 1`.
+
 ## v0.97.0 — Website Tracking: visible capture failures (2026-10-04)
 
 ### feat: Website Tracking records camera and model failures per session
