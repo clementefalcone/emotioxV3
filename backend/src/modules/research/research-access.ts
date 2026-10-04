@@ -6,6 +6,7 @@ import { buildOwnershipClause } from './research.helpers';
 
 const RESEARCH_OWNED_TABLES = {
     module: 'modules',
+    media: 'media',
 } as const;
 
 export type ResearchOwnedResource = keyof typeof RESEARCH_OWNED_TABLES;
@@ -27,6 +28,20 @@ export const canAccessResearch = async (researchId: string, userSub: string): Pr
 export const findResearchIdOf = async (resource: ResearchOwnedResource, id: string): Promise<string | null> => {
     const result = await pool.query(`SELECT research_id FROM ${RESEARCH_OWNED_TABLES[resource]} WHERE id = ?`, [id]);
     return (result.rows[0]?.research_id as string | undefined) ?? null;
+};
+
+export const researchIdFromMediaPath = (mediaPath: string): string | null =>
+    mediaPath.match(/^research\/([^/]+)\//)?.[1] ?? null;
+
+export const canAccessMediaPath = async (mediaPath: string, userSub: string): Promise<boolean> => {
+    const folderResearchId = researchIdFromMediaPath(mediaPath);
+    const owners = await pool.query('SELECT DISTINCT research_id FROM media WHERE s3_key = ?', [mediaPath]);
+    const researchIds = new Set<string>(owners.rows.map((row) => row.research_id as string));
+    if (folderResearchId) researchIds.add(folderResearchId);
+    for (const researchId of researchIds) {
+        if (await canAccessResearch(researchId, userSub)) return true;
+    }
+    return false;
 };
 
 export const isStageOfResearch = async (stageId: string, researchId: string): Promise<boolean> => {
