@@ -1,3 +1,10 @@
+## v0.97.7 — Missing token answered 500 in AI and integration modules (2026-10-04)
+
+### fix(api): missing or invalid token returned 500 instead of 401
+- **Root cause.** The outer `catch` of `attention-prediction`, `insights` and `cerulean` controllers mapped every error to 500, including the `AuthError` thrown by `requireAuth` when the token is missing or invalid. Found while verifying v0.97.6 in production: `GET /api/insights/x` → 500 `No token provided`.
+- **Fix.** Each `catch` returns `err.statusCode` (401) for `AuthError`, the same pattern `cache.controller` uses.
+- **Tests.** `attention-prediction.access.test.ts` and `insights/studyAccess.test.ts`: missing token → 401 (500 before the fix).
+
 ## v0.97.6 — Security: study access in AI and integration modules (2026-10-04)
 
 ### fix(security): any user could stream another study's live data

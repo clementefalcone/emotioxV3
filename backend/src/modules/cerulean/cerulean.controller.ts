@@ -5,7 +5,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
-import { requireAuth } from '../../utils/auth';
+import { isAuthError, requireAuth } from '../../utils/auth';
 import * as authService from '../auth/auth.service';
 import { getRequestOrigin } from '../../utils/request';
 import * as ceruleanClient from './client';
@@ -89,6 +89,7 @@ export const handleCeruleanRoutes = async (event: APIGatewayProxyEvent): Promise
 
         return error('Route not found', 404, undefined, origin);
     } catch (err: unknown) {
+        if (isAuthError(err)) return error(err.message, err.statusCode, undefined, origin);
         const msg = err instanceof Error ? err.message : 'Unknown error';
         console.error('[Cerulean Controller]', msg);
         return error(msg, 500, undefined, origin);

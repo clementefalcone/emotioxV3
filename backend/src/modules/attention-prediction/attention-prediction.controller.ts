@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
-import { requireAuth } from '../../utils/auth.local';
+import { isAuthError, requireAuth } from '../../utils/auth.local';
 import { getRequestOrigin } from '../../utils/request';
 import {
     predictAttentionFast,
@@ -802,6 +802,7 @@ export const handleAttentionPredictionRoutes = async (
 
         return error('Route not found', 404, undefined, origin);
     } catch (err: unknown) {
+        if (isAuthError(err)) return error(err.message, err.statusCode, undefined, origin);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         console.error('[AttentionPrediction] Error:', err);
         return error(errorMessage, 500, undefined, origin);

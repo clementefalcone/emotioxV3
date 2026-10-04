@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 vi.mock('../../../config/database', () => ({ default: { query: vi.fn().mockResolvedValue({ rows: [] }) } }));
-vi.mock('../../../utils/auth.local', () => ({ requireAuth: vi.fn() }));
+vi.mock('../../../utils/auth.local', async (importOriginal) => ({ ...(await importOriginal<object>()), requireAuth: vi.fn() }));
 vi.mock('../../research/research-access', () => ({
     canAccessResearch: vi.fn(),
     researchNotFound: vi.fn((researchId: string) => ({ statusCode: 404, body: `Research ${researchId} not found`, headers: {} })),
@@ -11,7 +11,7 @@ vi.mock('../ai-analysis.service', () => ({ analyzeAttentionWithAI: vi.fn(), gene
 vi.mock('../video-prediction.service', () => ({ predictVideoFrames: vi.fn(), predictVideoFramesTased: vi.fn(), renderVideoHeatmap: vi.fn(), extractVideoFrame: vi.fn() }));
 
 import { handleAttentionPredictionRoutes } from '../attention-prediction.controller';
-import { requireAuth } from '../../../utils/auth.local';
+import { AuthError, requireAuth } from '../../../utils/auth.local';
 import { canAccessResearch } from '../../research/research-access';
 import { analyzeAttentionWithAI } from '../ai-analysis.service';
 import pool from '../../../config/database';
@@ -42,5 +42,13 @@ describe('attention prediction — study access', () => {
 
         expect(res.statusCode).toBe(403);
         expect(canAccessResearch).not.toHaveBeenCalled();
+    });
+
+    it('answers 401 when the token is missing', async () => {
+        vi.mocked(requireAuth).mockRejectedValue(new AuthError('No token provided', 'NO_TOKEN'));
+
+        const res = await request('/attention-prediction/research/r1/predict/m1');
+
+        expect(res.statusCode).toBe(401);
     });
 });

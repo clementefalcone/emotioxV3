@@ -6,7 +6,7 @@
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
-import { requireAuth } from '../../utils/auth.local';
+import { isAuthError, requireAuth } from '../../utils/auth.local';
 import { getRequestOrigin } from '../../utils/request';
 import { analyzeInsights } from './insights.service';
 import pool from '../../config/database';
@@ -147,6 +147,7 @@ export const handleInsightsRoutes = async (
 
         return error('Route not found', 404, undefined, origin);
     } catch (err: unknown) {
+        if (isAuthError(err)) return error(err.message, err.statusCode, undefined, origin);
         const msg = err instanceof Error ? err.message : 'Unknown error';
         console.error('[Insights] Error:', err);
         return error(msg, 500, undefined, origin);
