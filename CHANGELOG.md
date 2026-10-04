@@ -1,5 +1,10 @@
 ## v0.97.2 — Enterprise SmartVOC access control (2026-10-04)
 
+### fix(security): study analytics readable by any authenticated user
+- **Root cause.** The 22 routes under `/analytics/research/:id/...` and `/analytics/benchmark/:id` only required a valid session. Any user who knew a study id could read its SmartVOC, Eye Tracking, IAT, text responses, demographics, alerts and executive summary, and trigger text analysis or dismiss alerts.
+- **Fix.** One guard at the top of `handleAnalyticsRoutes` matches the study id in the path and checks it with `buildOwnershipClause` (creator or collaborator; admin/viewer see all), the same rule as the study list. Denied requests return 404 (`Research <id> not found`, without revealing whether it exists) and log `analytics_access_denied` as JSON.
+- **Tests.** Foreign study → 404 with no results read and a structured log; own study → 200; benchmark guarded too.
+
 ### fix(security): enterprise SmartVOC ignored study ownership
 - **Root cause.** `GET /analytics/enterprise/:id/smartvoc` filtered only by `enterprise_id`, so any authenticated user could consolidate the SmartVOC results of every study of any enterprise, including studies they neither created nor collaborate on.
 - **Fix.** The route applies `buildOwnershipClause` (creator or collaborator; admin/viewer see all) on top of the enterprise filter, the same rule as `/analytics/smartvoc/consolidated`. Both now share `buildUserOwnership`.

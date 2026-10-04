@@ -36,11 +36,28 @@ const buildUserOwnership = async (userId: string) => {
     return buildOwnershipClause(user.id, user.role);
 };
 
+const RESEARCH_SCOPED_PATH = /^\/analytics\/(?:research|benchmark)\/([^\/]+)/;
+
+const canAccessResearch = async (researchId: string, userSub: string): Promise<boolean> => {
+    const ownership = await buildUserOwnership(userSub);
+    const result = await pool.query(
+        `SELECT 1 FROM researches r WHERE r.id = ? AND ${ownership.clause}`,
+        [researchId, ...ownership.params],
+    );
+    return result.rows.length > 0;
+};
+
 export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path, queryStringParameters: queryParams } = event;
     const origin = getRequestOrigin(event);
     try {
         const decoded = await requireAuth(event);
+
+        const scopedResearch = path.match(RESEARCH_SCOPED_PATH);
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+            console.warn(JSON.stringify({ event: 'analytics_access_denied', researchId: scopedResearch[1], userSub: decoded.sub, path }));
+            return error(`Research ${scopedResearch[1]} not found`, 404, undefined, origin);
+        }
 
         // GET /analytics/research/:id/smartvoc
         const smartvocMatch = path.match(/^\/analytics\/research\/([^\/]+)\/smartvoc$/);
