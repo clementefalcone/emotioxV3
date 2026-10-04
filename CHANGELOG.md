@@ -1,5 +1,10 @@
 ## v0.97.1 — Zero lint warnings (2026-10-04)
 
+### fix(participant): Enter key could stay blocked after answering
+- **Root cause.** The Enter → continue effect in `ResearchPage` read `buttonDisabled` but did not list it as a dependency. `buttonDisabled` changes when the participant answers, while the listed dependencies (`handleNext`, `currentModule`, store actions) stay stable, so the listener kept the stale "disabled" value.
+- **Fix.** `useEnterToContinue(canContinue, onContinue)` receives the current state each render and re-registers when it changes. Textareas keep Enter for new lines.
+- **Tests.** Enter continues once allowed; Enter inside a textarea does not continue.
+
 ### chore(participant): remove unused props and variables
 - `CalibrationPhase` no longer takes `resolvedUrl`, `imgRef`, `onImageLoad`, `shelfConfig`; `SessionQualityGate` no longer takes `earRef`, `frameStatsGetter` (received but never read). Removed an unused import and variable in gaze tests.
 - `microExpressionDetector` multi-transient test now asserts both `joy` and `anger` are detected instead of only `length >= 1`.

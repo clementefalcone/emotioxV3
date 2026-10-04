@@ -21,6 +21,7 @@ import { usePreviewMode } from '../hooks/usePreviewMode';
 import { useButtonConfig } from '../hooks/useButtonConfig';
 import { useKioskMode } from '../hooks/useKioskMode';
 import { useHandleNext } from '../hooks/useHandleNext';
+import { useEnterToContinue } from '../hooks/useEnterToContinue';
 import { publicService, type Module } from '../services/public.service';
 import { getComponentText } from '../utils/moduleComponent';
 import { mediaService } from '../services/media.service';
@@ -473,21 +474,7 @@ export const ResearchPage = () => {
     redirectTo,
   });
 
-  // Enter key -> "Guardar y continuar" (accessibility)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter') return;
-      // Don't intercept Enter inside textareas (Long Text needs newlines)
-      if (e.target instanceof HTMLTextAreaElement) return;
-      // Only when the footer button is visible and not submitting
-      if (!shouldShowButton(currentModule) && !showRestartOption) return;
-      if (buttonDisabled) return;
-      e.preventDefault();
-      handleNext();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentModule, showRestartOption, submitting, shouldShowButton, handleNext]);
+  useEnterToContinue((shouldShowButton(currentModule) || showRestartOption) && !buttonDisabled, handleNext);
 
   // --- Early-return screens ---
 
