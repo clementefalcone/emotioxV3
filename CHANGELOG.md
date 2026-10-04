@@ -1,5 +1,10 @@
 ## v0.97.6 — Security: study access in AI and integration modules (2026-10-04)
 
+### fix(security): any user could stream another study's live data
+- **Root cause.** The SSE endpoints defined in the Passenger entry, `GET /api/monitor/events/:researchId` (live SmartVOC results) and `GET /api/tracking/:researchId/live/stream` (live visitor sessions), only verified the token, so any user could subscribe to any study. The TS entry also logged the first 50 characters of every SSE token.
+- **Fix.** Both streams apply `canAccessResearch` after verifying the token (404 + `research_access_denied` log when denied), in `server-cpanel.js` and `server-cpanel.ts`; the token log is removed.
+- **Verification.** Not unit-tested (Express bootstrap file); it reuses the guard covered by the controller tests.
+
 ### fix(security): session tokens were written to the server log
 - **Root cause.** `research-types.controller.ts` logged the full request headers (including `Authorization: Bearer <JWT>`) on every `GET /research-types/:id/techniques`, and `research.controller.ts` did the same on every failed authentication. Anyone with log access could reuse those tokens.
 - **Fix.** Both header dumps removed; the remaining logs only record the path and the error message.

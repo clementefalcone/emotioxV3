@@ -294,10 +294,16 @@ app.get(['/api/tracking/:researchId/live/stream', '/tracking/:researchId/live/st
             return res.status(401).json({ error: 'Authentication token is required' });
         }
 
+        let userSub;
         try {
-            await verifyToken(token);
+            userSub = (await verifyToken(token)).sub;
         } catch {
             return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+        const { canAccessResearch } = require('./dist/modules/research/research-access');
+        if (!(await canAccessResearch(researchId, userSub))) {
+            console.warn(JSON.stringify({ event: 'research_access_denied', researchId, userSub, path: req.path }));
+            return res.status(404).json({ error: `Research ${researchId} not found` });
         }
 
         // SSE headers
@@ -356,6 +362,11 @@ app.get('/api/monitor/events/:researchId', async (req, res) => {
         try {
             const decoded = await verifyToken(token);
             const userId = decoded.sub;
+            const { canAccessResearch } = require('./dist/modules/research/research-access');
+            if (!(await canAccessResearch(researchId, userId))) {
+                console.warn(JSON.stringify({ event: 'research_access_denied', researchId, userSub: userId, path: req.path }));
+                return res.status(404).json({ error: `Research ${researchId} not found` });
+            }
 
             // Generate unique connection ID
             const connectionId = crypto.randomUUID();
