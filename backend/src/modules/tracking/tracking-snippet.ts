@@ -734,14 +734,15 @@ function runCalibration(nPts,cb,retryCount){
         label.textContent="Look at the dot ("+(pIdx+1)+"/"+pts.length+")";
         var frames=[],fCount=0;
         var capTimer=setInterval(function(){
-            if(!mpLandmarker||!emoVideo||emoVideo.readyState<2){return;}
-            try{
-                var res=mpLandmarker.detectForVideo(emoVideo,performance.now());
-                if(res.faceLandmarks&&res.faceLandmarks.length&&res.faceLandmarks[0].length>473){
-                    var feat=extractGazeFeat(res.faceLandmarks[0],res.facialTransformationMatrixes);
-                    frames.push(feat);
-                }
-            }catch(e){}
+            if(mpLandmarker&&emoVideo&&emoVideo.readyState>=2){
+                try{
+                    var res=mpLandmarker.detectForVideo(emoVideo,performance.now());
+                    if(res.faceLandmarks&&res.faceLandmarks.length&&res.faceLandmarks[0].length>473){
+                        var feat=extractGazeFeat(res.faceLandmarks[0],res.facialTransformationMatrixes);
+                        frames.push(feat);
+                    }
+                }catch(e){}
+            }
             fCount++;
             if(fCount>=15){
                 clearInterval(capTimer);
@@ -843,7 +844,7 @@ function startGazeCapture(){
             document.body.appendChild(v);
             emoVideo=v;
         }
-        loadMediaPipe(function(){runCalibration(C.gazeCal,onCalDone);});
+        loadMediaPipe(function(){if(mpLandmarker)runCalibration(C.gazeCal,onCalDone);});
     }
     navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"},audio:false})
     .then(initGazeStream)

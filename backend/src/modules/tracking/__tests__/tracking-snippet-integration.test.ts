@@ -432,3 +432,17 @@ describe('generateTrackingSnippet — emotion and gaze delivery', () => {
         expect(unloadHandler).toContain('flushGaze(true);');
     });
 });
+
+describe('generateTrackingSnippet — calibration overlay always closes', () => {
+    it('counts every calibration tick even when MediaPipe or the camera is not ready', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const capTimer = js.slice(js.indexOf('var capTimer=setInterval'), js.indexOf('fCount++;') + 'fCount++;'.length);
+        expect(capTimer).not.toContain('{return;}');
+        expect(capTimer).toContain('if(mpLandmarker&&emoVideo&&emoVideo.readyState>=2){');
+    });
+
+    it('does not open the calibration overlay when MediaPipe failed to load', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        expect(js).toContain('loadMediaPipe(function(){if(mpLandmarker)runCalibration(C.gazeCal,onCalDone);});');
+    });
+});

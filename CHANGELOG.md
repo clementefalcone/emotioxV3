@@ -5,6 +5,11 @@
 - **Fix.** The existing flush timer now also calls `flushEmotions()` and `flushGaze()`; `beforeunload` also flushes gaze. At most the last flush interval is lost.
 - **Tests.** `tracking-snippet-integration.test.ts`: periodic delivery and gaze flush on unload.
 
+### fix: Website Tracking calibration overlay could freeze over the client site
+- **Root cause.** In `runCalibration`, each capture tick returned early when MediaPipe or the camera was not ready, before `fCount++`, so a point never finished. The full-screen overlay (max `z-index`, no close button) stayed over the client's site forever — e.g. when MediaPipe failed and face-api was loaded as fallback.
+- **Fix.** Every tick counts; a point always ends after ~600 ms and, without enough samples, calibration closes with no gaze model. Calibration is not opened at all when MediaPipe did not load (face-api fallback has no gaze).
+- **Tests.** Calibration tick always counts; no calibration without MediaPipe.
+
 ---
 
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)
