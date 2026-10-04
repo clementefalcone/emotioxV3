@@ -25,6 +25,11 @@
 - **Fix.** The stored calibration only skips the calibration overlay; the camera and MediaPipe are always set up first.
 - **Tests.** Stored calibration opens the camera and samples without recalibrating; no stored calibration calibrates; no overlay without MediaPipe.
 
+### fix: Website Tracking kept the camera on while the visitor was away
+- **Root cause.** No code path ever stopped the camera tracks. Hiding the tab paused sampling but left the camera on indefinitely, and a new session after >30 s away kept reusing that stream (on iOS Safari it can be suspended in the background and never resume).
+- **Fix.** `releaseCamera` stops the tracks and removes the hidden video. It runs 30 s after the tab hides (cancelled on a brief switch) and again on return after a long absence, since background timers are throttled. The new session opens a fresh stream through `withCamera`.
+- **Tests.** Release stops the tracks and the next request opens a new stream; visibility handler schedules, cancels and forces the release.
+
 ---
 
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)

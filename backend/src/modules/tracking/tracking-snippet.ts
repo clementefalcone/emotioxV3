@@ -455,12 +455,14 @@ function startCapture(){
             flush(true);
             flushRrweb(true);
             flushEmotions(true);flushGaze(true);
+            cameraReleaseTimer=setTimeout(releaseCamera,30000);
         }else{
             // Tab regained focus
+            clearTimeout(cameraReleaseTimer);
             var away=Date.now()-hiddenAt;
             if(away>30000){
                 // Away >30s — start fresh session (old one already flushed)
-                stopEmotionCapture();flushEmoVideo();
+                stopEmotionCapture();flushEmoVideo();releaseCamera();
                 createSession();
             }else{
                 // Brief switch — resume existing session
@@ -817,6 +819,13 @@ function withCamera(cb){
         .catch(function(){openAtSize(i+1);});
     }
     openAtSize(0);
+}
+
+var cameraReleaseTimer=null;
+function releaseCamera(){
+    if(emoStream)emoStream.getTracks().forEach(function(t){t.stop();});
+    if(emoVideo)emoVideo.remove();
+    emoStream=null;emoVideo=null;
 }
 
 function startSampling(){

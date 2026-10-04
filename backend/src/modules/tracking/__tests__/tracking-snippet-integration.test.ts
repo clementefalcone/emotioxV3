@@ -478,12 +478,16 @@ describe('generateTrackingSnippet — one shared camera', () => {
         const source = js.slice(js.indexOf('var cameraWaiters=null;'), js.indexOf('function startSampling(){'));
         let resolveStream: (stream: object) => void = () => undefined;
         const getUserMedia = vi.fn(() => new Promise<object>((resolve) => { resolveStream = resolve; }));
-        const fakeDocument = { createElement: () => ({ setAttribute: () => undefined, style: {} }), body: { appendChild: () => undefined } };
-        const withCamera = new Function('C', 'isMobile', 'navigator', 'document',
-            `var emoVideo=null,emoStream=null;${source}return withCamera;`,
-        )({ gaze: true }, true, { mediaDevices: { getUserMedia } }, fakeDocument) as (cb: (stream: object) => void) => void;
-        return { withCamera, getUserMedia, resolveStream: (stream: object) => resolveStream(stream) };
+        const fakeDocument = { createElement: () => ({ setAttribute: () => undefined, style: {}, remove: () => undefined }), body: { appendChild: () => undefined } };
+        const { withCamera, releaseCamera } = new Function('C', 'isMobile', 'navigator', 'document',
+            `var emoVideo=null,emoStream=null;${source}return {withCamera:withCamera,releaseCamera:releaseCamera};`,
+        )({ gaze: true }, true, { mediaDevices: { getUserMedia } }, fakeDocument) as {
+            withCamera: (cb: (stream: object) => void) => void;
+            releaseCamera: () => void;
+        };
+        return { withCamera, releaseCamera, getUserMedia, resolveStream: (stream: object) => resolveStream(stream) };
     };
+    const flushPromises = async () => { await Promise.resolve(); await Promise.resolve(); };
 
     it('opens the camera once when emotions and gaze start together and gives both the same stream', async () => {
         const { withCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }));
@@ -492,12 +496,33 @@ describe('generateTrackingSnippet — one shared camera', () => {
         withCamera((stream) => received.push(stream));
         const stream = {};
         resolveStream(stream);
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromises();
         withCamera((s) => received.push(s));
 
         expect(getUserMedia).toHaveBeenCalledTimes(1);
         expect(received).toEqual([stream, stream, stream]);
+    });
+
+    it('turns the camera off on release and opens a fresh stream for the next session', async () => {
+        const { withCamera, releaseCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }));
+        const track = { stop: vi.fn() };
+        withCamera(() => undefined);
+        resolveStream({ getTracks: () => [track] });
+        await flushPromises();
+
+        releaseCamera();
+        withCamera(() => undefined);
+
+        expect(track.stop).toHaveBeenCalledTimes(1);
+        expect(getUserMedia).toHaveBeenCalledTimes(2);
+    });
+
+    it('releases the camera 30s after the tab hides and on return after a long absence', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const visibilityHandler = js.slice(js.indexOf('addEventListener("visibilitychange"'), js.indexOf('addEventListener("beforeunload"'));
+        expect(visibilityHandler).toContain('cameraReleaseTimer=setTimeout(releaseCamera,30000);');
+        expect(visibilityHandler).toContain('clearTimeout(cameraReleaseTimer);');
+        expect(visibilityHandler).toContain('stopEmotionCapture();flushEmoVideo();releaseCamera();');
     });
 });
 
