@@ -10,6 +10,11 @@
 - **Fix.** Every tick counts; a point always ends after ~600 ms and, without enough samples, calibration closes with no gaze model. Calibration is not opened at all when MediaPipe did not load (face-api fallback has no gaze).
 - **Tests.** Calibration tick always counts; no calibration without MediaPipe.
 
+### fix: Website Tracking captured emotions when captureEmotions was disabled
+- **Root cause.** `sampleFrame` runs for gaze too (mobile calibrated gaze, resumed sessions) and always computed and buffered emotions — MediaPipe FACS path and face-api fallback — regardless of `captureEmotions`, so `flushEmotions` sent data the client had not enabled.
+- **Fix.** Emotions are only computed when `C.emotions` is true, in both paths.
+- **Tests.** Both emotion paths are gated by `captureEmotions`.
+
 ---
 
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)

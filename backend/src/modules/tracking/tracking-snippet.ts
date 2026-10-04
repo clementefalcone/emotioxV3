@@ -909,6 +909,7 @@ function sampleFrame(){
     var ts=Date.now()-emoStartTime;
 
     if(useFaceApiFallback){
+        if(!C.emotions)return;
         // Legacy face-api.js path (no gaze)
         faceapi.detectSingleFace(emoVideo,new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.4}))
         .withFaceExpressions()
@@ -932,7 +933,7 @@ function sampleFrame(){
         var lm=res.faceLandmarks[0];
 
         // Emotion from FACS
-        var aus=extractAUs(lm);
+        var aus=C.emotions?extractAUs(lm):null;
         if(aus){
             var emo=classifyEmo(aus);
             emoBuf.push({timestamp:ts,emotion:emo.emotion,confidence:Math.round(emo.confidence*1000)/1000});

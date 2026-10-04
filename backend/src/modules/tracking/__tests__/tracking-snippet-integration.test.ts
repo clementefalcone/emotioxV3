@@ -446,3 +446,16 @@ describe('generateTrackingSnippet — calibration overlay always closes', () => 
         expect(js).toContain('loadMediaPipe(function(){if(mpLandmarker)runCalibration(C.gazeCal,onCalDone);});');
     });
 });
+
+describe('generateTrackingSnippet — emotions respect captureEmotions', () => {
+    it('only computes MediaPipe emotions when captureEmotions is enabled', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: false, captureGaze: true });
+        expect(js).toContain('var aus=C.emotions?extractAUs(lm):null;');
+    });
+
+    it('skips the face-api emotion fallback when captureEmotions is disabled', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: false, captureGaze: true });
+        const fallback = js.slice(js.indexOf('if(useFaceApiFallback){'), js.indexOf('faceapi.detectSingleFace'));
+        expect(fallback).toContain('if(!C.emotions)return;');
+    });
+});
