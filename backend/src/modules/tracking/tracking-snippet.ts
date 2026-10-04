@@ -794,10 +794,21 @@ var isMobile="ontouchstart"in window||navigator.maxTouchPoints>0;
 document.addEventListener("mousemove",function(e){lastCursorX=e.clientX;lastCursorY=e.clientY;},true);
 document.addEventListener("touchmove",function(e){var t=e.touches[0];if(t){lastCursorX=t.clientX;lastCursorY=t.clientY;}},true);
 
+function reportCaptureError(kind){
+    if(!sid)return;
+    try{
+        var xhr=new XMLHttpRequest();
+        xhr.open("POST",C.api+"/public/tracking/"+C.rid+"/capture-error",true);
+        xhr.setRequestHeader("Content-Type","application/json");
+        xhr.send(JSON.stringify({sessionId:sid,kind:kind}));
+    }catch(e){}
+}
+
 var cameraWaiters=null;
 function withCamera(cb){
     if(emoVideo){cb(emoStream);return;}
     if(cameraWaiters){cameraWaiters.push(cb);return;}
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){reportCaptureError("camera-unavailable");return;}
     cameraWaiters=[cb];
     var sizes=C.gaze&&isMobile?[[1280,720],[640,480]]:[[320,240]];
     function attach(stream){
@@ -811,11 +822,17 @@ function withCamera(cb){
         var waiters=cameraWaiters;cameraWaiters=null;
         waiters.forEach(function(w){w(stream);});
     }
+    function fail(err){
+        cameraWaiters=null;
+        reportCaptureError(err&&err.name==="NotAllowedError"?"camera-denied":"camera-unavailable");
+    }
     function openAtSize(i){
-        if(i>=sizes.length){cameraWaiters=null;return;}
         navigator.mediaDevices.getUserMedia({video:{width:{ideal:sizes[i][0]},height:{ideal:sizes[i][1]},facingMode:"user"},audio:false})
         .then(attach)
-        .catch(function(){openAtSize(i+1);});
+        .catch(function(err){
+            if(err&&err.name==="NotAllowedError"||i+1>=sizes.length){fail(err);return;}
+            openAtSize(i+1);
+        });
     }
     openAtSize(0);
 }
@@ -890,6 +907,7 @@ function loadMediaPipe(cb){
     .then(function(lm){mpLandmarker=lm;cb();})
     .catch(function(){
         // MediaPipe failed — fall back to face-api.js for emotions only
+        if(!mpLandmarker)reportCaptureError("mediapipe-failed");
         loadFaceApiFallback(cb);
     });
 }
@@ -905,9 +923,9 @@ function loadFaceApiFallback(cb){
         Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(C.emoModelUrl),
             faceapi.nets.faceExpressionNet.loadFromUri(C.emoModelUrl)
-        ]).then(cb).catch(function(){});
+        ]).then(cb,function(){reportCaptureError("face-models-failed");});
     };
-    sc.onerror=function(){};
+    sc.onerror=function(){reportCaptureError("face-models-failed");};
     document.head.appendChild(sc);
 }
 

@@ -474,18 +474,19 @@ describe('generateTrackingSnippet — emotions respect captureEmotions', () => {
 });
 
 describe('generateTrackingSnippet — one shared camera', () => {
-    const loadWithCamera = (js: string) => {
+    const loadWithCamera = (js: string, mediaDevices?: { getUserMedia: () => Promise<object> }) => {
         const source = js.slice(js.indexOf('var cameraWaiters=null;'), js.indexOf('function startSampling(){'));
         let resolveStream: (stream: object) => void = () => undefined;
         const getUserMedia = vi.fn(() => new Promise<object>((resolve) => { resolveStream = resolve; }));
+        const reportCaptureError = vi.fn();
         const fakeDocument = { createElement: () => ({ setAttribute: () => undefined, style: {}, remove: () => undefined }), body: { appendChild: () => undefined } };
-        const { withCamera, releaseCamera } = new Function('C', 'isMobile', 'navigator', 'document',
+        const { withCamera, releaseCamera } = new Function('C', 'isMobile', 'navigator', 'document', 'reportCaptureError',
             `var emoVideo=null,emoStream=null;${source}return {withCamera:withCamera,releaseCamera:releaseCamera};`,
-        )({ gaze: true }, true, { mediaDevices: { getUserMedia } }, fakeDocument) as {
+        )({ gaze: true }, true, { mediaDevices: mediaDevices ?? { getUserMedia } }, fakeDocument, reportCaptureError) as {
             withCamera: (cb: (stream: object) => void) => void;
             releaseCamera: () => void;
         };
-        return { withCamera, releaseCamera, getUserMedia, resolveStream: (stream: object) => resolveStream(stream) };
+        return { withCamera, releaseCamera, getUserMedia, reportCaptureError, resolveStream: (stream: object) => resolveStream(stream) };
     };
     const flushPromises = async () => { await Promise.resolve(); await Promise.resolve(); };
 
@@ -515,6 +516,43 @@ describe('generateTrackingSnippet — one shared camera', () => {
 
         expect(track.stop).toHaveBeenCalledTimes(1);
         expect(getUserMedia).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports camera-denied without retrying when the visitor refuses the permission', async () => {
+        const getUserMedia = vi.fn(() => Promise.reject(Object.assign(new Error('denied'), { name: 'NotAllowedError' })));
+        const { withCamera, reportCaptureError } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }), { getUserMedia });
+        withCamera(() => undefined);
+        await flushPromises();
+
+        expect(getUserMedia).toHaveBeenCalledTimes(1);
+        expect(reportCaptureError).toHaveBeenCalledWith('camera-denied');
+    });
+
+    it('tries every resolution before reporting camera-unavailable', async () => {
+        const getUserMedia = vi.fn(() => Promise.reject(Object.assign(new Error('busy'), { name: 'NotReadableError' })));
+        const { withCamera, reportCaptureError } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }), { getUserMedia });
+        withCamera(() => undefined);
+        await flushPromises();
+        await flushPromises();
+
+        expect(getUserMedia).toHaveBeenCalledTimes(2);
+        expect(reportCaptureError).toHaveBeenCalledWith('camera-unavailable');
+    });
+
+    it('reports camera-unavailable when the browser has no camera API', () => {
+        const { withCamera, reportCaptureError } = loadWithCamera(
+            generateTrackingSnippet({ ...defaultConfig, captureGaze: true }),
+            {} as { getUserMedia: () => Promise<object> },
+        );
+        expect(() => withCamera(() => undefined)).not.toThrow();
+        expect(reportCaptureError).toHaveBeenCalledWith('camera-unavailable');
+    });
+
+    it('reports model load failures for MediaPipe and face-api', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: true });
+        expect(js).toContain('if(!mpLandmarker)reportCaptureError("mediapipe-failed");');
+        expect(js).toContain('.then(cb,function(){reportCaptureError("face-models-failed");});');
+        expect(js).toContain('sc.onerror=function(){reportCaptureError("face-models-failed");};');
     });
 
     it('releases the camera 30s after the tab hides and on return after a long absence', () => {

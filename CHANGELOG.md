@@ -1,3 +1,13 @@
+## v0.97.0 — Website Tracking: visible capture failures (2026-10-04)
+
+### feat: Website Tracking records camera and model failures per session
+- **Why.** Camera permission denials, missing cameras and MediaPipe / face-api load failures were swallowed by the script, so a session without emotions or gaze was indistinguishable from a visitor who simply had no face data.
+- **Script.** `reportCaptureError(kind)` posts the failure for the current session: `camera-denied` (`NotAllowedError`, no resolution retry), `camera-unavailable` (all resolutions failed or no `mediaDevices`), `mediapipe-failed`, `face-models-failed`. Callback errors are not reported as load failures.
+- **Backend.** `POST /public/tracking/:id/capture-error` validates the kind against the `capture-errors.ts` dictionary (400), checks the session belongs to the research (404), logs `tracking_capture_error` as JSON and appends the kind to `tracking_sessions.capture_errors` atomically (`CONCAT_WS` + `FIND_IN_SET`, no duplicates). `getVisitorJourneys` returns `captureErrors` per page.
+- **Migration.** `035_add_capture_errors_to_tracking_sessions.sql` — nullable `VARCHAR(255)`, additive.
+- **Results.** Sessions tab shows an amber badge per failure on each journey page (`CaptureErrorBadges`), with a description on hover.
+- **Tests.** Controller (invalid kind, foreign session, structured log), dictionary parsing, script reporting (denied without retry, unavailable after every resolution, no camera API, model failures), badges.
+
 ## v0.96.13 — Website Tracking: emotion & gaze reliability (2026-10-04)
 
 ### fix: Website Tracking emotions and gaze were rarely delivered

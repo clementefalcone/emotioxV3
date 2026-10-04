@@ -48,6 +48,7 @@ vi.mock('../tracking.service', () => ({
     appendEmotionSamples: vi.fn().mockResolvedValue({ appended: 10 }),
     appendGazeSamples: vi.fn().mockResolvedValue({ appended: 20 }),
     saveEmotionVideo: vi.fn().mockResolvedValue({ saved: true }),
+    recordCaptureError: vi.fn().mockResolvedValue({ found: true }),
 }));
 
 vi.mock('../tracking-snippet', () => ({
@@ -120,6 +121,7 @@ import {
     saveEmotionVideo,
     savePageSnapshot,
     savePageScreenshotFromBase64,
+    recordCaptureError,
 } from '../tracking.service';
 import { generateTrackingSnippet, generateEmbedSnippet } from '../tracking-snippet';
 import { requireAuth } from '../../../utils/auth.local';
@@ -370,6 +372,37 @@ describe('handlePublicTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(201);
         expect(appendEmotionSamples).toHaveBeenCalledWith('s1', samples);
+    });
+
+    it('POST capture-error rejects a kind outside the dictionary', async () => {
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/capture-error', { body: { sessionId: 's1', kind: 'camera-broken' } }),
+        );
+        expect(res.statusCode).toBe(400);
+        expect(res.body).toContain('Invalid kind');
+        expect(recordCaptureError).not.toHaveBeenCalled();
+    });
+
+    it('POST capture-error returns 404 when the session is not in the research', async () => {
+        vi.mocked(recordCaptureError).mockResolvedValueOnce({ found: false });
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/capture-error', { body: { sessionId: 's9', kind: 'camera-denied' } }),
+        );
+        expect(res.statusCode).toBe(404);
+        expect(res.body).toContain('Session s9 not found in research r1');
+    });
+
+    it('POST capture-error records the kind and logs it as structured JSON', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/capture-error', { body: { sessionId: 's1', kind: 'mediapipe-failed' } }),
+        );
+        expect(res.statusCode).toBe(201);
+        expect(recordCaptureError).toHaveBeenCalledWith('r1', 's1', 'mediapipe-failed');
+        expect(JSON.parse(warn.mock.calls[0][0] as string)).toEqual({
+            event: 'tracking_capture_error', researchId: 'r1', sessionId: 's1', kind: 'mediapipe-failed',
+        });
+        warn.mockRestore();
     });
 
     it('POST gaze validates sessionId and samples', async () => {

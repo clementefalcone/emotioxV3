@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import pool from '../../config/database';
+import { parseCaptureErrors, type CaptureErrorKind } from './capture-errors';
 import { getMediaPath, ensureDirectoryExists } from '../../config/local-storage';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -818,7 +819,7 @@ export const getVisitorJourneys = async (researchId: string, limit = 20, offset 
     const sessionsResult = await pool.query(
         `SELECT ts.id, ts.visitor_id, ts.page_url, ts.page_title,
                 ts.started_at, ts.ended_at, ts.active_duration_ms, ts.rrweb_duration_ms,
-                ts.viewport_width, ts.user_agent,
+                ts.viewport_width, ts.user_agent, ts.capture_errors,
                 ts.rrweb_events IS NOT NULL as hasRrweb,
                 COUNT(te.id) as eventCount,
                 SUM(CASE WHEN te.event_type = 'click' THEN 1 ELSE 0 END) as clickCount
@@ -853,6 +854,7 @@ export const getVisitorJourneys = async (researchId: string, limit = 20, offset 
             eventCount: number;
             clickCount: number;
             hasRrweb: boolean;
+            captureErrors: CaptureErrorKind[];
         }>;
     }> = [];
 
@@ -899,6 +901,7 @@ export const getVisitorJourneys = async (researchId: string, limit = 20, offset 
             eventCount: Number(s.eventCount || 0),
             clickCount: Number(s.clickCount || 0),
             hasRrweb: !!s.hasRrweb,
+            captureErrors: parseCaptureErrors(s.capture_errors),
         });
         currentVisit!.totalDurationMs += durationMs;
         currentVisit!.sessionCount += 1;
@@ -1481,6 +1484,25 @@ export const appendEmotionSamples = async (
     );
 
     return { saved: samples.length };
+};
+
+export const recordCaptureError = async (
+    researchId: string,
+    sessionId: string,
+    kind: CaptureErrorKind
+): Promise<{ found: boolean }> => {
+    const session = await pool.query(
+        'SELECT id FROM tracking_sessions WHERE id = ? AND research_id = ?',
+        [sessionId, researchId]
+    );
+    if (session.rows.length === 0) return { found: false };
+
+    await pool.query(
+        `UPDATE tracking_sessions SET capture_errors = CONCAT_WS(',', capture_errors, ?)
+         WHERE id = ? AND FIND_IN_SET(?, COALESCE(capture_errors, '')) = 0`,
+        [kind, sessionId, kind]
+    );
+    return { found: true };
 };
 
 // ─── Gaze Attention Samples ─────────────────────────────────────────

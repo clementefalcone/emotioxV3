@@ -38,7 +38,9 @@ import {
     appendEmotionSamples,
     appendGazeSamples,
     saveEmotionVideo,
+    recordCaptureError,
 } from './tracking.service';
+import { isCaptureErrorKind, CAPTURE_ERROR_KINDS } from './capture-errors';
 import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippet';
 
 // ─── CORS helpers for public tracking (accepts ANY origin) ───────────
@@ -281,6 +283,21 @@ export const handlePublicTrackingRoutes = async (
             if (samples.length > 2000) return trackingError('Too many samples (max 2000)', 413);
             const result = await appendGazeSamples(sessionId, samples);
             return trackingSuccess(result, 201);
+        }
+
+        const captureErrorMatch = path.match(/^\/public\/tracking\/([^/]+)\/capture-error$/);
+        if (captureErrorMatch && httpMethod === 'POST') {
+            const researchId = captureErrorMatch[1];
+            let body: Record<string, unknown>;
+            try { body = JSON.parse(event.body || '{}'); } catch { return trackingError('Invalid JSON'); }
+            const sessionId = body.sessionId;
+            const kind = body.kind;
+            if (typeof sessionId !== 'string' || !sessionId) return trackingError('Missing sessionId');
+            if (!isCaptureErrorKind(kind)) return trackingError(`Invalid kind: expected one of ${CAPTURE_ERROR_KINDS.join(', ')}`);
+            const { found } = await recordCaptureError(researchId, sessionId, kind);
+            if (!found) return trackingError(`Session ${sessionId} not found in research ${researchId}`, 404);
+            console.warn(JSON.stringify({ event: 'tracking_capture_error', researchId, sessionId, kind }));
+            return trackingSuccess({ recorded: true }, 201);
         }
 
         // POST /public/tracking/:researchId/emotion-video — upload webcam recording
