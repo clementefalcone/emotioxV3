@@ -1,3 +1,11 @@
+## v0.97.2 — Enterprise SmartVOC access control (2026-10-04)
+
+### fix(security): enterprise SmartVOC ignored study ownership
+- **Root cause.** `GET /analytics/enterprise/:id/smartvoc` filtered only by `enterprise_id`, so any authenticated user could consolidate the SmartVOC results of every study of any enterprise, including studies they neither created nor collaborate on.
+- **Fix.** The route applies `buildOwnershipClause` (creator or collaborator; admin/viewer see all) on top of the enterprise filter, the same rule as `/analytics/smartvoc/consolidated`. Both now share `buildUserOwnership`.
+- **Verified on production data (read-only).** In an enterprise with 4 studies by 2 creators, a researcher went from 4 visible studies to their 3.
+- **Tests.** New `analytics.controller.test.ts`: researcher query is scoped by enterprise and ownership; admin sees the whole enterprise.
+
 ## v0.97.1 — Zero lint warnings (2026-10-04)
 
 ### chore(research): remove lint warnings

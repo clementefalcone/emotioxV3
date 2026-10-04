@@ -31,6 +31,11 @@ const collectSmartVOCResults = async (researchFilter: string, params: string[]) 
     return results;
 };
 
+const buildUserOwnership = async (userId: string) => {
+    const user = await authService.getMe(userId);
+    return buildOwnershipClause(user.id, user.role);
+};
+
 export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path, queryStringParameters: queryParams } = event;
     const origin = getRequestOrigin(event);
@@ -241,13 +246,16 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promis
 
         const enterpriseSmartVocMatch = path.match(/^\/analytics\/enterprise\/([^\/]+)\/smartvoc$/);
         if (enterpriseSmartVocMatch && httpMethod === 'GET') {
-            const results = await collectSmartVOCResults('r.enterprise_id = ?', [enterpriseSmartVocMatch[1]]);
+            const ownership = await buildUserOwnership(decoded.sub);
+            const results = await collectSmartVOCResults(
+                `r.enterprise_id = ? AND ${ownership.clause}`,
+                [enterpriseSmartVocMatch[1], ...ownership.params],
+            );
             return success({ results }, 200, undefined, origin);
         }
 
         if (path === '/analytics/smartvoc/consolidated' && httpMethod === 'GET') {
-            const user = await authService.getMe(decoded.sub);
-            const ownership = buildOwnershipClause(user.id, user.role);
+            const ownership = await buildUserOwnership(decoded.sub);
             const results = await collectSmartVOCResults(ownership.clause, ownership.params);
             return success({ results }, 200, undefined, origin);
         }
