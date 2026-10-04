@@ -10,6 +10,7 @@ import * as authService from '../auth/auth.service';
 import { getRequestOrigin } from '../../utils/request';
 import * as ceruleanClient from './client';
 import * as integrationService from './integration.service';
+import { canAccessResearch, researchNotFound } from '../research/research-access';
 
 export const handleCeruleanRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -18,6 +19,15 @@ export const handleCeruleanRoutes = async (event: APIGatewayProxyEvent): Promise
     try {
         const decoded = await requireAuth(event);
         const user = await authService.getMe(decoded.sub);
+
+        if (decoded.role === 'viewer' && httpMethod !== 'GET') {
+            return error('Viewer role is read-only', 403, undefined, origin);
+        }
+
+        const scopedResearch = path.match(/^\/cerulean\/research\/([^/]+)/);
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+            return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
+        }
 
         // GET /cerulean/status — check if integration is enabled + API reachable
         if (path === '/cerulean/status' && httpMethod === 'GET') {

@@ -10,6 +10,7 @@ import { requireAuth } from '../../utils/auth.local';
 import { getRequestOrigin } from '../../utils/request';
 import { analyzeInsights } from './insights.service';
 import pool from '../../config/database';
+import { canAccessResearch, researchNotFound } from '../research/research-access';
 
 interface FileItem {
     mediaId: string;
@@ -80,7 +81,16 @@ export const handleInsightsRoutes = async (
     const origin = getRequestOrigin(event);
 
     try {
-        await requireAuth(event);
+        const decoded = await requireAuth(event);
+
+        if (decoded.role === 'viewer' && httpMethod !== 'GET') {
+            return error('Viewer role is read-only', 403, undefined, origin);
+        }
+
+        const scopedResearch = path.match(/^\/insights\/research\/([^/]+)/);
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+            return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
+        }
 
         // POST /insights/research/:researchId/analyze/:fileMediaId
         const analyzeMatch = path.match(

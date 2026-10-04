@@ -1,5 +1,10 @@
 ## v0.97.6 — Security: study access in AI and integration modules (2026-10-04)
 
+### fix(security): any user could run Insights or Cerulean certification on another study
+- **Root cause.** `/insights/research/:id/...` and `/cerulean/research/:id/...` only required a session: any user could re-run paid LLM analysis that overwrites another study's config, certify it on Cerulean or read its certificate. Viewers could write.
+- **Fix.** Both controllers apply the study access guard (Insights already looks the file up inside the study's own config) and keep viewers read-only.
+- **Tests.** `insights/__tests__/studyAccess.test.ts`: foreign analyze, certify and certificate → 404 with no side effect; viewer analyze → 403.
+
 ### fix(security): any user could run predictions and AI analysis on another study
 - **Root cause.** The 7 `/attention-prediction/research/:id/...` routes only required a session: any user could start CPU-heavy TranSalNet/DINO jobs and paid LLM analysis on another study and overwrite its `config.stimuli`. Viewers could trigger them too.
 - **Fix.** The study access guard runs before every route (media and modules were already checked against the path's study); viewers are read-only.
