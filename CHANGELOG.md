@@ -5,10 +5,10 @@
 - `ExecutiveSummaryPanel` print callback no longer lists `researchId`; `PreferenceTestResultsWrapper` drops an unused `eslint-disable`.
 - `DashboardPage` trends: the `useMemo`s depended on arrays rebuilt every render, so they never memoized; replaced by a plain `monthOverMonthTrend`.
 
-### fix(participant): Enter key could stay blocked after answering
-- **Root cause.** The Enter → continue effect in `ResearchPage` read `buttonDisabled` but did not list it as a dependency. `buttonDisabled` changes when the participant answers, while the listed dependencies (`handleNext`, `currentModule`, store actions) stay stable, so the listener kept the stale "disabled" value.
-- **Fix.** `useEnterToContinue(canContinue, onContinue)` receives the current state each render and re-registers when it changes. Textareas keep Enter for new lines.
-- **Tests.** Enter continues once allowed; Enter inside a textarea does not continue.
+### refactor(participant): Enter to continue declares what it reads
+- **Correction.** v0.97.1 first described this as a bug ("Enter could stay blocked after answering"). An integration test proved otherwise: the old effect read `buttonDisabled` without listing it, but answering also changes `goNext` (it depends on `validateStep` and `steps`), which changes `handleNext` and re-registered the listener. It worked by coincidence, not by declaration.
+- **Change.** `useEnterToContinue(canContinue, onContinue)` receives the current state each render, so it no longer depends on that coincidence. Textareas keep Enter for new lines.
+- **Tests.** Hook: Enter continues once allowed; Enter inside a textarea does not continue. `ResearchPage.enterKey.test.tsx` mounts the real page (preview, two Short Text questions, real participant store): Enter does nothing before answering and moves to the next question right after answering. It passes on both the old and the new page, documenting that behavior was already correct.
 
 ### chore(participant): remove unused props and variables
 - `CalibrationPhase` no longer takes `resolvedUrl`, `imgRef`, `onImageLoad`, `shelfConfig`; `SessionQualityGate` no longer takes `earRef`, `frameStatsGetter` (received but never read). Removed an unused import and variable in gaze tests.
