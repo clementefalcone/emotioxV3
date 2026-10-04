@@ -42,6 +42,7 @@ import {
 } from './tracking.service';
 import { isCaptureErrorKind, CAPTURE_ERROR_KINDS } from './capture-errors';
 import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippet';
+import { fetchPublicUrl, BlockedUrlError } from './public-fetch';
 
 // ─── CORS helpers for public tracking (accepts ANY origin) ───────────
 
@@ -324,10 +325,7 @@ export const handlePublicTrackingRoutes = async (
             if (!assetUrl) return trackingError('Missing url parameter');
 
             try {
-                const response = await fetch(assetUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EmotioCX/1.0)' },
-                    redirect: 'follow',
-                });
+                const response = await fetchPublicUrl(assetUrl);
                 const contentType = response.headers.get('content-type') || 'application/octet-stream';
                 const isText = contentType.includes('text/') || contentType.includes('css') || contentType.includes('javascript') || contentType.includes('json');
 
@@ -389,7 +387,8 @@ export const handlePublicTrackingRoutes = async (
                     body: Buffer.from(arrayBuf).toString('base64'),
                     isBase64Encoded: true,
                 };
-            } catch {
+            } catch (err) {
+                if (err instanceof BlockedUrlError) return trackingError(err.message);
                 return trackingError('Failed to fetch asset');
             }
         }
@@ -464,10 +463,7 @@ export const handleTrackingRoutes = async (
             if (!pageUrl) return error('Missing url parameter', 400, undefined, origin);
 
             try {
-                const response = await fetch(pageUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EmotioCX/1.0)' },
-                    redirect: 'follow',
-                });
+                const response = await fetchPublicUrl(pageUrl);
                 let html = await response.text();
 
                 // Extract origin for <base> tag
@@ -537,7 +533,8 @@ export const handleTrackingRoutes = async (
                     },
                     body: html,
                 };
-            } catch (e) {
+            } catch (err) {
+                if (err instanceof BlockedUrlError) return error(err.message, 400, undefined, origin);
                 return error('Failed to fetch page', 502, undefined, origin);
             }
         }
@@ -551,10 +548,7 @@ export const handleTrackingRoutes = async (
             if (!assetUrl) return error('Missing url parameter', 400, undefined, origin);
 
             try {
-                const response = await fetch(assetUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EmotioCX/1.0)' },
-                    redirect: 'follow',
-                });
+                const response = await fetchPublicUrl(assetUrl);
                 const contentType = response.headers.get('content-type') || 'application/octet-stream';
                 const isText = contentType.includes('text/') || contentType.includes('css') || contentType.includes('javascript') || contentType.includes('json');
 
@@ -620,7 +614,8 @@ export const handleTrackingRoutes = async (
                     body: Buffer.from(arrayBuf).toString('base64'),
                     isBase64Encoded: true,
                 };
-            } catch {
+            } catch (err) {
+                if (err instanceof BlockedUrlError) return error(err.message, 400, undefined, origin);
                 return error('Failed to fetch asset', 502, undefined, origin);
             }
         }
