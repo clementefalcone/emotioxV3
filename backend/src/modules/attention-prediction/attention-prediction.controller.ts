@@ -25,6 +25,7 @@ import { isTasedServiceAvailable } from './tased-client';
 import { registerJob, broadcastProgress, removeJob } from './video-prediction-jobs';
 import pool from '../../config/database';
 import crypto from 'crypto';
+import { canAccessResearch, researchNotFound } from '../research/research-access';
 
 /**
  * Runs the unified hybrid prediction pipeline:
@@ -245,7 +246,16 @@ export const handleAttentionPredictionRoutes = async (
     const origin = getRequestOrigin(event);
 
     try {
-        await requireAuth(event);
+        const decoded = await requireAuth(event);
+
+        if (decoded.role === 'viewer' && httpMethod !== 'GET') {
+            return error('Viewer role is read-only', 403, undefined, origin);
+        }
+
+        const scopedResearch = path.match(/^\/attention-prediction\/research\/([^/]+)/);
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+            return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
+        }
 
         // POST /attention-prediction/research/:researchId/predict/:mediaId
         // Fire-and-forget — avoids cPanel/proxy timeout (~60s) on TranSalNet + hybrid fusion

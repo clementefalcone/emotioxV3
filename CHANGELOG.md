@@ -1,3 +1,10 @@
+## v0.97.6 — Security: study access in AI and integration modules (2026-10-04)
+
+### fix(security): any user could run predictions and AI analysis on another study
+- **Root cause.** The 7 `/attention-prediction/research/:id/...` routes only required a session: any user could start CPU-heavy TranSalNet/DINO jobs and paid LLM analysis on another study and overwrite its `config.stimuli`. Viewers could trigger them too.
+- **Fix.** The study access guard runs before every route (media and modules were already checked against the path's study); viewers are read-only.
+- **Tests.** `attention-prediction.access.test.ts`: foreign predict/analyze → 404 with no query or AI call; viewer → 403.
+
 ## v0.97.5 — Security: study access in every module (2026-10-04)
 
 ### refactor(research): one study access guard
