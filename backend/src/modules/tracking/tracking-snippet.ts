@@ -150,7 +150,7 @@ function push(evt){
 function flush(useBeacon){
     if(!buf.length||!sid||flushing)return;
     flushing=true;
-    var batch=buf.splice(0,C.max);
+    var batch=buf.splice(0,buf.length);
     var totalActive=activeMs+(activeStart>0?Date.now()-activeStart:0);
     var body=JSON.stringify({sessionId:sid,events:batch,activeDurationMs:totalActive});
     var url=C.api+"/public/tracking/"+C.rid+"/events";
@@ -161,7 +161,6 @@ function flush(useBeacon){
         xhr.send(body);
     }catch(e){}
     flushing=false;
-    if(buf.length>0)setTimeout(flush,100);
 }
 
 // ─── rrweb Event Queue ───────────────────────────────────────────────
@@ -195,7 +194,7 @@ function createSession(){
     if(pageStart&&Date.now()-pageStart<2000){
         push({eventType:"pageview",metadata:{friction:"speed-browsing"}});
     }
-    if(sid){flush();flushRrweb();}
+    if(sid){flush();flushRrweb();flushEmotions();flushGaze();}
     sid=null;
     pageStart=Date.now();
     activeMs=0;
@@ -1049,12 +1048,13 @@ function flushEmoVideo(){
     if(!emoChunks.length||!sid||!C.emoVideo)return;
     var blob=new Blob(emoChunks,{type:"video/webm"});
     emoChunks=[];
+    var sessionId=sid;
     // Convert to base64 and POST (best-effort, async)
     var reader=new FileReader();
     reader.onloadend=function(){
         var b64=reader.result.split(",")[1];
         if(!b64||b64.length>20971520)return; // 15MB cap
-        var body=JSON.stringify({sessionId:sid,video:b64});
+        var body=JSON.stringify({sessionId:sessionId,video:b64});
         var url=C.api+"/public/tracking/"+C.rid+"/emotion-video";
         try{
             var xhr=new XMLHttpRequest();

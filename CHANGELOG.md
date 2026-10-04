@@ -30,6 +30,11 @@
 - **Fix.** `releaseCamera` stops the tracks and removes the hidden video. It runs 30 s after the tab hides (cancelled on a brief switch) and again on return after a long absence, since background timers are throttled. The new session opens a fresh stream through `withCamera`.
 - **Tests.** Release stops the tracks and the next request opens a new stream; visibility handler schedules, cancels and forces the release.
 
+### fix: Website Tracking data landed in the wrong session or was lost
+- **Root cause.** `flush` sent only `maxEventsPerFlush` events and rescheduled the rest with `setTimeout`, which read the global `sid` later: on an SPA navigation it had already switched (events attributed to the next page) and on unload it never ran (events lost). `createSession` did not flush emotions or gaze, so their buffers went out with the new session id. `flushEmoVideo` read `sid` inside the async `FileReader` callback, after `createSession` had cleared it.
+- **Fix.** `flush` sends the whole buffer (the endpoint has no batch limit; `maxEventsPerFlush` still triggers an early flush). `createSession` flushes emotions and gaze before switching. `flushEmoVideo` captures the session id before reading the blob.
+- **Tests.** One flush sends every event; the emotion video keeps its session after a switch; session switch flushes emotions and gaze.
+
 ---
 
 ## v0.96.12 — Eye Tracking emotions, consecutive modules, real validation (2026-10-03)

@@ -543,3 +543,53 @@ describe('generateTrackingSnippet — mobile gaze with a stored calibration', ()
         expect(startGazeSampling).not.toHaveBeenCalled();
     });
 });
+
+describe('generateTrackingSnippet — pending data stays with its session', () => {
+    const extractFunction = (js: string, name: string) => {
+        const start = js.indexOf(`function ${name}(`);
+        return js.slice(start, js.indexOf('\nfunction ', start + 1));
+    };
+    const fakeXhr = () => {
+        const bodies: Array<Record<string, unknown>> = [];
+        function FakeXMLHttpRequest(this: { open: () => void; setRequestHeader: () => void; send: (b: string) => void }) {
+            this.open = () => undefined;
+            this.setRequestHeader = () => undefined;
+            this.send = (b: string) => { bodies.push(JSON.parse(b)); };
+        }
+        return { FakeXMLHttpRequest, bodies };
+    };
+
+    it('sends every buffered event in one flush, not only the first maxEventsPerFlush', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, maxEventsPerFlush: 2 });
+        const { FakeXMLHttpRequest, bodies } = fakeXhr();
+        new Function('C', 'XMLHttpRequest',
+            `var sid="old",buf=[{a:1},{a:2},{a:3},{a:4},{a:5}],flushing=false,activeMs=0,activeStart=0;${extractFunction(js, 'flush')}flush();`,
+        )({ max: 2, api: 'https://api', rid: 'r' }, FakeXMLHttpRequest);
+
+        expect(bodies).toHaveLength(1);
+        expect(bodies[0].sessionId).toBe('old');
+        expect(bodies[0].events).toHaveLength(5);
+    });
+
+    it('sends the emotion video with the session it was recorded in', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, emotionVideoEnabled: true });
+        const { FakeXMLHttpRequest, bodies } = fakeXhr();
+        const readers: Array<{ onloadend: () => void; result: string }> = [];
+        function FakeFileReader(this: { readAsDataURL: () => void; onloadend: () => void; result: string }) {
+            this.readAsDataURL = () => { this.result = 'data:video/webm;base64,AAAA'; readers.push(this); };
+        }
+        const switchSession = new Function('C', 'XMLHttpRequest', 'FileReader', 'Blob',
+            `var sid="old",emoChunks=[{}];${extractFunction(js, 'flushEmoVideo')}flushEmoVideo();return function(){sid="new";};`,
+        )({ emoVideo: true, api: 'https://api', rid: 'r' }, FakeXMLHttpRequest, FakeFileReader, function Blob() { return {}; });
+
+        switchSession();
+        readers[0].onloadend();
+
+        expect(bodies[0].sessionId).toBe('old');
+    });
+
+    it('flushes emotions and gaze before switching to a new session', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        expect(extractFunction(js, 'createSession')).toContain('if(sid){flush();flushRrweb();flushEmotions();flushGaze();}');
+    });
+});
