@@ -31,7 +31,7 @@ const mockBlazeGaze = {
     trainRidge: vi.fn().mockResolvedValue(undefined),
 };
 vi.mock('../../hooks/useBlazeGaze', () => ({
-    useBlazeGaze: () => mockBlazeGaze,
+    useBlazeGaze: () => ({ ...mockBlazeGaze }),
 }));
 
 const mockMPGaze = {
@@ -309,6 +309,46 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
 
         expect(Number(getByTestId('validation-phase').getAttribute('data-rmse'))).toBeGreaterThan(1000);
         expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(3);
+    });
+
+    it('leaves "Starting camera" for calibration while gaze updates re-render every 200ms', async () => {
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        const module = makeModule('false');
+        const onComplete = vi.fn();
+        const { getByTestId, queryByTestId, rerender } = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+        fireEvent.click(getByTestId('intro-next'));
+        fireEvent.click(getByTestId('setup-ready'));
+        fireEvent.click(getByTestId('qg-pass'));
+
+        for (let elapsedMs = 0; elapsedMs < 2400; elapsedMs += 200) {
+            rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+            await act(async () => { vi.advanceTimersByTime(200); });
+        }
+
+        expect(queryByTestId('preparing-phase')).toBeNull();
+        expect(queryByTestId('calibration-phase')).not.toBeNull();
+    });
+
+    it('advances a calibration point on its own after looking at it while gaze updates re-render every 200ms', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 40, y: 30 } } as unknown as typeof mockMPGaze.gazePosRef;
+        const module = makeModule('false');
+        const onComplete = vi.fn();
+        const { getByTestId, rerender } = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+        fireEvent.click(getByTestId('intro-next'));
+        fireEvent.click(getByTestId('setup-ready'));
+        fireEvent.click(getByTestId('qg-pass'));
+        await act(async () => { vi.advanceTimersByTime(2100); });
+        expect(getByTestId('calibration-phase')).not.toBeNull();
+
+        for (let elapsedMs = 0; elapsedMs < 1400; elapsedMs += 200) {
+            rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+            await act(async () => { vi.advanceTimersByTime(200); });
+        }
+
+        expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(1);
     });
 
     it('getSamples() is wired to save payload via faceEmotions mock', () => {

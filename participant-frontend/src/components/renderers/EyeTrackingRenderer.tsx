@@ -606,14 +606,14 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }, 2000);
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
-    }, [phase, startCamera, cachedCalibration, blaze, viewingDuration]);
+    }, [phase, startCamera, cachedCalibration, viewingDuration]);
 
     // Start BlazeGaze early in quality-gate so face detection check can use gazeState
     useEffect(() => {
         if (phase !== 'quality-gate') return;
         gaze.start();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
-    }, [phase, blaze]);
+    }, [phase]);
 
     // Run gaze engine during calibration (gaze samples for IDW residuals) and through viewing
     useEffect(() => {
@@ -631,7 +631,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }, 2000);
         return () => clearTimeout(resCheckTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
-    }, [phase, blaze]);
+    }, [phase]);
 
     // Save results when complete
     useEffect(() => {
@@ -962,7 +962,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         dwellTimerRef.current = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(dwellTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop
-    }, [phase, calibrationIndex, blaze, viewingDuration, isPreviewMode]);
+    }, [phase, calibrationIndex, viewingDuration, isPreviewMode]);
 
     /** Tap/click on a calibration point trains the model with the current gaze, same as a completed dwell. */
     const handleCalibrationClick = () => {
@@ -1072,7 +1072,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         validationRafRef.current = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(validationRafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop
-    }, [phase, validationIndex, validationRmse, blaze, viewingDuration, validationPointErrors]);
+    }, [phase, validationIndex, validationRmse, viewingDuration, validationPointErrors]);
 
     /** Tap/click on a validation point measures the current gaze error, same as a completed dwell. */
     const handleValidationDwellComplete = () => {

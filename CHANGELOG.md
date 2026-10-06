@@ -1,3 +1,11 @@
+## v0.97.13 — Eye Tracking: stuck on "Starting camera", automatic advance never fired (2026-10-06)
+
+### fix(eye-tracking): participants stuck on "Starting camera" while their face was visible
+- **Root cause.** The "preparing" phase advances to calibration with a 2 s timer inside an effect that listed `blaze` (the object returned by `useBlazeGaze`, new on every render) as a dependency. Once the quality gate starts MediaPipe, gaze state updates re-render the renderer every 200 ms while a face is detected, so the effect was torn down and the timer restarted before it could fire. It only advanced after ~2 s without a detected face, hence "stuck at times". The calibration effect had the same dependency, so its 2 s low-resolution camera warning never fired either.
+- **Same cause in the dwell loops.** The calibration and validation dwell loops reset their dwell timer on every re-run, so a point never completed its 1 s (calibration) or 0.8 s (validation) of steady gaze: participants could only advance by tapping, and validation did not say so.
+- **Fix.** `blaze` removed from the dependencies of the preparing, quality-gate, calibration and both dwell effects (none of them read it).
+- **Tests.** `EyeTrackingRenderer.emotionCapture.test.tsx`, with re-renders every 200 ms: "Starting camera" moves to calibration, and steady gaze on a calibration point advances it with no tap (both failed before the fix). The `useBlazeGaze` mock now returns a new object per render, like the real hook.
+
 ## v0.97.12 — Website Tracking: emotion timestamps after tab switches (2026-10-06)
 
 ### fix(tracking): emotion and gaze timestamps restarted at 0 after a tab switch
