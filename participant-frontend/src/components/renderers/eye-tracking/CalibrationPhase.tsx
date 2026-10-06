@@ -9,7 +9,6 @@ interface CalibrationPhaseProps {
     calibrationIndex: number;
     dwellStartedAt: number | null;
     dwellDurationMs: number;
-    onCalibrationClick: () => void;
     cameraRef?: React.RefObject<HTMLVideoElement | null>;
     calibrationAreaRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -18,7 +17,6 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
     calibrationIndex,
     dwellStartedAt,
     dwellDurationMs,
-    onCalibrationClick,
     cameraRef,
     calibrationAreaRef,
 }) => {
@@ -44,51 +42,25 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
         return () => clearInterval(check);
     }, [cameraRef]);
 
-    const lastAdvanceRef = useRef(0);
-
-    const advance = () => {
-        const now = Date.now();
-        if (now - lastAdvanceRef.current < 300) return;
-        lastAdvanceRef.current = now;
-        onCalibrationClick();
-    };
-
-    const handleClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        e.nativeEvent.stopImmediatePropagation();
-        advance();
-    };
-
-    const handleTouch = (e: React.TouchEvent) => {
-        e.stopPropagation();
-        advance();
-    };
-
     return (
-        <div
-            className="fixed inset-0 z-50 flex flex-col bg-white"
-            onClickCapture={handleClick}
-            onTouchEnd={handleTouch}
-        >
+        <div className="fixed inset-0 z-50 flex flex-col bg-white">
             <div className="flex flex-col items-center gap-2" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
                 <StepProgressPill step={2} total={TOTAL_STEPS} percent={calibrationPercent} />
                 <h2 className="text-lg font-bold text-gray-900 mt-2">
-                    {t('eyeTracking.dwellInstruction', 'Keep looking at the dot until it moves on by itself')}
+                    {t('eyeTracking.calibrationTimedInstruction', 'Look at each dot until the ring fills')}
                 </h2>
                 <p className="text-sm text-gray-500">
                     {t('eyeTracking.pointOf', 'Punto {{current}} de {{total}}', {
                         current: calibrationIndex + 1,
                         total: HYBRID_CALIB_POINT_COUNT,
                     })}
-                    {' — '}
-                    {t('eyeTracking.dwellTapFallback', 'if it does not move, tap or click the screen')}
                 </p>
             </div>
 
             <div ref={calibrationAreaRef} className="flex-1 relative">
                 {calDotImagePct && (
                     <div
-                        className="absolute z-10 w-10 h-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green-500 shadow-lg shadow-green-500/30 cursor-pointer"
+                        className="absolute z-10 w-10 h-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green-500 shadow-lg shadow-green-500/30"
                         style={{ left: `${calDotImagePct[0]}%`, top: `${calDotImagePct[1]}%` }}
                     >
                         <div className="absolute inset-0 rounded-full border-2 border-green-300 animate-ping opacity-75" />

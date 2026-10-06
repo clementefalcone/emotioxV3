@@ -179,6 +179,7 @@
     "loadingModel": "Cargando modelo de mirada...",
     "preparingCamera": "Iniciando cámara...",
     "gazePointsRecorded": "{{count}} muestras de mirada registradas.",
+    "calibrationTimedInstruction": "Mira cada punto hasta que el anillo se llene",
     "dwellInstruction": "Mira el punto fijo hasta que avance solo",
     "dwellTapFallback": "si no avanza, toca la pantalla o haz clic",
     "validationHint": "Mira el punto amarillo y haz clic en cualquier lugar para verificar la calibración.",

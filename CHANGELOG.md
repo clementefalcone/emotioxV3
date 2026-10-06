@@ -1,3 +1,10 @@
+## v0.97.15 — Eye Tracking: calibration points advance on a timer (2026-10-06)
+
+### fix(eye-tracking): calibration points rarely advanced on their own
+- **Root cause.** Calibration advanced after 1 s of "gaze" within 280 px of the dot, but before the model is trained `useMediaPipeGaze` emits the iris position inside the camera frame mapped to the screen: it follows the head, not the eyes. Moving the eyes to a dot did not move it, so the ring started and reset with head motion and corner points almost never completed. Found in a mobile test on study `edee0a59` (participant had to tap every point).
+- **Fix.** Each calibration point is recorded after 2.5 s while the face is detected (shorter felt rushed and dizzying in testing); without a face the ring restarts on the same point. Tapping no longer advances calibration (a tap moves the hand and head and the finger covers the dot). The instruction reads "Look at each dot until the ring fills" (`calibrationTimedInstruction`, ES/EN). Validation is unchanged: the model is trained by then, so it keeps advancing on steady gaze with tap as fallback.
+- **Tests.** `EyeTrackingRenderer.emotionCapture.test.tsx`: a point is recorded after 2.5 s (not at 2.4 s) with the uncalibrated gaze far from the dot and no tap (failed before the fix), and is not recorded while no face is detected.
+
 ## v0.97.14 — Eye Tracking: calibration says it advances on its own (2026-10-06)
 
 ### feat(eye-tracking): one instruction and a progress ring for calibration and validation

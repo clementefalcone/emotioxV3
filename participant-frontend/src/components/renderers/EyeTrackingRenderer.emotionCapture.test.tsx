@@ -140,8 +140,8 @@ vi.mock('./eye-tracking/PreparingPhase', () => ({
     PreparingPhase: () => <div data-testid="preparing-phase" />,
 }));
 vi.mock('./eye-tracking/CalibrationPhase', () => ({
-    CalibrationPhase: ({ calibrationAreaRef, onCalibrationClick, dwellStartedAt }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; onCalibrationClick: () => void; dwellStartedAt: number | null }) => (
-        <div data-testid="calibration-phase" data-dwelling={String(dwellStartedAt !== null)} ref={calibrationAreaRef} onClick={onCalibrationClick} />
+    CalibrationPhase: ({ calibrationAreaRef, dwellStartedAt }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; dwellStartedAt: number | null }) => (
+        <div data-testid="calibration-phase" data-dwelling={String(dwellStartedAt !== null)} ref={calibrationAreaRef} />
     ),
 }));
 vi.mock('./eye-tracking/ValidationPhase', () => ({
@@ -300,7 +300,7 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         fireEvent.click(getByTestId('qg-pass'));
         await act(async () => { vi.advanceTimersByTime(2100); });
         for (let point = 0; point < 3; point++) {
-            await act(async () => { fireEvent.click(getByTestId('calibration-phase')); });
+            await act(async () => { vi.advanceTimersByTime(2500); });
         }
         await act(async () => { vi.advanceTimersByTime(500); });
         for (let point = 0; point < 2; point++) {
@@ -329,30 +329,45 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(queryByTestId('calibration-phase')).not.toBeNull();
     });
 
-    it('advances a calibration point on its own after looking at it while gaze updates re-render every 200ms', async () => {
+    const reachCalibration = async () => {
         vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
         rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
-        mockMPGaze.gazeState = 'open';
-        mockMPGaze.gazePosRef = { current: { x: 40, y: 30 } } as unknown as typeof mockMPGaze.gazePosRef;
         const module = makeModule('false');
         const onComplete = vi.fn();
-        const { getByTestId, rerender } = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
-        fireEvent.click(getByTestId('intro-next'));
-        fireEvent.click(getByTestId('setup-ready'));
-        fireEvent.click(getByTestId('qg-pass'));
+        const rendered = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+        fireEvent.click(rendered.getByTestId('intro-next'));
+        fireEvent.click(rendered.getByTestId('setup-ready'));
+        fireEvent.click(rendered.getByTestId('qg-pass'));
         await act(async () => { vi.advanceTimersByTime(2100); });
-        expect(getByTestId('calibration-phase').getAttribute('data-dwelling')).toBe('false');
+        const rerenderEvery200ms = async (durationMs: number) => {
+            for (let elapsedMs = 0; elapsedMs < durationMs; elapsedMs += 200) {
+                rendered.rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+                await act(async () => { vi.advanceTimersByTime(200); });
+            }
+        };
+        return { ...rendered, rerenderEvery200ms };
+    };
 
-        rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
-        await act(async () => { vi.advanceTimersByTime(200); });
+    it('records a calibration point after 2.5 s with no tap, wherever the uncalibrated gaze points', async () => {
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 2000, y: 2000 } } as unknown as typeof mockMPGaze.gazePosRef;
+        const { getByTestId, rerenderEvery200ms } = await reachCalibration();
         expect(getByTestId('calibration-phase').getAttribute('data-dwelling')).toBe('true');
 
-        for (let elapsedMs = 200; elapsedMs < 1400; elapsedMs += 200) {
-            rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
-            await act(async () => { vi.advanceTimersByTime(200); });
-        }
+        await rerenderEvery200ms(2400);
+        expect(mockMPGaze.calibrate).not.toHaveBeenCalled();
 
+        await rerenderEvery200ms(200);
         expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the calibration point while the face is not detected', async () => {
+        mockMPGaze.gazeState = 'closed';
+        const { rerenderEvery200ms } = await reachCalibration();
+
+        await rerenderEvery200ms(5200);
+
+        expect(mockMPGaze.calibrate).not.toHaveBeenCalled();
     });
 
     it('getSamples() is wired to save payload via faceEmotions mock', () => {

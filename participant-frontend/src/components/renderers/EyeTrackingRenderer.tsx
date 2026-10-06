@@ -839,27 +839,9 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }
     }, []);
 
-    // --- Dwell-based calibration (Fase B) ---
-    // Desktop: auto-advance after 1.5s of stable gaze near the calibration dot.
-    // Collects gaze samples during the dwell and calls gaze.calibrate() multiple times.
-    // Mobile: falls back to single click.
-
-    /** Dwell detection threshold (ms) — dot disappears after this duration of stable fixation. */
-    const DWELL_THRESHOLD_MS = 1000;
-    /** Number of gaze.calibrate() calls per point (averaged gaze during dwell). */
+    const CALIBRATION_POINT_MS = 2500;
     const CALIBRATE_CALLS_PER_POINT = 3;
-    /** Max distance (px) from dot to accept gaze as "looking at dot".
-     *  Generous: webcam jitter is ~80-120px, so 280px allows natural noise. */
-    const DWELL_PROXIMITY_PX = 280;
-    /** Grace period (ms) — gaze can leave proximity briefly without resetting dwell.
-     *  Absorbs blink/jitter spikes that would otherwise break the dwell timer. */
-    const DWELL_GRACE_MS = 250;
-
-    const dwellStartRef = useRef<number | null>(null);
-    const dwellSamplesRef = useRef<{ x: number; y: number }[]>([]);
-    const dwellTimerRef = useRef(0);
-    /** Timestamp when gaze last left proximity (null = currently inside). */
-    const dwellExitTimeRef = useRef<number | null>(null);
+    const calibrationTimerRef = useRef(0);
     const [dwellStartedAt, setDwellStartedAt] = useState<number | null>(null);
 
     const getCalibrationDot = (idx: number) => {
@@ -912,70 +894,26 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }
     };
 
-    // Dwell loop during calibration: auto-advance after stable gaze near the dot
     useEffect(() => {
         if (phase !== 'calibration') return;
 
-        dwellStartRef.current = null;
-        dwellSamplesRef.current = [];
-        dwellExitTimeRef.current = null;
-        setDwellStartedAt(null);
-
-        const loop = () => {
-            const dot = getCalibrationDot(calibrationIndex);
-            if (!dot) { dwellTimerRef.current = requestAnimationFrame(loop); return; }
-
-            const [gx, gy] = gazePosRef.current;
-            const dist = Math.sqrt((gx - dot.x) ** 2 + (gy - dot.y) ** 2);
-            const now = performance.now();
-
-            if (dist <= DWELL_PROXIMITY_PX && gazeStateRef.current === 'open') {
-                dwellExitTimeRef.current = null;
-
-                if (dwellStartRef.current === null) {
-                    dwellStartRef.current = now;
-                    dwellSamplesRef.current = [];
-                    setDwellStartedAt(now);
-                }
-                dwellSamplesRef.current.push({ x: gx, y: gy });
-
-                if (now - dwellStartRef.current >= DWELL_THRESHOLD_MS) {
-                    const samples = dwellSamplesRef.current;
-                    const avgX = samples.reduce((sum, p) => sum + p.x, 0) / samples.length;
-                    const avgY = samples.reduce((sum, p) => sum + p.y, 0) / samples.length;
-                    dwellStartRef.current = null;
-                    dwellSamplesRef.current = [];
-                    setDwellStartedAt(null);
-                    recordCalibrationPoint(calibrationIndex, avgX, avgY);
+        const holdPoint = () => {
+            setDwellStartedAt(performance.now());
+            calibrationTimerRef.current = window.setTimeout(() => {
+                if (gazeStateRef.current !== 'open' || !getCalibrationDot(calibrationIndex)) {
+                    holdPoint();
                     return;
                 }
-            } else if (dwellStartRef.current !== null) {
-                if (dwellExitTimeRef.current === null) {
-                    dwellExitTimeRef.current = now;
-                } else if (now - dwellExitTimeRef.current > DWELL_GRACE_MS) {
-                    dwellStartRef.current = null;
-                    dwellSamplesRef.current = [];
-                    dwellExitTimeRef.current = null;
-                    setDwellStartedAt(null);
-                }
-            }
-
-            dwellTimerRef.current = requestAnimationFrame(loop);
+                setDwellStartedAt(null);
+                const [gx, gy] = gazePosRef.current;
+                recordCalibrationPoint(calibrationIndex, gx, gy);
+            }, CALIBRATION_POINT_MS);
         };
 
-        dwellTimerRef.current = requestAnimationFrame(loop);
-        return () => cancelAnimationFrame(dwellTimerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop
+        holdPoint();
+        return () => window.clearTimeout(calibrationTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recordCalibrationPoint reads refs only
     }, [phase, calibrationIndex, viewingDuration, isPreviewMode]);
-
-    /** Tap/click on a calibration point trains the model with the current gaze, same as a completed dwell. */
-    const handleCalibrationClick = () => {
-        if (phase !== 'calibration' || gazeStateRef.current !== 'open') return;
-        cancelAnimationFrame(dwellTimerRef.current);
-        setDwellStartedAt(null);
-        const [gx, gy] = gazePosRef.current;
-        recordCalibrationPoint(calibrationIndex, gx, gy);
-    };
 
     // Toggle a setup checkbox
     const toggleCheck = useCallback((index: number) => {
@@ -1209,8 +1147,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 <CalibrationPhase
                     calibrationIndex={calibrationIndex}
                     dwellStartedAt={dwellStartedAt}
-                    dwellDurationMs={DWELL_THRESHOLD_MS}
-                    onCalibrationClick={handleCalibrationClick}
+                    dwellDurationMs={CALIBRATION_POINT_MS}
                     cameraRef={videoRef}
                     calibrationAreaRef={calibrationAreaRef}
                 />

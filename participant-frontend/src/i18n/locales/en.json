@@ -171,6 +171,7 @@
     "lookAndClick": "Click where you are looking on the screen",
     "clickWhereYouLook": "The red marker is a guide only; we use the exact pixel you click.",
     "pointOf": "Point {{current}} of {{total}}",
+    "calibrationTimedInstruction": "Look at each dot until the ring fills",
     "dwellInstruction": "Keep looking at the dot until it moves on by itself",
     "dwellTapFallback": "if it does not move, tap or click the screen",
     "calibrationPoint": "Calibration point {{number}}",
