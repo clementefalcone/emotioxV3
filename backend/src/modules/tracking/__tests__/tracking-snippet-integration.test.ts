@@ -632,6 +632,37 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
     });
 });
 
+describe('generateTrackingSnippet — emotion timestamps across tab switches', () => {
+    const runSampleFrame = async ({ activeMsBeforeHide, msSinceResume }: { activeMsBeforeHide: number; msSinceResume: number }) => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const sampleFrame = js.slice(js.indexOf('function sampleFrame(){'), js.indexOf('function startEmoRecording('));
+        const faceapi = {
+            TinyFaceDetectorOptions: function TinyFaceDetectorOptions() { return {}; },
+            detectSingleFace: () => ({ withFaceExpressions: () => Promise.resolve({ expressions: { happy: 0.9 } }) }),
+        };
+        const emoBuf = new Function('C', 'faceapi',
+            `var emoRunning=true,paused=false,emoVideo={readyState:4},EMO_MAX_MS=300000,useFaceApiFallback=true,emoBuf=[],
+            EXPRESSION_MAP={happy:"joy"},emoActiveMs=${activeMsBeforeHide},emoStartTime=Date.now()-${msSinceResume};
+            ${sampleFrame}sampleFrame();return emoBuf;`,
+        )({ emotions: true }, faceapi) as Array<{ timestamp: number }>;
+        await Promise.resolve();
+        await Promise.resolve();
+        return emoBuf;
+    };
+
+    it('keeps counting from the time already captured when the tab comes back', async () => {
+        const emoBuf = await runSampleFrame({ activeMsBeforeHide: 5000, msSinceResume: 1000 });
+        expect(emoBuf[0].timestamp).toBeGreaterThanOrEqual(6000);
+        expect(emoBuf[0].timestamp).toBeLessThan(6100);
+    });
+
+    it('restarts the emotion clock when a new session starts', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const createSession = js.slice(js.indexOf('function createSession(){'), js.indexOf('function onSessionReady('));
+        expect(createSession).toContain('emoActiveMs=0;emoStartTime=Date.now();');
+    });
+});
+
 describe('generateTrackingSnippet — calibrated gaze on every device', () => {
     it('has no mobile-only branch left in the gaze pipeline', () => {
         expect(generateTrackingSnippet({ ...defaultConfig, captureGaze: true })).not.toContain('isMobile');

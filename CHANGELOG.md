@@ -1,3 +1,10 @@
+## v0.97.12 — Website Tracking: emotion timestamps after tab switches (2026-10-06)
+
+### fix(tracking): emotion and gaze timestamps restarted at 0 after a tab switch
+- **Root cause.** `sampleFrame` stamped samples with `Date.now() - emoStartTime`, and `emoStartTime` is reset when the tab becomes visible again. After a brief switch the timeline restarted at 0, overlapping earlier samples (timeline and Valence/Arousal). `createSession` also never reset `emoActiveMs`, so a new session inherited the previous one's capture time (and its 5 min cap).
+- **Fix.** Samples use the accumulated capture time (`emoActiveMs` + current stretch), already computed for the cap. `createSession` restarts the emotion clock.
+- **Tests.** `tracking-snippet-integration.test.ts`: a sample after resuming is stamped 6000 ms (5000 before hiding + 1000 after), not 1000; `createSession` restarts the clock (both failed before the fix).
+
 ## v0.97.11 — Sidebar Settings opens the account page (2026-10-04)
 
 ### fix(research-ui): Settings button led to the 404 page

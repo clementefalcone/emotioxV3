@@ -204,6 +204,7 @@ function createSession(){
     // Stop previous rrweb recording
     if(rrwebStopFn){try{rrwebStopFn();}catch(e){}rrwebStopFn=null;}
     rrwebActiveMs=0;
+    emoActiveMs=0;emoStartTime=Date.now();
 
     var body=JSON.stringify({
         visitorId:vid,
@@ -932,7 +933,7 @@ function sampleFrame(){
     if(!emoRunning||paused||!emoVideo||emoVideo.readyState<2)return;
     var elapsed=emoActiveMs+(Date.now()-emoStartTime);
     if(elapsed>EMO_MAX_MS){stopEmotionCapture();return;}
-    var ts=Date.now()-emoStartTime;
+    var ts=elapsed;
 
     if(useFaceApiFallback){
         if(!C.emotions)return;
