@@ -1049,9 +1049,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         if (blaze) gaze.resetFrameStats();
         gazePointsRef.current = [];
         setTimeLeft(Math.ceil(viewingDuration / 1000));
-        setValidationIndex(0);
-        setValidationPointErrors([]);
-        setValidationRmse(null);
         setTimeout(() => setPhase('viewing'), 400);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal
     }, [blaze, viewingDuration]);

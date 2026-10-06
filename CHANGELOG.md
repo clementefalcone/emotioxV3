@@ -1,3 +1,10 @@
+## v0.97.16 — Eye Tracking: "Continue anyway" kept the validation error (2026-10-06)
+
+### fix(eye-tracking): validation error discarded when the participant continued anyway
+- **Root cause.** `handleSkipValidation` reset `validationRmse` to `null` (plus the per-point errors and index) before moving to viewing, and the saved response reads `validationRmse`. Every participant who pressed "Continue anyway" after a failed validation was stored with `validationRmsePx: null`, so analytics could not tell a poor calibration from one that was never validated. Found in study `edee0a59` (participant `kiosk-12`).
+- **Fix.** The skip keeps the measured validation state; recalibration still resets it.
+- **Tests.** `EyeTrackingRenderer.emotionCapture.test.tsx`: after continuing anyway, the saved `validationRmsePx` equals the measured error (was `null`). The uncertainty-estimator mocks now return arrays like the real functions.
+
 ## v0.97.15 — Eye Tracking: calibration points advance on a timer (2026-10-06)
 
 ### fix(eye-tracking): calibration points rarely advanced on their own
