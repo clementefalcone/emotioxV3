@@ -1,3 +1,10 @@
+## v0.97.14 — Eye Tracking: calibration says it advances on its own (2026-10-06)
+
+### feat(eye-tracking): one instruction and a progress ring for calibration and validation
+- **Why.** Participants could not tell whether to tap or wait: calibration said "look and tap each point, one tap per point", validation only "look at the yellow dot". Both advance on steady gaze, with tap as a fallback. The calibration title also had no translation keys, so English participants saw it in Spanish.
+- **Change.** Both phases show "Keep looking at the dot until it moves on by itself" and "Point N of M — if it does not move, tap or click the screen" (ES/EN keys `dwellInstruction`, `dwellTapFallback`; unused `validationHintMulti` removed). A ring (`DwellRing`) fills around the dot while the participant holds their gaze on it and restarts when they look away.
+- **Tests.** The dwell test checks the ring state turns on while looking at the point.
+
 ## v0.97.13 — Eye Tracking: stuck on "Starting camera", automatic advance never fired (2026-10-06)
 
 ### fix(eye-tracking): participants stuck on "Starting camera" while their face was visible

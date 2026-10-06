@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS, HYBRID_CALIB_POINT_COUNT } from './types';
 import { HYBRID_IMAGE_CALIBRATION_POINTS } from '../../../lib/eyeTracking';
+import { DwellRing } from './DwellRing';
 
 interface CalibrationPhaseProps {
     calibrationIndex: number;
-    isDesktop: boolean;
+    dwellStartedAt: number | null;
+    dwellDurationMs: number;
     onCalibrationClick: () => void;
     cameraRef?: React.RefObject<HTMLVideoElement | null>;
     calibrationAreaRef?: React.RefObject<HTMLDivElement | null>;
@@ -14,7 +16,8 @@ interface CalibrationPhaseProps {
 
 export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
     calibrationIndex,
-    isDesktop,
+    dwellStartedAt,
+    dwellDurationMs,
     onCalibrationClick,
     cameraRef,
     calibrationAreaRef,
@@ -70,9 +73,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
             <div className="flex flex-col items-center gap-2" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
                 <StepProgressPill step={2} total={TOTAL_STEPS} percent={calibrationPercent} />
                 <h2 className="text-lg font-bold text-gray-900 mt-2">
-                    {isDesktop
-                        ? t('eyeTracking.calibrationTitle', 'Mira y haz clic en cada punto')
-                        : t('eyeTracking.calibrationTitleMobile', 'Mira y toca cada punto')}
+                    {t('eyeTracking.dwellInstruction', 'Keep looking at the dot until it moves on by itself')}
                 </h2>
                 <p className="text-sm text-gray-500">
                     {t('eyeTracking.pointOf', 'Punto {{current}} de {{total}}', {
@@ -80,7 +81,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
                         total: HYBRID_CALIB_POINT_COUNT,
                     })}
                     {' — '}
-                    {t('eyeTracking.calibrationTap', 'un toque por punto')}
+                    {t('eyeTracking.dwellTapFallback', 'if it does not move, tap or click the screen')}
                 </p>
             </div>
 
@@ -91,6 +92,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
                         style={{ left: `${calDotImagePct[0]}%`, top: `${calDotImagePct[1]}%` }}
                     >
                         <div className="absolute inset-0 rounded-full border-2 border-green-300 animate-ping opacity-75" />
+                        <DwellRing startedAt={dwellStartedAt} durationMs={dwellDurationMs} colorClassName="text-green-600" />
                     </div>
                 )}
             </div>

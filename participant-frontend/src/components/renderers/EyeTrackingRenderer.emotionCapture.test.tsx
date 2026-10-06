@@ -140,8 +140,8 @@ vi.mock('./eye-tracking/PreparingPhase', () => ({
     PreparingPhase: () => <div data-testid="preparing-phase" />,
 }));
 vi.mock('./eye-tracking/CalibrationPhase', () => ({
-    CalibrationPhase: ({ calibrationAreaRef, onCalibrationClick }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; onCalibrationClick: () => void }) => (
-        <div data-testid="calibration-phase" ref={calibrationAreaRef} onClick={onCalibrationClick} />
+    CalibrationPhase: ({ calibrationAreaRef, onCalibrationClick, dwellStartedAt }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; onCalibrationClick: () => void; dwellStartedAt: number | null }) => (
+        <div data-testid="calibration-phase" data-dwelling={String(dwellStartedAt !== null)} ref={calibrationAreaRef} onClick={onCalibrationClick} />
     ),
 }));
 vi.mock('./eye-tracking/ValidationPhase', () => ({
@@ -341,9 +341,13 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         fireEvent.click(getByTestId('setup-ready'));
         fireEvent.click(getByTestId('qg-pass'));
         await act(async () => { vi.advanceTimersByTime(2100); });
-        expect(getByTestId('calibration-phase')).not.toBeNull();
+        expect(getByTestId('calibration-phase').getAttribute('data-dwelling')).toBe('false');
 
-        for (let elapsedMs = 0; elapsedMs < 1400; elapsedMs += 200) {
+        rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
+        await act(async () => { vi.advanceTimersByTime(200); });
+        expect(getByTestId('calibration-phase').getAttribute('data-dwelling')).toBe('true');
+
+        for (let elapsedMs = 200; elapsedMs < 1400; elapsedMs += 200) {
             rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
             await act(async () => { vi.advanceTimersByTime(200); });
         }

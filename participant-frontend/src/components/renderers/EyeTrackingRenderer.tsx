@@ -93,7 +93,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const { isPreviewMode } = usePreviewMode();
 
     const deviceType = useMemo(() => getDeviceType(), []);
-    const isDesktop = deviceType === 'desktop';
 
     const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, shelfRotationInterval, hasEmotionRecognition, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
     const isShelf = displayMode === 'shelf';
@@ -861,6 +860,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const dwellTimerRef = useRef(0);
     /** Timestamp when gaze last left proximity (null = currently inside). */
     const dwellExitTimeRef = useRef<number | null>(null);
+    const [dwellStartedAt, setDwellStartedAt] = useState<number | null>(null);
 
     const getCalibrationDot = (idx: number) => {
         const rect = calibrationAreaRef.current?.getBoundingClientRect();
@@ -919,6 +919,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         dwellStartRef.current = null;
         dwellSamplesRef.current = [];
         dwellExitTimeRef.current = null;
+        setDwellStartedAt(null);
 
         const loop = () => {
             const dot = getCalibrationDot(calibrationIndex);
@@ -934,6 +935,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 if (dwellStartRef.current === null) {
                     dwellStartRef.current = now;
                     dwellSamplesRef.current = [];
+                    setDwellStartedAt(now);
                 }
                 dwellSamplesRef.current.push({ x: gx, y: gy });
 
@@ -943,6 +945,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     const avgY = samples.reduce((sum, p) => sum + p.y, 0) / samples.length;
                     dwellStartRef.current = null;
                     dwellSamplesRef.current = [];
+                    setDwellStartedAt(null);
                     recordCalibrationPoint(calibrationIndex, avgX, avgY);
                     return;
                 }
@@ -953,6 +956,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     dwellStartRef.current = null;
                     dwellSamplesRef.current = [];
                     dwellExitTimeRef.current = null;
+                    setDwellStartedAt(null);
                 }
             }
 
@@ -968,6 +972,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const handleCalibrationClick = () => {
         if (phase !== 'calibration' || gazeStateRef.current !== 'open') return;
         cancelAnimationFrame(dwellTimerRef.current);
+        setDwellStartedAt(null);
         const [gx, gy] = gazePosRef.current;
         recordCalibrationPoint(calibrationIndex, gx, gy);
     };
@@ -1029,6 +1034,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         validationDwellStartRef.current = null;
         validationDwellSamplesRef.current = [];
         validationExitTimeRef.current = null;
+        setDwellStartedAt(null);
 
         const loop = () => {
             const dot = getValidationDot(validationIndex);
@@ -1044,6 +1050,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 if (validationDwellStartRef.current === null) {
                     validationDwellStartRef.current = now;
                     validationDwellSamplesRef.current = [];
+                    setDwellStartedAt(now);
                 }
                 validationDwellSamplesRef.current.push({ x: gx, y: gy });
 
@@ -1053,6 +1060,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     const avgY = samples.reduce((sum, p) => sum + p.y, 0) / samples.length;
                     validationDwellStartRef.current = null;
                     validationDwellSamplesRef.current = [];
+                    setDwellStartedAt(null);
                     recordValidationPoint(validationIndex, avgX, avgY);
                     return;
                 }
@@ -1063,6 +1071,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     validationDwellStartRef.current = null;
                     validationDwellSamplesRef.current = [];
                     validationExitTimeRef.current = null;
+                    setDwellStartedAt(null);
                 }
             }
 
@@ -1078,6 +1087,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const handleValidationDwellComplete = () => {
         if (phase !== 'validating' || validationRmse !== null || gazeStateRef.current !== 'open') return;
         cancelAnimationFrame(validationRafRef.current);
+        setDwellStartedAt(null);
         const [gx, gy] = gazePosRef.current;
         recordValidationPoint(validationIndex, gx, gy);
     };
@@ -1198,7 +1208,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 )}
                 <CalibrationPhase
                     calibrationIndex={calibrationIndex}
-                    isDesktop={isDesktop}
+                    dwellStartedAt={dwellStartedAt}
+                    dwellDurationMs={DWELL_THRESHOLD_MS}
                     onCalibrationClick={handleCalibrationClick}
                     cameraRef={videoRef}
                     calibrationAreaRef={calibrationAreaRef}
@@ -1210,6 +1221,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             <ValidationPhase
                 validationIndex={validationIndex}
                 validationRmse={validationRmse}
+                dwellStartedAt={dwellStartedAt}
+                dwellDurationMs={VALIDATION_DWELL_MS}
                 pointErrors={validationPointErrors}
                 recalibrationCount={recalibrationCountRef.current}
                 resolvedUrl={resolvedUrl}

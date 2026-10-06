@@ -9,12 +9,15 @@ import {
     HYBRID_REJECT_RMSE_THRESHOLD_PX,
 } from '../../../lib/eyeTracking';
 import { ShelfGrid } from './ShelfGrid';
+import { DwellRing } from './DwellRing';
 
 interface ValidationPhaseProps {
     /** Current validation point index (0-4). */
     validationIndex: number;
     /** Average RMSE across all 5 points (null until all measured). */
     validationRmse: number | null;
+    dwellStartedAt: number | null;
+    dwellDurationMs: number;
     /** Per-point errors (populated as each point is measured). */
     pointErrors: number[];
     /** How many recalibration attempts so far. */
@@ -32,6 +35,8 @@ interface ValidationPhaseProps {
 export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
     validationIndex,
     validationRmse,
+    dwellStartedAt,
+    dwellDurationMs,
     pointErrors,
     recalibrationCount,
     resolvedUrl,
@@ -88,13 +93,15 @@ export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
                 {!allMeasured ? (
                     <>
                         <p className="text-sm text-white/80">
-                            {t('eyeTracking.validationHintMulti', 'Look at the yellow dot to verify accuracy.')}
+                            {t('eyeTracking.dwellInstruction', 'Keep looking at the dot until it moves on by itself')}
                         </p>
                         <p className="mt-1 text-xs text-white/50">
                             {t('eyeTracking.pointOf', 'Point {{current}} of {{total}}', {
                                 current: validationIndex + 1,
                                 total: HYBRID_VALIDATION_POINTS.length,
                             })}
+                            {' — '}
+                            {t('eyeTracking.dwellTapFallback', 'if it does not move, tap or click the screen')}
                         </p>
                     </>
                 ) : showRejectOption ? (
@@ -183,6 +190,7 @@ export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
                             style={{ left: `${currentPoint[0]}%`, top: `${currentPoint[1]}%` }}
                         >
                             <div className="absolute inset-0 rounded-full border-2 border-yellow-300 animate-ping opacity-75" />
+                            <DwellRing startedAt={dwellStartedAt} durationMs={dwellDurationMs} colorClassName="text-yellow-300" />
                         </div>
                     )}
                 </div>
