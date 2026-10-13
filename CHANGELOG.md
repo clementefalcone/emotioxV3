@@ -1,3 +1,26 @@
+## v0.97.17 — Eye Tracking: emotion per AOI and mood states (2026-10-13)
+
+### fix(eye-tracking): AOIs never showed the emotion felt while looking at them
+- **Root cause.** The renderer stamped gaze samples (and so fixations) with `Date.now()`, while emotion samples are milliseconds since `faceEmotions.start()`. The backend matches emotions to AOI fixations by timestamp, so the two never overlapped: `dominantEmotion` / `emotionDistribution` per AOI were always empty and the AOI card never showed its emotion badge. When the face-api models finished loading after viewing started, the emotion clock also started late.
+- **Fix.** Gaze samples are timed from the start of viewing, the moment emotion sampling starts; `useFaceApiEmotions` starts its clock on `start()`, not when the models finish loading. Fixation detection, gap fill, TTFF, sequence and scanpath only use time differences or order. Responses saved before this fix keep their epoch fixation timestamps and still show no emotion per AOI.
+- **Tests.** Renderer: saved fixation timestamps start at viewing (were epoch ms). Hook: a sample 500 ms after `start()` is stamped 500 even when the models load 400 ms later (was 100). Backend: an AOI gets the emotion recorded during its fixation. Backend `aois` type now declares both emotion fields.
+
+### fix(eye-tracking): face detections piled up on slow devices
+- **Root cause.** The sampling loop started a new face-api detection every 50 ms without waiting for the previous one. Where a detection takes longer (mobile, ~100–200 ms), they queued up, competed with the gaze loop for the CPU, and the ones still pending when the response was saved were lost.
+- **Fix.** `useFaceApiEmotions` skips frames while a detection is running.
+- **Tests.** With a slow detection in flight, 5 frames start 1 detection (were 5); the next starts once it finishes.
+
+### fix(results): mood states showed up to 333%
+- **Root cause.** Frustración, Interés and Concentración averaged three emotion percentages (already 0–100) and multiplied by 10.
+- **Fix.** Plain average, 0–100%.
+- **Tests.** `EmotionPanel.test.tsx`: exact values for a known distribution and every mood ≤ 100% for single-emotion distributions (were 333.3%).
+
+### test(eye-tracking): emotion pipeline coverage
+- `useFaceApiEmotions` (18 tests, none before): face-api → Ekman mapping for the 7 expressions, models not loaded when disabled, deferred start, sampling interval, frames without a face, stop/restart, sample copies.
+- Renderer: the tautological "getSamples() is wired" test (it checked the mock) replaced by tests that read the saved payload: emotions and micro-expressions saved when enabled, absent when disabled, sampling started and response saved once.
+- Backend: malformed responses skipped, per-second timeline across participants with averaged AUs.
+- `EmotionPanel` (14 tests, none before): disabled / empty states, EmScore value and colour, mood states, participants table, timeline, action units, micro-expressions order.
+
 ## v0.97.16 — Eye Tracking: "Continue anyway" kept the validation error (2026-10-06)
 
 ### fix(eye-tracking): validation error discarded when the participant continued anyway
