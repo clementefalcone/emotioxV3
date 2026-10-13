@@ -23,7 +23,7 @@ trap cleanup_ssh EXIT
 if ! ssh-add -l 2>/dev/null | grep -q "cpanel"; then
     echo "🔑 Agregando clave SSH al agente..."
     SSH_KEY="$HOME/.ssh/cpanel_cursor"
-    SSH_PASSPHRASE="clemente"
+    SSH_PASSPHRASE="$(grep '^CPANEL_SSH_PASSPHRASE=' "$(dirname "${BASH_SOURCE[0]}")/../.env.claude" | cut -d= -f2-)"
     if [ -f "$SSH_KEY" ]; then
         # Usar sshpass para agregar la clave automáticamente
         SSHPASS="$SSH_PASSPHRASE" sshpass -P "passphrase" -e ssh-add "$SSH_KEY" 2>/dev/null || {
