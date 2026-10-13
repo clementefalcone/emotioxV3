@@ -135,6 +135,18 @@ describe('useFaceApiEmotions', () => {
         expect(result.current.getSamples()).toHaveLength(1);
     });
 
+    it('measures sample time from the start() call even when the models finish loading later', async () => {
+        const { result } = await loadHook();
+
+        clockMs = 50_000;
+        act(() => { result.current.start(); });
+        clockMs += 400;
+        await flushModelLoad();
+        await runFrame(100);
+
+        expect(result.current.getSamples()[0].timestamp).toBe(500);
+    });
+
     it('stamps samples with the time elapsed since start()', async () => {
         const { result } = await loadHook();
         await flushModelLoad();

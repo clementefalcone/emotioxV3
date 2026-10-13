@@ -302,6 +302,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     useEffect(() => {
         if (phase !== 'viewing') return;
 
+        const viewingStartedAt = Date.now();
         // Start face-api.js emotion sampling alongside gaze
         if (hasEmotionRecognition) {
             faceEmotions.start();
@@ -407,7 +408,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     HYBRID_CALIBRATION_FIELD_STRENGTH,
                 );
                 const videoTime = isVideo && stimulusVideoRef.current ? stimulusVideoRef.current.currentTime : undefined;
-                gazePointsRef.current.push({ x: corrected.x, y: corrected.y, t: now, videoTime });
+                gazePointsRef.current.push({ x: corrected.x, y: corrected.y, t: now - viewingStartedAt, videoTime });
 
                 // V2: feed corrected gaze into zone pipeline (AFTER IDW)
                 if (EYE_TRACKING_V2_ENABLED) {

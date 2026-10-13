@@ -139,7 +139,6 @@ export function useFaceApiEmotions({
     runningRef.current = true;
     samplesRef.current = [];
     lastSampleRef.current = 0;
-    startTimeRef.current = performance.now();
 
     const loop = () => {
       if (!runningRef.current) return;
@@ -150,6 +149,7 @@ export function useFaceApiEmotions({
   }, [sampleFrame]);
 
   const start = useCallback(() => {
+    startTimeRef.current = performance.now();
     if (isLoaded) {
       startSampling();
     } else {

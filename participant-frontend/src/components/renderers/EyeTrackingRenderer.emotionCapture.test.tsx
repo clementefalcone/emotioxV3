@@ -173,6 +173,7 @@ vi.mock('./eye-tracking/types', async () => {
 
 import { EyeTrackingRenderer } from './EyeTrackingRenderer';
 import { rememberCalibration } from './eye-tracking/calibrationCache';
+import { detectMicroExpressions, detectFixationsIDT, mapFixationsToImageCoords } from '../../lib/eyeTracking';
 
 const trainedPredictor = { isReady: () => true } as unknown as GazePredictor;
 const STIMULUS_RECT = { left: 0, top: 0, width: 400, height: 300, x: 0, y: 0, right: 400, bottom: 300, toJSON: () => ({}) } as DOMRect;
@@ -401,10 +402,71 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(mockMPGaze.calibrate).not.toHaveBeenCalled();
     });
 
-    it('getSamples() is wired to save payload via faceEmotions mock', () => {
-        const samples = mockGetSamples();
-        expect(samples).toHaveLength(2);
-        expect(samples[0].emotion).toBe('joy');
-        expect(samples[1].emotion).toBe('neutral');
+    it('saves the captured emotion samples and their micro-expressions in the response', async () => {
+        const microExpressions = [{ emotion: 'joy', startTimestamp: 100, endTimestamp: 200, durationMs: 100, peakConfidence: 0.9, category: 'brief' }];
+        vi.mocked(detectMicroExpressions).mockReturnValue(microExpressions as unknown as ReturnType<typeof detectMicroExpressions>);
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const [moduleId, componentId, value] = mockSaveResponse.mock.calls[0];
+        const saved = JSON.parse(value);
+        expect(moduleId).toBe('test-et-1');
+        expect(componentId).toBe('eye-tracking-data');
+        expect(saved.emotions).toEqual(mockEmotionSamples);
+        expect(detectMicroExpressions).toHaveBeenCalledWith(mockEmotionSamples);
+        expect(saved.microExpressions).toEqual(microExpressions);
+        expect(mockFaceStop).toHaveBeenCalled();
+    });
+
+    it('saves fixation timestamps from the start of viewing, the same origin as emotion samples', async () => {
+        vi.mocked(detectFixationsIDT).mockImplementation(((points: { x: number; y: number; t: number }[]) =>
+            points.length ? [{ x: points[0].x, y: points[0].y, duration: 200, timestamp: points[0].t, pointCount: 2 }] : []) as unknown as typeof detectFixationsIDT);
+        vi.mocked(mapFixationsToImageCoords).mockImplementation(((fixations: unknown[]) => fixations) as unknown as typeof mapFixationsToImageCoords);
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.fixations).toHaveLength(1);
+        expect(saved.fixations[0].timestamp).toBeGreaterThanOrEqual(0);
+        expect(saved.fixations[0].timestamp).toBeLessThan(1000);
+    });
+
+    it('saves no emotion data when emotion recognition is off', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved).not.toHaveProperty('emotions');
+        expect(saved).not.toHaveProperty('microExpressions');
+        expect(mockGetSamples).not.toHaveBeenCalled();
+    });
+
+    it('starts emotion sampling once per viewing and saves the response once', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+        await act(async () => { vi.advanceTimersByTime(3000); });
+
+        expect(mockFaceStart).toHaveBeenCalledTimes(1);
+        expect(mockSaveResponse).toHaveBeenCalledTimes(1);
     });
 });

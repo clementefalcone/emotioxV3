@@ -830,6 +830,30 @@ describe('getEyeTrackingResults', () => {
       expect(micro.byEmotion).toEqual({ fear: 1, surprise: 1 });
       expect(micro.events).toHaveLength(2);
     });
+
+    it('gives an AOI the emotion recorded while the participant fixated it (both timed from viewing start)', async () => {
+      const row = buildRow('p1', {
+        fixations: [{ x: 20, y: 20, duration: 1000, timestamp: 500 }],
+        emotions: [
+          { timestamp: 600, emotion: 'joy', confidence: 0.9, actionUnits: {} },
+          { timestamp: 900, emotion: 'joy', confidence: 0.9, actionUnits: {} },
+          { timestamp: 4000, emotion: 'anger', confidence: 0.9, actionUnits: {} },
+        ],
+        calibrationRmsePx: 60,
+        integrityScore: 0.9,
+      });
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({
+          emotionRecognition: true,
+          aois: [{ id: 'a1', label: 'Logo', x: 0, y: 0, width: 50, height: 50 }],
+        }) }],
+        responses: [[row]],
+      });
+
+      const [aoi] = (await getEyeTrackingResults('research-1')).stimuli[0].aois;
+      expect(aoi.dominantEmotion).toBe('joy');
+      expect(aoi.emotionDistribution?.joy).toBe(100);
+    });
   });
 
   // -----------------------------------------------------------------------

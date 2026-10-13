@@ -83,6 +83,8 @@ interface EyeTrackingStimulus {
     participantCount: number;
     /** Attention-memory gap: high attention + low recall = missed opportunity (Chu 2022) */
     attentionMemoryGap?: number;
+    dominantEmotion?: EkmanEmotion;
+    emotionDistribution?: Record<EkmanEmotion, number>;
   }>;
   participants: Array<{
     participantId: string;
