@@ -56,6 +56,7 @@ export function useFaceApiEmotions({
   const runningRef = useRef(false);
   const pendingStartRef = useRef(false);
   const lastSampleRef = useRef<number>(0);
+  const isDetectingRef = useRef(false);
   const startTimeRef = useRef<number>(0);
   const samplesRef = useRef<EmotionSample[]>([]);
 
@@ -77,11 +78,12 @@ export function useFaceApiEmotions({
   /** Detect expressions from current video frame. */
   const sampleFrame = useCallback(async (): Promise<EmotionSample | null> => {
     const video = videoRef.current;
-    if (!video || !isLoaded || video.readyState < 2) return null;
+    if (!video || !isLoaded || video.readyState < 2 || isDetectingRef.current) return null;
 
     const now = performance.now();
     if (now - lastSampleRef.current < sampleIntervalMs) return null;
     lastSampleRef.current = now;
+    isDetectingRef.current = true;
 
     try {
       const detection = await faceapi
@@ -125,6 +127,8 @@ export function useFaceApiEmotions({
     } catch (err) {
       console.warn('[useFaceApiEmotions] Detection error:', err);
       return null;
+    } finally {
+      isDetectingRef.current = false;
     }
   }, [videoRef, isLoaded, sampleIntervalMs]);
 
