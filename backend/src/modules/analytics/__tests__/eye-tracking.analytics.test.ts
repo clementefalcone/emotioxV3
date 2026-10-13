@@ -831,6 +831,51 @@ describe('getEyeTrackingResults', () => {
       expect(micro.events).toHaveLength(2);
     });
 
+    it('skips a malformed response and still counts the valid ones', async () => {
+      const valid = buildRow('p1', {
+        emotions: [{ timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: {} }],
+        calibrationRmsePx: 60,
+        integrityScore: 0.9,
+      });
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ emotionRecognition: true }) }],
+        responses: [[{ participant_id: 'broken', value: '{not json', created_at: new Date() }, valid]],
+      });
+
+      const em = (await getEyeTrackingResults('research-1')).stimuli[0].emotions;
+      expect(em.totalSamples).toBe(1);
+      expect(em.perParticipant.map(p => p.participantId)).toEqual(['p1']);
+    });
+
+    it('buckets the timeline per second across participants and averages action units', async () => {
+      const rows = [
+        buildRow('p1', {
+          emotions: [
+            { timestamp: 100, emotion: 'joy', confidence: 0.8, actionUnits: { AU12: 0.6 } },
+            { timestamp: 1200, emotion: 'anger', confidence: 0.6, actionUnits: { AU4: 0.5 } },
+          ],
+          calibrationRmsePx: 60,
+          integrityScore: 0.9,
+        }),
+        buildRow('p2', {
+          emotions: [
+            { timestamp: 400, emotion: 'joy', confidence: 0.6, actionUnits: { AU12: 0.2 } },
+          ],
+          calibrationRmsePx: 60,
+          integrityScore: 0.9,
+        }),
+      ];
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ emotionRecognition: true }) }],
+        responses: [rows],
+      });
+
+      const { timeline } = (await getEyeTrackingResults('research-1')).stimuli[0].emotions;
+      expect(timeline.map(t => [t.timestamp, t.emotion])).toEqual([[0, 'joy'], [1000, 'anger']]);
+      expect(timeline[0].confidence).toBeCloseTo(0.7, 5);
+      expect(timeline[0].actionUnits.AU12).toBeCloseTo(0.4, 5);
+    });
+
     it('gives an AOI the emotion recorded while the participant fixated it (both timed from viewing start)', async () => {
       const row = buildRow('p1', {
         fixations: [{ x: 20, y: 20, duration: 1000, timestamp: 500 }],
