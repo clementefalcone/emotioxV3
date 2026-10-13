@@ -246,9 +246,9 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
 
 const MoodStates = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
   const d = distribution;
-  const frustration = ((d.neutral + d.sadness + d.disgust) / 3) * 10;
-  const interest = ((d.surprise + d.joy + d.neutral) / 3) * 10;
-  const concentration = ((d.neutral + d.fear + d.sadness) / 3) * 10;
+  const frustration = (d.neutral + d.sadness + d.disgust) / 3;
+  const interest = (d.surprise + d.joy + d.neutral) / 3;
+  const concentration = (d.neutral + d.fear + d.sadness) / 3;
 
   const moodColor = (val: number) => val >= 50 ? 'text-red-600' : val >= 25 ? 'text-amber-600' : 'text-green-600';
 
