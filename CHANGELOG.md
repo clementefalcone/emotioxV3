@@ -1,3 +1,14 @@
+## v0.97.18 — Eye Tracking: plain language for participants (2026-10-14)
+
+### fix(eye-tracking): participant screens written for non-technical people
+- **Why.** Participants are not technical. The eye tracking screens mixed languages, used jargon (calibration, resolution, head orientation, pixel errors) and the progress pill went backwards.
+- **Missing translations.** 27 keys used by the screens were missing from both `es.json` and `en.json`, so Spanish participants saw English fallbacks ("Position correct", "End session", "Average error: 180px…") and English participants saw the quality check in Spanish. The low-resolution warning was hardcoded in English. All added.
+- **Plain copy (ES/EN).** Intro, checklist, camera errors, camera check ("Revisando tu cámara…", "Buena luz", "Se ve tu cara"…), loading and end screens rewritten in everyday words. The "N gaze samples recorded" line and its `finalPointCount` state were removed from the end screen.
+- **Progress pill.** Four named steps (Prepararse → Ajustar la mirada → Comprobar → Ver la imagen) with progress that only moves forward (was 30% → 25% → 30%, and the end screen said step 3 of 4). The percentage number was dropped; the bar remains.
+- **Failed calibration.** No pixel errors or per-point chips. Messages say what happened and what to do ("mueve solo los ojos, no la cabeza"). Buttons: "Intentar de nuevo", "Seguir igual" (primary) and "Saltar esta actividad" (was a red "End session"; it skips the module, it does not end the study).
+- **One instruction.** Calibration and validation both say "Mira el punto sin mover la cabeza. Avanzará solo." The tap fallback hint stays only in validation, where tapping works. `calibrationTimedInstruction` removed.
+- **Tests.** `translations.test.ts`: every `eyeTracking.*` key used by the screens exists in ES and EN (failed with 27 missing before). `ValidationPhase.test.tsx`: failed calibration shows no pixel values and each button calls its handler (failed before). Suite 1166 → 1171 pass, 0 fail.
+
 ## v0.97.17 — Eye Tracking: emotion per AOI and mood states (2026-10-13)
 
 ### fix(eye-tracking): AOIs never showed the emotion felt while looking at them
