@@ -27,7 +27,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({
     }, [turnstileVerified, setTurnstileToken]);
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 px-4">
+        <div className="flex flex-col items-center justify-center text-center space-y-6 px-4">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                 <svg
                     className="w-8 h-8 text-blue-600"
