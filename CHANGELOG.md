@@ -1,3 +1,14 @@
+## v0.97.19 — Participant: start button and calibration text on phones (2026-10-14)
+
+### fix(participant): "Comenzar" was below the fold on the welcome screen
+- **Root cause.** The welcome content had `min-h-[400px]` (the text needs about half), and `MainLayout` used `min-h-screen` (`100vh`), which on iOS Safari and in-app browsers is taller than the visible area. On a 583 px tall viewport the page was 618 px and the button ended at 586 px, cut off.
+- **Fix.** `WelcomeStep` drops the minimum height; `MainLayout` uses `min-h-dvh` (visible viewport), which applies to every participant step.
+- **Check.** Measured on the production page at phone size: page 618 → 583 px, button bottom 586 → 551 px, no scroll.
+
+### fix(eye-tracking): calibration instruction touched the screen edge
+- **Root cause.** The calibration header had no side padding and no centering, so on phones the two-line instruction started at the left edge (0 px).
+- **Fix.** `px-6 text-center` on the header. Measured at 360 px wide: lines now have 31/31 and 111/111 px margins (were 0/62 and 0/221).
+
 ## v0.97.18 — Eye Tracking: plain language for participants (2026-10-14)
 
 ### fix(eye-tracking): participant screens written for non-technical people
