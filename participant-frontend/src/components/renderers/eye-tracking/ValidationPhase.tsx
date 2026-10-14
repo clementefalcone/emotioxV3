@@ -18,8 +18,6 @@ interface ValidationPhaseProps {
     validationRmse: number | null;
     dwellStartedAt: number | null;
     dwellDurationMs: number;
-    /** Per-point errors (populated as each point is measured). */
-    pointErrors: number[];
     /** How many recalibration attempts so far. */
     recalibrationCount: number;
     resolvedUrl: string;
@@ -37,7 +35,6 @@ export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
     validationRmse,
     dwellStartedAt,
     dwellDurationMs,
-    pointErrors,
     recalibrationCount,
     resolvedUrl,
     imgRef,
@@ -55,7 +52,7 @@ export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
     const showRejectOption = showRecalibrateOption && recalibrationCount >= 2 && validationRmse > HYBRID_REJECT_RMSE_THRESHOLD_PX;
 
     const currentPoint = !allMeasured ? HYBRID_VALIDATION_POINTS[validationIndex] : null;
-    const validationPercent = allMeasured ? 68 : Math.round(65 + (validationIndex / HYBRID_VALIDATION_POINTS.length) * 3);
+    const validationPercent = allMeasured ? 70 : Math.round(60 + (validationIndex / HYBRID_VALIDATION_POINTS.length) * 10);
 
     const lastAdvanceRef = useRef(0);
 
@@ -93,7 +90,7 @@ export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
                 {!allMeasured ? (
                     <>
                         <p className="text-sm text-white/80">
-                            {t('eyeTracking.dwellInstruction', 'Keep looking at the dot until it moves on by itself')}
+                            {t('eyeTracking.dwellInstruction', 'Look at the dot without moving your head. It will move on by itself.')}
                         </p>
                         <p className="mt-1 text-xs text-white/50">
                             {t('eyeTracking.pointOf', 'Point {{current}} of {{total}}', {
@@ -106,49 +103,35 @@ export const ValidationPhase: React.FC<ValidationPhaseProps> = ({
                     </>
                 ) : showRejectOption ? (
                     <div className="space-y-3">
-                        <p className="text-sm text-red-400 font-medium">
-                            {t('eyeTracking.validationRejected', 'Calibration accuracy is insufficient after multiple attempts. Error: {{rmse}}px', {
-                                rmse: validationRmse,
-                            })}
+                        <p className="text-sm text-white font-medium">
+                            {t('eyeTracking.validationRejected', 'After several tries we could not adjust to your gaze. You can continue anyway or skip this activity.')}
                         </p>
                         <div className="pointer-events-auto flex gap-3 justify-center">
                             <button
-                                onClick={onRejectSession}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-                            >
-                                {t('eyeTracking.endSession', 'End session')}
-                            </button>
-                            <button
                                 onClick={onSkipValidation}
-                                className="px-4 py-2 bg-white/20 text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                             >
                                 {t('eyeTracking.continueAnyway', 'Continue anyway')}
+                            </button>
+                            <button
+                                onClick={onRejectSession}
+                                className="px-4 py-2 bg-white/20 text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                            >
+                                {t('eyeTracking.endSession', 'Skip this activity')}
                             </button>
                         </div>
                     </div>
                 ) : showRecalibrateOption ? (
                     <div className="space-y-3">
-                        <p className="text-sm text-amber-400 font-medium">
-                            {t('eyeTracking.validationFailedMulti', 'Average error: {{rmse}}px (threshold: {{threshold}}px). Re-calibrate?', {
-                                rmse: validationRmse,
-                                threshold: HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX,
-                            })}
+                        <p className="text-sm text-white font-medium">
+                            {t('eyeTracking.validationFailedMulti', 'We could not adjust to your gaze well. Next time, move only your eyes, not your head. Shall we try again?')}
                         </p>
-                        {pointErrors.length > 0 && (
-                            <div className="flex gap-2 justify-center">
-                                {pointErrors.map((err, i) => (
-                                    <span key={i} className={`text-xs px-2 py-0.5 rounded ${err > HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX ? 'bg-red-500/30 text-red-300' : 'bg-green-500/30 text-green-300'}`}>
-                                        P{i + 1}: {err}px
-                                    </span>
-                                ))}
-                            </div>
-                        )}
                         <div className="pointer-events-auto flex gap-3 justify-center">
                             <button
                                 onClick={onRecalibrate}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                             >
-                                {t('eyeTracking.recalibrate', 'Re-calibrate')}
+                                {t('eyeTracking.recalibrate', 'Try again')}
                             </button>
                             <button
                                 onClick={onSkipValidation}

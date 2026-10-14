@@ -94,7 +94,7 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ checks, allChecked, onTo
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[400px] px-4 py-8">
-            <StepProgressPill step={1} total={TOTAL_STEPS} percent={30} />
+            <StepProgressPill step={1} total={TOTAL_STEPS} percent={10} />
 
             <div className="w-full max-w-lg space-y-6 mt-8">
                 <div className="flex flex-col items-center gap-2">

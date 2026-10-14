@@ -8,7 +8,7 @@ export const PreparingPhase: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
-            <StepProgressPill step={1} total={TOTAL_STEPS} percent={30} />
+            <StepProgressPill step={1} total={TOTAL_STEPS} percent={25} />
 
             <div className="mt-12 text-center space-y-4">
                 <h2 className="text-xl font-bold text-gray-900">

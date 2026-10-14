@@ -244,7 +244,7 @@ export const SessionQualityGate: React.FC<SessionQualityGateProps> = ({
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[400px] px-4 py-8">
-            <StepProgressPill step={1} total={TOTAL_STEPS} percent={25} />
+            <StepProgressPill step={1} total={TOTAL_STEPS} percent={20} />
 
             <div className="w-full max-w-md space-y-4 mt-8">
                 <h2 className="text-xl font-bold text-gray-900 text-center">

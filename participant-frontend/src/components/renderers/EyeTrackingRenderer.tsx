@@ -114,7 +114,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const completeTimerRef = useRef<number | null>(null);
     /** Snapshot of image bounding rect captured during viewing phase (before complete hides the image). */
     const viewingRectRef = useRef<DOMRect | null>(null);
-    const [finalPointCount, setFinalPointCount] = useState(0);
 
     // Setup checkboxes
     const [checks, setChecks] = useState([false, false, false, false]);
@@ -565,7 +564,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             if (stimEl) {
                 viewingRectRef.current = stimEl.getBoundingClientRect();
             }
-            setFinalPointCount(gazePointsRef.current.length);
             setPhase('complete');
         }, viewingDuration);
 
@@ -1139,7 +1137,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             <>
                 {lowResWarning && (
                     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-2 rounded-lg shadow-md">
-                        Low camera resolution detected — accuracy may be reduced
+                        {t('eyeTracking.lowResolutionWarning', 'Low camera resolution detected: accuracy may be reduced')}
                     </div>
                 )}
                 <CalibrationPhase
@@ -1158,7 +1156,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 validationRmse={validationRmse}
                 dwellStartedAt={dwellStartedAt}
                 dwellDurationMs={VALIDATION_DWELL_MS}
-                pointErrors={validationPointErrors}
                 recalibrationCount={recalibrationCountRef.current}
                 resolvedUrl={resolvedUrl}
                 imgRef={imgRef}
@@ -1200,9 +1197,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         );
     } else if (phase === 'complete') {
         phaseContent = (
-            <CompletePhase
-                finalPointCount={finalPointCount}
-            />
+            <CompletePhase />
         );
     }
 

@@ -24,7 +24,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
     const previewRef = useRef<HTMLVideoElement>(null);
     const [streamReady, setStreamReady] = useState(false);
 
-    const calibrationPercent = Math.round(30 + (calibrationIndex / HYBRID_CALIB_POINT_COUNT) * 35);
+    const calibrationPercent = Math.round(25 + (calibrationIndex / HYBRID_CALIB_POINT_COUNT) * 35);
     const calDotImagePct = HYBRID_IMAGE_CALIBRATION_POINTS[calibrationIndex];
 
     useEffect(() => {
@@ -47,7 +47,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
             <div className="flex flex-col items-center gap-2" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
                 <StepProgressPill step={2} total={TOTAL_STEPS} percent={calibrationPercent} />
                 <h2 className="text-lg font-bold text-gray-900 mt-2">
-                    {t('eyeTracking.calibrationTimedInstruction', 'Look at each dot until the ring fills')}
+                    {t('eyeTracking.dwellInstruction', 'Look at the dot without moving your head. It will move on by itself.')}
                 </h2>
                 <p className="text-sm text-gray-500">
                     {t('eyeTracking.pointOf', 'Punto {{current}} de {{total}}', {
