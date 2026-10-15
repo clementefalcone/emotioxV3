@@ -970,6 +970,20 @@ describe('appendEmotionSamples', () => {
         expect(savedJson).toHaveLength(3);
     });
 
+    it('keeps five minutes of 20 Hz samples, dropping only older ones', async () => {
+        const fiveMinutesAt20Hz = Array.from({ length: 6000 }, (_, i) => ({ timestamp: i * 50 }));
+        mockQuery
+            .mockResolvedValueOnce({ rows: [{ id: 's1', emotion_samples: JSON.stringify(fiveMinutesAt20Hz.slice(0, 5990)) }] })
+            .mockResolvedValueOnce({ rows: [] });
+
+        await appendEmotionSamples('s1', [...fiveMinutesAt20Hz.slice(5990), { timestamp: 300000 }]);
+
+        const savedJson = JSON.parse(mockQuery.mock.calls[1][1][0]) as Array<{ timestamp: number }>;
+        expect(savedJson).toHaveLength(6000);
+        expect(savedJson[0].timestamp).toBe(50);
+        expect(savedJson[5999].timestamp).toBe(300000);
+    });
+
     it('returns 0 for empty samples', async () => {
         const result = await appendEmotionSamples('s1', []);
         expect(result.saved).toBe(0);

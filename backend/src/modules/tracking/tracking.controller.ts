@@ -24,6 +24,7 @@ import {
     savePageScreenshot,
     savePageScreenshotFromBase64,
     saveTrackingConfig,
+    isTrackingZone,
     getRecentSessionCount,
     getVisitorJourneys,
     getLiveSessions,
@@ -112,6 +113,7 @@ export const handlePublicTrackingRoutes = async (
                     emotionModelBaseUrl: apiBaseUrl + '/media/face-api-models',
                     captureGaze: config.captureGaze,
                     gazeCalibrationPoints: config.gazeCalibrationPoints,
+                    zones: config.zones,
                 });
 
                 return {
@@ -720,6 +722,9 @@ export const handleTrackingRoutes = async (
         if (configUpdateMatch && httpMethod === 'PUT') {
             const researchId = configUpdateMatch[1];
             const body = JSON.parse(event.body || '{}');
+            if (body.zones !== undefined && !(Array.isArray(body.zones) && body.zones.every(isTrackingZone))) {
+                return error('Invalid zones: each zone needs a non-empty id, label, pageUrl and selector', 400, undefined, origin);
+            }
             await saveTrackingConfig(researchId, body);
             return success({ updated: true }, 200, undefined, origin);
         }
@@ -873,6 +878,13 @@ export const handleTrackingRoutes = async (
                 : undefined;
             const { getTrackingEmotionData } = await import('./tracking-emotion.analytics');
             const data = await getTrackingEmotionData(researchId, pageUrl);
+            return success(data, 200, undefined, origin);
+        }
+
+        const zonesAuthMatch = path.match(/^\/tracking\/([^/]+)\/zones$/);
+        if (zonesAuthMatch && httpMethod === 'GET') {
+            const { getTrackingZoneData } = await import('./tracking-zones.analytics');
+            const data = await getTrackingZoneData(zonesAuthMatch[1]);
             return success(data, 200, undefined, origin);
         }
 

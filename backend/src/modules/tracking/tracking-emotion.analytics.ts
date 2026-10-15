@@ -4,24 +4,13 @@
  */
 
 import pool from '../../config/database';
-
-type EkmanEmotion = 'joy' | 'sadness' | 'surprise' | 'anger' | 'disgust' | 'fear' | 'neutral';
+import { aggregateEmotions, detectMicroExpressions, type EkmanEmotion, type EmotionAggregation, type EmotionSample } from '../analytics/emotion-metrics';
 
 const ALL_EMOTIONS: EkmanEmotion[] = ['joy', 'sadness', 'surprise', 'anger', 'disgust', 'fear', 'neutral'];
 
-interface EmotionSample {
-    timestamp: number;
-    emotion: EkmanEmotion;
-    confidence: number;
-}
-
 export interface TrackingEmotionData {
     totalSessions: number;
-    totalSamples: number;
-    distribution: Record<EkmanEmotion, number>;
-    dominantEmotion: EkmanEmotion;
-    avgConfidence: number;
-    timeline: Array<{ timestampS: number; emotion: EkmanEmotion; confidence: number }>;
+    emotions: EmotionAggregation;
     perSession: Array<{
         sessionId: string;
         visitorId: string;
@@ -58,8 +47,35 @@ function isValidSample(raw: unknown): raw is EmotionSample {
     return (
         (ALL_EMOTIONS as string[]).includes(s.emotion as string) &&
         Number.isFinite(s.confidence) &&
-        Number.isFinite(s.timestamp)
+        Number.isFinite(s.timestamp) &&
+        (s.actionUnits === undefined || hasNumericValues(s.actionUnits))
     );
+}
+
+function hasNumericValues(value: unknown): boolean {
+    return !!value && typeof value === 'object' && !Array.isArray(value) &&
+        Object.values(value as Record<string, unknown>).every(Number.isFinite);
+}
+
+export function parseSessionSamples(raw: string | unknown[] | null): EmotionSample[] {
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return Array.isArray(parsed) ? parsed.filter(isValidSample).sort((a, b) => a.timestamp - b.timestamp) : [];
+    } catch {
+        return [];
+    }
+}
+
+function buildValenceArousal(samples: EmotionSample[]): TrackingEmotionData['valenceArousal'] {
+    const buckets = new Map<number, EmotionSample[]>();
+    for (const sample of samples) {
+        const second = Math.floor(sample.timestamp / 1000);
+        buckets.set(second, [...(buckets.get(second) ?? []), sample]);
+    }
+    return Array.from(buckets.entries()).sort((a, b) => a[0] - b[0]).map(([timestampS, bucket]) => {
+        const va = computeVA(bucket);
+        return { timestampS, valence: Math.round(va.valence * 100) / 100, arousal: Math.round(va.arousal * 100) / 100 };
+    });
 }
 
 /**
@@ -121,100 +137,33 @@ export async function getTrackingEmotionData(
         emotion_video_path: string | null;
     }>;
 
-    const counts: Record<EkmanEmotion, number> = Object.fromEntries(
-        ALL_EMOTIONS.map(e => [e, 0])
-    ) as Record<EkmanEmotion, number>;
+    const sessionSamples = sessions
+        .map((session) => ({ session, samples: parseSessionSamples(session.emotion_samples) }))
+        .filter(({ samples }) => samples.length > 0);
 
-    let totalSamples = 0;
-    let totalConfidence = 0;
-    const allSamples: EmotionSample[] = [];
-    const perSession: TrackingEmotionData['perSession'] = [];
+    const emotions = aggregateEmotions(sessionSamples.map(({ session, samples }) => ({
+        participantId: session.visitor_id,
+        samples,
+        microExpressions: detectMicroExpressions(samples),
+    })));
 
-    for (const session of sessions) {
-        let samples: EmotionSample[] = [];
-        try {
-            const raw = typeof session.emotion_samples === 'string'
-                ? JSON.parse(session.emotion_samples)
-                : session.emotion_samples;
-            samples = Array.isArray(raw) ? raw.filter(isValidSample) : [];
-        } catch { samples = []; }
-
-        if (samples.length === 0) continue;
-
-        // Per-session stats
+    const perSession = sessionSamples.map(({ session, samples }) => {
         const sessionCounts: Record<string, number> = {};
-        for (const s of samples) {
-            counts[s.emotion] = (counts[s.emotion] || 0) + 1;
-            sessionCounts[s.emotion] = (sessionCounts[s.emotion] || 0) + 1;
-            totalConfidence += s.confidence;
-        }
-        totalSamples += samples.length;
-        allSamples.push(...samples);
-
-        const dominant = Object.entries(sessionCounts)
-            .sort((a, b) => b[1] - a[1])[0]?.[0] as EkmanEmotion || 'neutral';
-
-        perSession.push({
+        for (const sample of samples) sessionCounts[sample.emotion] = (sessionCounts[sample.emotion] || 0) + 1;
+        return {
             sessionId: session.id,
             visitorId: session.visitor_id,
             pageUrl: session.page_url,
-            dominantEmotion: dominant,
+            dominantEmotion: (Object.entries(sessionCounts).sort((a, b) => b[1] - a[1])[0][0] as EkmanEmotion),
             sampleCount: samples.length,
             hasVideo: !!session.emotion_video_path,
-        });
-    }
-
-    // Distribution as percentages
-    const distribution = Object.fromEntries(
-        ALL_EMOTIONS.map(e => [e, totalSamples > 0 ? Math.round(counts[e] / totalSamples * 1000) / 10 : 0])
-    ) as Record<EkmanEmotion, number>;
-
-    // With no samples every count is tied at 0, and picking the highest would
-    // just return whichever emotion is listed first. Report neutral instead.
-    const dominantEmotion: EkmanEmotion = totalSamples === 0
-        ? 'neutral'
-        : (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] as EkmanEmotion) || 'neutral';
-
-    // Timeline: downsample to 1-second buckets
-    const timeline: TrackingEmotionData['timeline'] = [];
-    const valenceArousal: TrackingEmotionData['valenceArousal'] = [];
-
-    if (allSamples.length > 0) {
-        allSamples.sort((a, b) => a.timestamp - b.timestamp);
-        const bucketMs = 1000;
-        let bucketStart = allSamples[0].timestamp;
-        let bucket: EmotionSample[] = [];
-
-        for (const s of allSamples) {
-            if (s.timestamp - bucketStart >= bucketMs && bucket.length > 0) {
-                const dominant = bucket.sort((a, b) => b.confidence - a.confidence)[0];
-                const sec = Math.round(bucketStart / 1000);
-                timeline.push({ timestampS: sec, emotion: dominant.emotion, confidence: dominant.confidence });
-                const va = computeVA(bucket);
-                valenceArousal.push({ timestampS: sec, valence: Math.round(va.valence * 100) / 100, arousal: Math.round(va.arousal * 100) / 100 });
-                bucket = [];
-                bucketStart = s.timestamp;
-            }
-            bucket.push(s);
-        }
-        // Last bucket
-        if (bucket.length > 0) {
-            const dominant = bucket.sort((a, b) => b.confidence - a.confidence)[0];
-            const sec = Math.round(bucketStart / 1000);
-            timeline.push({ timestampS: sec, emotion: dominant.emotion, confidence: dominant.confidence });
-            const va = computeVA(bucket);
-            valenceArousal.push({ timestampS: sec, valence: Math.round(va.valence * 100) / 100, arousal: Math.round(va.arousal * 100) / 100 });
-        }
-    }
+        };
+    });
 
     return {
         totalSessions: perSession.length,
-        totalSamples,
-        distribution,
-        dominantEmotion,
-        avgConfidence: totalSamples > 0 ? Math.round(totalConfidence / totalSamples * 100) / 100 : 0,
-        timeline,
+        emotions,
         perSession,
-        valenceArousal,
+        valenceArousal: buildValenceArousal(sessionSamples.flatMap(({ samples }) => samples)),
     };
 }

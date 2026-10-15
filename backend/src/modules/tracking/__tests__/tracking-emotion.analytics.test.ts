@@ -15,7 +15,7 @@ import { getTrackingEmotionData } from '../tracking-emotion.analytics';
 /** Build a session row as the DB returns it (emotion_samples as a JSON string). */
 function sessionRow(
     id: string,
-    samples: Array<{ timestamp: number; emotion: string; confidence: number }>,
+    samples: Array<{ timestamp: number; emotion: string; confidence: number; actionUnits?: Record<string, unknown> }>,
     overrides: Partial<{ visitor_id: string; page_url: string; emotion_video_path: string | null }> = {},
 ) {
     return {
@@ -64,9 +64,9 @@ describe('getTrackingEmotionData — empty input', () => {
         const result = await getTrackingEmotionData('r1');
 
         expect(result.totalSessions).toBe(0);
-        expect(result.totalSamples).toBe(0);
-        expect(result.avgConfidence).toBe(0);
-        expect(result.timeline).toEqual([]);
+        expect(result.emotions.totalSamples).toBe(0);
+        expect(result.emotions.avgConfidence).toBe(0);
+        expect(result.emotions.timeline).toEqual([]);
         expect(result.valenceArousal).toEqual([]);
         expect(result.perSession).toEqual([]);
     });
@@ -79,7 +79,7 @@ describe('getTrackingEmotionData — empty input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.dominantEmotion).toBe('neutral');
+        expect(result.emotions.dominantEmotion).toBe('neutral');
     });
 
     it('reports every emotion at 0% when there is no data', async () => {
@@ -87,7 +87,7 @@ describe('getTrackingEmotionData — empty input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.distribution).toEqual({
+        expect(result.emotions.distribution).toEqual({
             joy: 0, sadness: 0, surprise: 0, anger: 0, disgust: 0, fear: 0, neutral: 0,
         });
     });
@@ -118,7 +118,7 @@ describe('getTrackingEmotionData — malformed input', () => {
         const result = await getTrackingEmotionData('r1');
 
         expect(result.totalSessions).toBe(1);
-        expect(result.totalSamples).toBe(1);
+        expect(result.emotions.totalSamples).toBe(1);
     });
 
     it('survives emotion_samples holding a non-array JSON value', async () => {
@@ -128,7 +128,7 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.totalSamples).toBe(0);
+        expect(result.emotions.totalSamples).toBe(0);
     });
 
     it('accepts emotion_samples already parsed by the driver', async () => {
@@ -144,8 +144,8 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.totalSamples).toBe(1);
-        expect(result.dominantEmotion).toBe('anger');
+        expect(result.emotions.totalSamples).toBe(1);
+        expect(result.emotions.dominantEmotion).toBe('anger');
     });
 
     // Samples arrive from a browser we do not control, so an unrecognized label
@@ -161,9 +161,9 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.totalSamples).toBe(1);
-        expect(result.dominantEmotion).toBe('joy');
-        expect(result.distribution.joy).toBe(100);
+        expect(result.emotions.totalSamples).toBe(1);
+        expect(result.emotions.dominantEmotion).toBe('joy');
+        expect(result.emotions.distribution.joy).toBe(100);
     });
 
     it('keeps the distribution summing to 100% when junk samples are present', async () => {
@@ -177,7 +177,7 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        const sum = Object.values(result.distribution).reduce((a, b) => a + b, 0);
+        const sum = Object.values(result.emotions.distribution).reduce((a, b) => a + b, 0);
         expect(sum).toBe(100);
     });
 
@@ -199,7 +199,7 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.totalSamples).toBe(1);
+        expect(result.emotions.totalSamples).toBe(1);
     });
 
     it('discards samples with a non-finite timestamp', async () => {
@@ -213,8 +213,8 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.totalSamples).toBe(1);
-        expect(result.dominantEmotion).toBe('joy');
+        expect(result.emotions.totalSamples).toBe(1);
+        expect(result.emotions.dominantEmotion).toBe('joy');
     });
 
     it('discards samples whose confidence is not a usable number', async () => {
@@ -228,8 +228,8 @@ describe('getTrackingEmotionData — malformed input', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.totalSamples).toBe(1);
-        expect(result.avgConfidence).toBe(0.8);
+        expect(result.emotions.totalSamples).toBe(1);
+        expect(result.emotions.avgConfidence).toBe(0.8);
     });
 });
 
@@ -248,12 +248,12 @@ describe('getTrackingEmotionData — distribution', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.distribution.joy).toBe(75);
-        expect(result.distribution.sadness).toBe(25);
-        expect(result.distribution.anger).toBe(0);
+        expect(result.emotions.distribution.joy).toBe(75);
+        expect(result.emotions.distribution.sadness).toBe(25);
+        expect(result.emotions.distribution.anger).toBe(0);
     });
 
-    it('rounds percentages to one decimal', async () => {
+    it('rounds percentages to two decimals, like Eye Tracking', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [sessionRow('s1', [
                 { timestamp: 0, emotion: 'joy', confidence: 0.5 },
@@ -264,7 +264,7 @@ describe('getTrackingEmotionData — distribution', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.distribution.joy).toBe(33.3);
+        expect(result.emotions.distribution.joy).toBe(33.33);
     });
 
     it('aggregates counts across sessions', async () => {
@@ -281,8 +281,8 @@ describe('getTrackingEmotionData — distribution', () => {
         const result = await getTrackingEmotionData('r1');
 
         expect(result.totalSessions).toBe(2);
-        expect(result.totalSamples).toBe(3);
-        expect(result.dominantEmotion).toBe('fear');
+        expect(result.emotions.totalSamples).toBe(3);
+        expect(result.emotions.dominantEmotion).toBe('fear');
     });
 
     it('averages confidence across every sample, rounded to two decimals', async () => {
@@ -295,7 +295,7 @@ describe('getTrackingEmotionData — distribution', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.avgConfidence).toBe(0.75);
+        expect(result.emotions.avgConfidence).toBe(0.75);
     });
 });
 
@@ -318,7 +318,7 @@ describe('getTrackingEmotionData — per-session summaries', () => {
         expect(result.perSession).toHaveLength(2);
         expect(result.perSession[0].dominantEmotion).toBe('joy');
         expect(result.perSession[1].dominantEmotion).toBe('anger');
-        expect(result.dominantEmotion).toBe('joy');
+        expect(result.emotions.dominantEmotion).toBe('joy');
     });
 
     it('picks the most frequent emotion within a session, not the first seen', async () => {
@@ -370,10 +370,10 @@ describe('getTrackingEmotionData — per-session summaries', () => {
     });
 });
 
-// ─── Timeline bucketing ──────────────────────────────────────────────
+// ─── Timeline bucketing (same rule as Eye Tracking) ─────────────────
 
 describe('getTrackingEmotionData — timeline', () => {
-    it('groups samples into one-second buckets', async () => {
+    it('groups samples into fixed one-second buckets keyed in milliseconds', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [sessionRow('s1', [
                 { timestamp: 0, emotion: 'joy', confidence: 0.9 },
@@ -385,28 +385,50 @@ describe('getTrackingEmotionData — timeline', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.timeline).toHaveLength(3);
-        expect(result.timeline[0].timestampS).toBe(0);
-        expect(result.timeline[1].timestampS).toBe(1);
+        expect(result.emotions.timeline.map(t => t.timestamp)).toEqual([0, 1000, 2000]);
     });
 
-    it('picks the highest-confidence sample as each bucket emotion', async () => {
+    it('takes the most frequent emotion of each bucket and averages its confidence', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [sessionRow('s1', [
                 { timestamp: 0, emotion: 'joy', confidence: 0.3 },
                 { timestamp: 200, emotion: 'anger', confidence: 0.95 },
-                { timestamp: 400, emotion: 'sadness', confidence: 0.5 },
+                { timestamp: 400, emotion: 'joy', confidence: 0.5 },
             ])],
         });
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.timeline).toHaveLength(1);
-        expect(result.timeline[0].emotion).toBe('anger');
-        expect(result.timeline[0].confidence).toBe(0.95);
+        expect(result.emotions.timeline).toHaveLength(1);
+        expect(result.emotions.timeline[0].emotion).toBe('joy');
+        expect(result.emotions.timeline[0].confidence).toBeCloseTo(0.583, 3);
     });
 
-    it('emits one entry per bucket, timeline and valenceArousal aligned', async () => {
+    it('averages the action units of each bucket', async () => {
+        mockQuery.mockResolvedValueOnce({
+            rows: [sessionRow('s1', [
+                { timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 0.8, AU12: 1 } },
+                { timestamp: 50, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 0.4, AU12: 0.6 } },
+            ])],
+        });
+
+        const result = await getTrackingEmotionData('r1');
+
+        expect(result.emotions.timeline[0].actionUnits.AU6).toBeCloseTo(0.6);
+        expect(result.emotions.timeline[0].actionUnits.AU12).toBeCloseTo(0.8);
+    });
+
+    it('keeps sessions recorded before action units existed, with empty units', async () => {
+        mockQuery.mockResolvedValueOnce({
+            rows: [sessionRow('s1', [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }])],
+        });
+
+        const result = await getTrackingEmotionData('r1');
+
+        expect(result.emotions.timeline[0].actionUnits).toEqual({});
+    });
+
+    it('emits one valence/arousal entry per timeline bucket', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [sessionRow('s1', [
                 { timestamp: 0, emotion: 'joy', confidence: 0.9 },
@@ -417,14 +439,10 @@ describe('getTrackingEmotionData — timeline', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.timeline).toHaveLength(result.valenceArousal.length);
-        expect(result.timeline.map(t => t.timestampS)).toEqual(result.valenceArousal.map(v => v.timestampS));
+        expect(result.emotions.timeline.map(t => t.timestamp / 1000)).toEqual(result.valenceArousal.map(v => v.timestampS));
     });
 
-    it('orders samples by timestamp before bucketing', async () => {
-        // Sessions are concatenated in DB order, so the combined stream arrives
-        // unsorted. Without an explicit sort the buckets are cut at the wrong
-        // moments and the timeline comes out scrambled.
+    it('orders buckets by time even when sessions arrive unsorted', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [
                 sessionRow('s1', [
@@ -437,64 +455,24 @@ describe('getTrackingEmotionData — timeline', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.timeline.map(t => t.timestampS)).toEqual([0, 1, 2]);
-        expect(result.timeline.map(t => t.emotion)).toEqual(['joy', 'anger', 'fear']);
+        expect(result.emotions.timeline.map(t => t.timestamp)).toEqual([0, 1000, 2000]);
+        expect(result.emotions.timeline.map(t => t.emotion)).toEqual(['joy', 'anger', 'fear']);
     });
 
-    it('closes a bucket at exactly one second, not just past it', async () => {
+    it('starts a new bucket at exactly one second', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [sessionRow('s1', [
-                { timestamp: 0, emotion: 'joy', confidence: 0.9 },
+                { timestamp: 999, emotion: 'joy', confidence: 0.9 },
                 { timestamp: 1000, emotion: 'anger', confidence: 0.9 },
             ])],
         });
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.timeline).toHaveLength(2);
-        expect(result.timeline[1].emotion).toBe('anger');
-    });
-
-    it('picks the highest-confidence emotion in mid-stream buckets too', async () => {
-        // The final bucket is flushed by a separate code path, so a bucket that
-        // closes mid-loop needs its own guard.
-        mockQuery.mockResolvedValueOnce({
-            rows: [sessionRow('s1', [
-                { timestamp: 0, emotion: 'joy', confidence: 0.2 },
-                { timestamp: 300, emotion: 'fear', confidence: 0.99 },
-                { timestamp: 600, emotion: 'sadness', confidence: 0.4 },
-                { timestamp: 1800, emotion: 'neutral', confidence: 0.5 },
-            ])],
-        });
-
-        const result = await getTrackingEmotionData('r1');
-
-        expect(result.timeline).toHaveLength(2);
-        expect(result.timeline[0].emotion).toBe('fear');
-        expect(result.timeline[0].confidence).toBe(0.99);
-    });
-
-    it('measures the bucket boundary as elapsed time since the bucket opened', async () => {
-        // The cut is `timestamp - bucketStart >= 1000`. Once bucketStart moves off
-        // zero, any formula that combines the two values instead of subtracting
-        // starts cutting a new bucket on every sample.
-        mockQuery.mockResolvedValueOnce({
-            rows: [sessionRow('s1', [
-                { timestamp: 0, emotion: 'joy', confidence: 0.9 },
-                { timestamp: 1100, emotion: 'anger', confidence: 0.9 },
-                { timestamp: 1300, emotion: 'fear', confidence: 0.5 },
-            ])],
-        });
-
-        const result = await getTrackingEmotionData('r1');
-
-        expect(result.timeline).toHaveLength(2);
-        expect(result.timeline.map(t => t.timestampS)).toEqual([0, 1]);
+        expect(result.emotions.timeline.map(t => t.emotion)).toEqual(['joy', 'anger']);
     });
 
     it('merges samples from different sessions by relative time', async () => {
-        // Snippet timestamps are ms since capture start, so the same relative
-        // second from two visitors belongs in the same bucket.
         mockQuery.mockResolvedValueOnce({
             rows: [
                 sessionRow('s1', [{ timestamp: 100, emotion: 'joy', confidence: 0.9 }]),
@@ -504,8 +482,57 @@ describe('getTrackingEmotionData — timeline', () => {
 
         const result = await getTrackingEmotionData('r1');
 
-        expect(result.timeline).toHaveLength(1);
-        expect(result.timeline[0].timestampS).toBe(0);
+        expect(result.emotions.timeline).toHaveLength(1);
+        expect(result.emotions.timeline[0].timestamp).toBe(0);
+    });
+});
+
+// ─── Participants and micro-expressions (same rules as Eye Tracking) ─
+
+describe('getTrackingEmotionData — participants and micro-expressions', () => {
+    it('reports one participant per visitor, merging the pages they visited', async () => {
+        mockQuery.mockResolvedValueOnce({
+            rows: [
+                sessionRow('s1', [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }], { visitor_id: 'v1' }),
+                sessionRow('s2', [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }, { timestamp: 50, emotion: 'anger', confidence: 0.9 }], { visitor_id: 'v1' }),
+                sessionRow('s3', [{ timestamp: 0, emotion: 'fear', confidence: 0.9 }], { visitor_id: 'v2' }),
+            ],
+        });
+
+        const result = await getTrackingEmotionData('r1');
+
+        expect(result.emotions.perParticipant).toEqual([
+            { participantId: 'v1', dominantEmotion: 'joy', sampleCount: 3, distribution: expect.objectContaining({ joy: 66.67, anger: 33.33 }) },
+            { participantId: 'v2', dominantEmotion: 'fear', sampleCount: 1, distribution: expect.objectContaining({ fear: 100 }) },
+        ]);
+    });
+
+    it('detects a 250 ms flash of another emotion as a micro-expression of that visitor', async () => {
+        const neutral = (timestamp: number) => ({ timestamp, emotion: 'neutral', confidence: 0.9 });
+        const samples = [
+            ...Array.from({ length: 20 }, (_, i) => neutral(i * 50)),
+            ...Array.from({ length: 6 }, (_, i) => ({ timestamp: 1000 + i * 50, emotion: 'disgust', confidence: 0.7 })),
+            ...Array.from({ length: 20 }, (_, i) => neutral(1300 + i * 50)),
+        ];
+        mockQuery.mockResolvedValueOnce({ rows: [sessionRow('s1', samples, { visitor_id: 'v9' })] });
+
+        const result = await getTrackingEmotionData('r1');
+
+        expect(result.emotions.microExpressions).toMatchObject({ total: 1, microCount: 1, byEmotion: { disgust: 1 } });
+        expect(result.emotions.microExpressions?.events[0]).toMatchObject({ participantId: 'v9', emotion: 'disgust', durationMs: 250, startTimestamp: 1000 });
+    });
+
+    it('drops samples whose action units are not numbers', async () => {
+        mockQuery.mockResolvedValueOnce({
+            rows: [sessionRow('s1', [
+                { timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 'high' } },
+                { timestamp: 50, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 0.5 } },
+            ])],
+        });
+
+        const result = await getTrackingEmotionData('r1');
+
+        expect(result.emotions.totalSamples).toBe(1);
     });
 });
 

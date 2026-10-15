@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 
-vi.mock('../tracking.service', () => ({
+vi.mock('../tracking.service', async () => ({
+    isTrackingZone: (await vi.importActual<typeof import('../tracking.service')>('../tracking.service')).isTrackingZone,
     createSession: vi.fn().mockResolvedValue({ sessionId: 'sess-1' }),
     saveEvents: vi.fn().mockResolvedValue({ saved: 3 }),
     getTrackingConfig: vi.fn().mockResolvedValue({
@@ -63,6 +64,10 @@ vi.mock('../tracking-snippet', () => ({
 
 vi.mock('../tracking-emotion.analytics', () => ({
     getTrackingEmotionData: vi.fn().mockResolvedValue({ emotions: [] }),
+}));
+
+vi.mock('../tracking-zones.analytics', () => ({
+    getTrackingZoneData: vi.fn().mockResolvedValue({ zones: [{ id: 'cta' }] }),
 }));
 
 vi.mock('../tracking-gaze.analytics', () => ({
@@ -660,6 +665,28 @@ describe('handleTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(200);
         expect(saveTrackingConfig).toHaveBeenCalledWith('r1', body);
+    });
+
+    it('PUT /tracking/:id/config saves well-formed zones', async () => {
+        const body = { zones: [{ id: 'cta', label: 'Comprar', pageUrl: 'https://shop.example.com/pricing', selector: '#buy' }] };
+        const res = await handleTrackingRoutes(mockEvent('PUT', '/tracking/r1/config', { body }));
+        expect(res.statusCode).toBe(200);
+        expect(saveTrackingConfig).toHaveBeenCalledWith('r1', body);
+    });
+
+    it('PUT /tracking/:id/config rejects a zone without a selector and saves nothing', async () => {
+        vi.mocked(saveTrackingConfig).mockClear();
+        const body = { zones: [{ id: 'cta', label: 'Comprar', pageUrl: 'https://shop.example.com/pricing', selector: '' }] };
+        const res = await handleTrackingRoutes(mockEvent('PUT', '/tracking/r1/config', { body }));
+        expect(res.statusCode).toBe(400);
+        expect(JSON.parse(res.body).message).toContain('Invalid zones');
+        expect(saveTrackingConfig).not.toHaveBeenCalled();
+    });
+
+    it('GET /tracking/:id/zones returns zone metrics', async () => {
+        const res = await handleTrackingRoutes(mockEvent('GET', '/tracking/r1/zones'));
+        expect(res.statusCode).toBe(200);
+        expect(JSON.parse(res.body)).toEqual({ zones: [{ id: 'cta' }] });
     });
 
     it('GET /tracking/:id/friction returns friction summary', async () => {

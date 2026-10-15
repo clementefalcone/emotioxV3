@@ -34,7 +34,16 @@ interface SnippetConfig {
     emotionModelBaseUrl: string;
     captureGaze: boolean;
     gazeCalibrationPoints: 5 | 9;
+    zones: Array<{ id: string; pageUrl: string; selector: string }>;
 }
+
+const toPagePath = (pageUrl: string): string => {
+    try {
+        return new URL(pageUrl).pathname;
+    } catch {
+        return pageUrl;
+    }
+};
 
 export const generateTrackingSnippet = (config: SnippetConfig): string => {
     return `(function(){
@@ -61,6 +70,7 @@ var C=${JSON.stringify({
         emoModelUrl: config.emotionModelBaseUrl,
         gaze: config.captureGaze,
         gazeCal: config.gazeCalibrationPoints,
+        zones: config.zones.map((zone) => ({ id: zone.id, path: toPagePath(zone.pageUrl), selector: zone.selector })),
     })};
 
 // ─── State ───────────────────────────────────────────────────────────
@@ -227,8 +237,7 @@ function createSession(){
         if(buf.length>0)flush();
         startRrwebRecording();
         if(rrwebBuf.length>0)flushRrweb();
-        startEmotionCapture();
-        startGazeCapture();
+        startCameraCapture();
         // Capture DOM snapshot with inlined CSS (self-contained backdrop)
         setTimeout(function(){
             try{
@@ -469,7 +478,7 @@ function startCapture(){
                 paused=false;
                 activeStart=Date.now();
                 startRrwebRecording();
-                if((C.emotions||C.gaze&&gazeWeights)&&emoStream&&!emoRunning){emoRunning=true;emoStartTime=Date.now();emoInterval=setInterval(sampleFrame,500);}
+                if(isCaptureStarted&&emoStream&&!emoRunning)startSampling();
             }
         }
     });
@@ -656,6 +665,19 @@ function applyOneEuro(x,y){
 var fixState={cx:0,cy:0,startT:0,sumX:0,sumY:0,count:0,active:false};
 var FIX_RADIUS_PX=100,FIX_MIN_MS=200;
 var fixBuf=[];
+function zoneRectsOnPage(){
+    var rects={},sx=window.scrollX,sy=window.scrollY;
+    for(var i=0;i<C.zones.length;i++){
+        var zone=C.zones[i];
+        if(zone.path!==location.pathname)continue;
+        var el=null;
+        try{el=document.querySelector(zone.selector);}catch(e){}
+        if(!el)continue;
+        var r=el.getBoundingClientRect();
+        if(r.width>0&&r.height>0)rects[zone.id]=[Math.round(r.left+sx),Math.round(r.top+sy),Math.round(r.width),Math.round(r.height)];
+    }
+    return rects;
+}
 function feedFixation(x,y,ts){
     if(!fixState.active){
         fixState={cx:x,cy:y,startT:ts,sumX:x,sumY:y,count:1,active:true};
@@ -668,7 +690,7 @@ function feedFixation(x,y,ts){
     }
     var dur=ts-fixState.startT;
     if(dur>=FIX_MIN_MS){
-        fixBuf.push({type:"fixation",x:Math.round(fixState.sumX/fixState.count),y:Math.round(fixState.sumY/fixState.count),duration:Math.round(dur),timestamp:fixState.startT});
+        fixBuf.push({type:"fixation",x:Math.round(fixState.sumX/fixState.count),y:Math.round(fixState.sumY/fixState.count),duration:Math.round(dur),timestamp:fixState.startT,zones:zoneRectsOnPage()});
     }
     fixState={cx:x,cy:y,startT:ts,sumX:x,sumY:y,count:1,active:true};
 }
@@ -678,115 +700,359 @@ function calPoints(n){
     return[[10,10],[50,10],[90,10],[10,50],[50,50],[90,50],[10,90],[50,90],[90,90]];
 }
 
-function runCalibration(nPts,cb,retryCount){
-    if(!retryCount)retryCount=0;
-    var pts=calPoints(nPts);
-    var d=GAZE_FEAT_DIM;
-    var Xbuf=[],Ybuf=[];
-    var overlay=document.createElement("div");
-    overlay.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2147483647;display:flex;align-items:center;justify-content:center;flex-direction:column;";
-    var dot=document.createElement("div");
-    dot.style.cssText="width:20px;height:20px;border-radius:50%;background:#ef4444;position:absolute;transition:all 0.3s ease;box-shadow:0 0 16px rgba(239,68,68,0.5);";
-    var ring=document.createElement("div");
-    ring.style.cssText="width:36px;height:36px;border-radius:50%;border:2px solid rgba(239,68,68,0.3);position:absolute;transition:all 0.3s ease;pointer-events:none;";
-    var label=document.createElement("div");
-    label.style.cssText="color:#fff;font-family:-apple-system,sans-serif;font-size:15px;position:absolute;bottom:50px;text-align:center;width:100%;opacity:0.9;";
-    label.textContent="Look at the red dot";
-    var progress=document.createElement("div");
-    progress.style.cssText="position:absolute;bottom:20px;left:10%;width:80%;height:3px;background:rgba(255,255,255,0.15);border-radius:2px;";
-    var progressBar=document.createElement("div");
-    progressBar.style.cssText="height:100%;background:#ef4444;border-radius:2px;transition:width 0.3s ease;width:0%;";
-    progress.appendChild(progressBar);
-    overlay.appendChild(dot);overlay.appendChild(ring);overlay.appendChild(label);overlay.appendChild(progress);
-    document.body.appendChild(overlay);
+// ─── Participant camera screens (same flow, copy and thresholds as the Eye Tracking module) ───
+var UI_TEXTS={
+    es:{step:"Paso {step} de {total}: {label}",stepPrepare:"Prepararse",stepCalibrate:"Ajustar la mirada",stepCheck:"Comprobar",
+        qgTitle:"Revisando tu cámara...",qgSubtitle:"Toma unos segundos. Quédate quieto/a mirando la pantalla.",qgRetry:"Intentar de nuevo",qgPassed:"¡Todo bien! Seguimos...",
+        resolution:"Cámara funcionando",brightness:"Buena luz",faceDetection:"Se ve tu cara",distance:"Distancia correcta",headStability:"Cabeza quieta",headPose:"Mirando de frente",
+        hintResolution:"Revisa que la cámara no esté tapada",hintBrightness:"Busca un lugar con más luz, sin ventanas ni lámparas detrás de ti",hintFaceDetection:"Pon tu cara frente a la cámara",
+        hintDistance:"Acércate o aléjate un poco: más o menos a un brazo de distancia",hintHeadStability:"Quédate quieto/a unos segundos",hintHeadPose:"Mira la pantalla de frente",
+        dwell:"Mira el punto sin mover la cabeza. Avanzará solo.",pointOf:"Punto {current} de {total}",tapFallback:"si no avanza, toca la pantalla o haz clic",
+        failed:"No logramos ajustar bien tu mirada. En el próximo intento, mueve solo los ojos, no la cabeza. ¿Lo intentamos otra vez?",
+        rejected:"Después de varios intentos no logramos ajustar tu mirada. Puedes seguir igual o saltar esta actividad.",
+        retry:"Intentar de nuevo",continueAnyway:"Seguir igual",skip:"Saltar esta actividad"},
+    en:{step:"Step {step} of {total}: {label}",stepPrepare:"Get ready",stepCalibrate:"Adjust your gaze",stepCheck:"Check",
+        qgTitle:"Checking your camera...",qgSubtitle:"This takes a few seconds. Stay still and look at the screen.",qgRetry:"Try again",qgPassed:"All good! Moving on...",
+        resolution:"Camera working",brightness:"Good light",faceDetection:"We can see your face",distance:"Right distance",headStability:"Head still",headPose:"Facing the screen",
+        hintResolution:"Check that the camera is not covered",hintBrightness:"Find a brighter place, with no windows or lamps behind you",hintFaceDetection:"Put your face in front of the camera",
+        hintDistance:"Move a little closer or farther: about an arm's length away",hintHeadStability:"Stay still for a few seconds",hintHeadPose:"Look straight at the screen",
+        dwell:"Look at the dot without moving your head. It will move on by itself.",pointOf:"Point {current} of {total}",tapFallback:"if it does not move, tap or click the screen",
+        failed:"We could not adjust to your gaze well. Next time, move only your eyes, not your head. Shall we try again?",
+        rejected:"After several tries we could not adjust to your gaze. You can continue anyway or skip this activity.",
+        retry:"Try again",continueAnyway:"Continue anyway",skip:"Skip this activity"}
+};
+var UI_TEXT=UI_TEXTS[/^en/i.test(navigator.language||"")?"en":"es"];
+function uiText(key,vars){
+    var text=UI_TEXT[key];
+    for(var name in vars||{})text=text.split("{"+name+"}").join(String(vars[name]));
+    return text;
+}
 
+var UI_FONT="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;";
+var UI_STEP_LABELS=["stepPrepare","stepCalibrate","stepCheck"];
+function uiNode(tag,css,text){
+    var node=document.createElement(tag);
+    node.style.cssText=css;
+    if(text!=null)node.textContent=text;
+    return node;
+}
+function uiOverlay(background){
+    return uiNode("div","position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;box-sizing:border-box;padding:max(16px,env(safe-area-inset-top)) 24px 16px;display:flex;flex-direction:column;align-items:center;text-align:center;"+UI_FONT+"background:"+background+";");
+}
+function uiPill(step,percent){
+    var pill=uiNode("div","display:inline-flex;align-items:center;gap:12px;background:#2563eb;color:#fff;padding:8px 16px;border-radius:999px;font-size:14px;font-weight:500;");
+    pill.appendChild(uiNode("span","",uiText("step",{step:step,total:UI_STEP_LABELS.length,label:uiText(UI_STEP_LABELS[step-1])})));
+    var track=uiNode("div","width:64px;height:6px;background:#60a5fa;border-radius:999px;overflow:hidden;");
+    var fill=uiNode("div","height:100%;background:#fff;border-radius:999px;transition:width .3s;");
+    track.appendChild(fill);
+    pill.appendChild(track);
+    pill.setPercent=function(value){fill.style.width=Math.min(Math.round(value),100)+"%";};
+    pill.setPercent(percent);
+    return pill;
+}
+function uiButton(label,isPrimary,onClick){
+    var button=uiNode("button","border:0;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;"+UI_FONT+(isPrimary?"background:#2563eb;color:#fff;":"background:rgba(255,255,255,0.2);color:#fff;"),label);
+    button.addEventListener("click",function(e){e.stopPropagation();onClick();});
+    return button;
+}
+function uiDot(color,size){
+    var dot=uiNode("div","position:absolute;width:"+size+"px;height:"+size+"px;transform:translate(-50%,-50%);transition:left .3s ease,top .3s ease;pointer-events:none;");
+    var mask="radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px))";
+    var ring=uiNode("div","position:absolute;left:-10px;top:-10px;right:-10px;bottom:-10px;border-radius:50%;-webkit-mask:"+mask+";mask:"+mask+";");
+    dot.appendChild(uiNode("div","position:absolute;left:0;top:0;right:0;bottom:0;border-radius:50%;background:"+color+";box-shadow:0 0 16px "+color+";"));
+    dot.appendChild(ring);
+    dot.moveTo=function(xPct,yPct){dot.style.left=xPct+"%";dot.style.top=yPct+"%";};
+    dot.setProgress=function(fraction){ring.style.background=fraction>0?"conic-gradient("+color+" "+Math.round(fraction*360)+"deg,transparent 0)":"transparent";};
+    return dot;
+}
+
+function headPose(matrixes){
+    if(!matrixes||!matrixes.length)return{yaw:0,pitch:0};
+    var m=matrixes[0];
+    return{yaw:Math.asin(Math.max(-1,Math.min(1,m[2]||0)))*180/Math.PI,pitch:Math.atan2(-(m[6]||0),m[10]||1)*180/Math.PI};
+}
+function readFace(){
+    if(!mpLandmarker||!emoVideo||emoVideo.readyState<2)return null;
+    try{
+        var res=mpLandmarker.detectForVideo(emoVideo,performance.now());
+        if(!res.faceLandmarks||!res.faceLandmarks.length||res.faceLandmarks[0].length<=473)return null;
+        return{landmarks:res.faceLandmarks[0],matrixes:res.facialTransformationMatrixes};
+    }catch(e){return null;}
+}
+
+var QUALITY_CHECK_IDS=["resolution","brightness","faceDetection","distance","headStability","headPose"];
+var QUALITY_FRAMES=30,QUALITY_TICK_MS=40,INTERPUPILLARY_MM=63;
+function rateCameraQuality(m){
+    var backlit=m.edgeBrightness>m.centerBrightness*1.8&&m.centerBrightness<100;
+    return{
+        resolution:m.width>=640&&m.height>=480?"pass":"fail",
+        brightness:m.brightness<60?"fail":m.brightness<80||backlit?"warn":"pass",
+        faceDetection:m.faceRatio>=0.8?"pass":"fail",
+        distance:m.distanceCm<45||m.distanceCm>75?"warn":"pass",
+        headStability:m.headSpreadPx>15?"fail":"pass",
+        headPose:m.headAngleDeg>25?"fail":m.headAngleDeg>15?"warn":"pass"
+    };
+}
+function measureLight(video){
+    var w=64,h=48,canvas=document.createElement("canvas");
+    canvas.width=w;canvas.height=h;
+    var ctx=canvas.getContext("2d",{willReadFrequently:true});
+    if(!ctx)return{average:128,center:128,edge:128};
+    ctx.drawImage(video,0,0,w,h);
+    var data=ctx.getImageData(0,0,w,h).data,sum=0,centerSum=0,centerCount=0,edgeSum=0,edgeCount=0;
+    for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+        var i=(y*w+x)*4,lum=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+        sum+=lum;
+        if(x>w*0.25&&x<w*0.75&&y>h*0.15&&y<h*0.85){centerSum+=lum;centerCount++;}else{edgeSum+=lum;edgeCount++;}
+    }
+    return{average:sum/(w*h),center:centerCount?centerSum/centerCount:128,edge:edgeCount?edgeSum/edgeCount:128};
+}
+function positionSpread(points){
+    if(points.length<2)return 999;
+    var mx=0,my=0,total=0;
+    points.forEach(function(p){mx+=p.x;my+=p.y;});
+    mx/=points.length;my/=points.length;
+    points.forEach(function(p){total+=(p.x-mx)*(p.x-mx)+(p.y-my)*(p.y-my);});
+    return Math.sqrt(total/points.length);
+}
+function collectCameraMetrics(cb){
+    var ticks=0,faces=0,noses=[],eyeGaps=[],headAngle=0;
+    var timer=setInterval(function(){
+        if(!emoVideo){clearInterval(timer);cb(null);return;}
+        ticks++;
+        var face=readFace();
+        if(face){
+            var lm=face.landmarks,pose=headPose(face.matrixes);
+            faces++;
+            noses.push({x:lm[1].x*emoVideo.videoWidth,y:lm[1].y*emoVideo.videoHeight});
+            eyeGaps.push(Math.sqrt(Math.pow(lm[468].x-lm[473].x,2)+Math.pow(lm[468].y-lm[473].y,2)));
+            headAngle=Math.max(Math.abs(pose.yaw),Math.abs(pose.pitch));
+        }
+        if(ticks<QUALITY_FRAMES)return;
+        clearInterval(timer);
+        eyeGaps.sort(function(a,b){return a-b;});
+        var light=measureLight(emoVideo);
+        cb({width:emoVideo.videoWidth,height:emoVideo.videoHeight,brightness:light.average,centerBrightness:light.center,edgeBrightness:light.edge,
+            faceRatio:faces/ticks,distanceCm:eyeGaps.length?INTERPUPILLARY_MM/10/eyeGaps[Math.floor(eyeGaps.length/2)]:999,
+            headSpreadPx:positionSpread(noses),headAngleDeg:headAngle});
+    },QUALITY_TICK_MS);
+}
+function uiQualityRow(id){
+    var row=uiNode("div","display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;");
+    var icon=uiNode("span","width:16px;font-size:16px;color:#9ca3af;","…");
+    var body=uiNode("div","flex:1;");
+    var hint=uiNode("div","display:none;margin-top:4px;font-size:12px;color:#4b5563;",uiText("hint"+id.charAt(0).toUpperCase()+id.slice(1)));
+    body.appendChild(uiNode("div","font-size:14px;font-weight:500;color:#1f2937;",uiText(id)));
+    body.appendChild(hint);
+    row.appendChild(icon);row.appendChild(body);
+    var looks={pass:["✓","#22c55e","#f0fdf4","#bbf7d0"],warn:["!","#f59e0b","#fffbeb","#fde68a"],fail:["✗","#ef4444","#fef2f2","#fecaca"]};
+    return{node:row,show:function(status){
+        var look=looks[status];
+        icon.textContent=look[0];icon.style.color=look[1];
+        row.style.background=look[2];row.style.borderColor=look[3];
+        hint.style.display=status==="pass"?"none":"block";
+    }};
+}
+function runCameraCheck(onPass){
+    var overlay=uiOverlay("#fff");
+    overlay.appendChild(uiPill(1,20));
+    overlay.appendChild(uiNode("div","margin-top:32px;font-size:20px;font-weight:700;color:#111827;",uiText("qgTitle")));
+    overlay.appendChild(uiNode("div","margin-top:8px;font-size:14px;color:#6b7280;",uiText("qgSubtitle")));
+    var list=uiNode("div","margin-top:24px;width:100%;max-width:448px;display:flex;flex-direction:column;gap:12px;text-align:left;");
+    var footer=uiNode("div","margin-top:24px;font-size:14px;");
+    overlay.appendChild(list);overlay.appendChild(footer);
+    document.body.appendChild(overlay);
+    function check(){
+        list.textContent="";footer.textContent="";
+        var rows={};
+        QUALITY_CHECK_IDS.forEach(function(id){rows[id]=uiQualityRow(id);list.appendChild(rows[id].node);});
+        collectCameraMetrics(function(metrics){
+            if(!metrics){overlay.remove();return;}
+            var ratings=rateCameraQuality(metrics),allPass=true;
+            QUALITY_CHECK_IDS.forEach(function(id){rows[id].show(ratings[id]);if(ratings[id]!=="pass")allPass=false;});
+            if(allPass){
+                footer.appendChild(uiNode("div","color:#16a34a;font-weight:500;",uiText("qgPassed")));
+                setTimeout(function(){overlay.remove();onPass();},1500);
+                return;
+            }
+            footer.appendChild(uiButton(uiText("qgRetry"),true,check));
+        });
+    }
+    check();
+}
+
+var CAL_POINT_MS=2500,CAL_SETTLE_MS=800,CAL_TICK_MS=40;
+function runCalibration(nPts,cb){
+    var pts=calPoints(nPts),d=GAZE_FEAT_DIM,Xbuf=[],Ybuf=[];
+    var overlay=uiOverlay("#fff");
+    var pill=uiPill(2,25);
+    var counter=uiNode("div","margin-top:4px;font-size:14px;color:#6b7280;");
+    var area=uiNode("div","position:relative;flex:1;width:100%;");
+    var dot=uiDot("#22c55e",40);
+    overlay.appendChild(pill);
+    overlay.appendChild(uiNode("div","margin-top:8px;font-size:18px;font-weight:700;color:#111827;",uiText("dwell")));
+    overlay.appendChild(counter);
+    overlay.appendChild(area);
+    area.appendChild(dot);
+    document.body.appendChild(overlay);
     var pIdx=0;
     function showPoint(){
         if(pIdx>=pts.length){
             var nSamples=Xbuf.length/d;
-            if(nSamples<3){overlay.remove();cb(null,d,999);return;}
-            var holdIdx=nSamples-1;
-            var trainX=[],trainY=[];
-            for(var ti=0;ti<nSamples;ti++){
-                if(ti===holdIdx)continue;
-                for(var fi=0;fi<d;fi++)trainX.push(Xbuf[ti*d+fi]);
-                trainY.push(Ybuf[ti*2],Ybuf[ti*2+1]);
-            }
-            var W=solveRidge(trainX,trainY,d,nSamples-1,10.0);
-            if(!W){overlay.remove();cb(null,d,999);return;}
-            var holdFeat=[];for(var hi=0;hi<d;hi++)holdFeat.push(Xbuf[holdIdx*d+hi]);
-            var pred=predictXY(holdFeat,W,d);
-            var dx=pred[0]-Ybuf[holdIdx*2],dy=pred[1]-Ybuf[holdIdx*2+1];
-            var rmse=Math.sqrt(dx*dx+dy*dy);
-            if(rmse>150&&retryCount<2){
-                overlay.remove();
-                runCalibration(nPts,cb,retryCount+1);
-                return;
-            }
-            var Wfull=solveRidge(Xbuf,Ybuf,d,nSamples,10.0);
             overlay.remove();
-            cb(Wfull,d,rmse,Xbuf.slice(),Ybuf.slice());
+            cb(nSamples>=3?solveRidge(Xbuf,Ybuf,d,nSamples,10.0):null,d,Xbuf.slice(),Ybuf.slice());
             return;
         }
-        var px=pts[pIdx][0],py=pts[pIdx][1];
-        var screenX=window.innerWidth*px/100,screenY=window.innerHeight*py/100;
-        dot.style.left="calc("+px+"% - 10px)";dot.style.top="calc("+py+"% - 10px)";
-        ring.style.left="calc("+px+"% - 18px)";ring.style.top="calc("+py+"% - 18px)";
-        progressBar.style.width=Math.round(pIdx/pts.length*100)+"%";
-        label.textContent="Look at the dot ("+(pIdx+1)+"/"+pts.length+")";
-        var frames=[],fCount=0;
-        var capTimer=setInterval(function(){
-            if(mpLandmarker&&emoVideo&&emoVideo.readyState>=2){
-                try{
-                    var res=mpLandmarker.detectForVideo(emoVideo,performance.now());
-                    if(res.faceLandmarks&&res.faceLandmarks.length&&res.faceLandmarks[0].length>473){
-                        var feat=extractGazeFeat(res.faceLandmarks[0],res.facialTransformationMatrixes);
-                        frames.push(feat);
-                    }
-                }catch(e){}
-            }
-            fCount++;
-            if(fCount>=15){
-                clearInterval(capTimer);
-                if(frames.length>=5){
-                    var avg=new Array(d);for(var i=0;i<d;i++){var s=0;for(var j=0;j<frames.length;j++)s+=frames[j][i];avg[i]=s/frames.length;}
-                    avg[d-1]=1;
-                    for(var i=0;i<d;i++)Xbuf.push(avg[i]);
-                    Ybuf.push(screenX,screenY);
-                }
-                pIdx++;
-                setTimeout(showPoint,400);
-            }
-        },40);
+        var px=pts[pIdx][0],py=pts[pIdx][1],frames=[],faceSince=null;
+        dot.moveTo(px,py);dot.setProgress(0);
+        counter.textContent=uiText("pointOf",{current:pIdx+1,total:pts.length});
+        pill.setPercent(25+pIdx/pts.length*50);
+        var timer=setInterval(function(){
+            if(!emoVideo){clearInterval(timer);overlay.remove();return;}
+            var face=readFace();
+            if(!face){faceSince=null;frames=[];dot.setProgress(0);return;}
+            var now=Date.now();
+            if(faceSince===null)faceSince=now;
+            var held=now-faceSince;
+            dot.setProgress(Math.min(held/CAL_POINT_MS,1));
+            if(held>=CAL_SETTLE_MS)frames.push(extractGazeFeat(face.landmarks,face.matrixes));
+            if(held<CAL_POINT_MS)return;
+            clearInterval(timer);
+            var avg=new Array(d);
+            for(var i=0;i<d;i++){var s=0;for(var j=0;j<frames.length;j++)s+=frames[j][i];avg[i]=s/frames.length;}
+            avg[d-1]=1;
+            var rect=area.getBoundingClientRect();
+            for(var k=0;k<d;k++)Xbuf.push(avg[k]);
+            Ybuf.push(rect.left+rect.width*px/100,rect.top+rect.height*py/100);
+            pIdx++;
+            setTimeout(showPoint,400);
+        },CAL_TICK_MS);
     }
     setTimeout(showPoint,800);
 }
 
-// FACS AU extraction from MediaPipe 478 landmarks
-var FACS_IDX={liB:107,riB:336,lmB:105,rmB:334,leI:133,leO:33,leT:159,leB:145,reI:362,reO:263,reT:386,reB:374,mL:61,mR:291,mUT:0,mLB:17,chin:152,nB:2};
-function extractAUs(lm){
-    if(!lm||lm.length<474)return null;
-    var d=function(a,b){return Math.sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y));};
-    var rd=d(lm[FACS_IDX.leI],lm[FACS_IDX.reI])||1e-5;
-    var clamp=function(v){return Math.max(0,Math.min(1,v));};
-    var au1=clamp(((d(lm[FACS_IDX.liB],lm[FACS_IDX.leT])+d(lm[FACS_IDX.riB],lm[FACS_IDX.reT]))/2/rd-0.35)/0.15);
-    var au4=clamp((0.75-d(lm[FACS_IDX.lmB],lm[FACS_IDX.rmB])/rd)/0.15);
-    var au6=clamp((0.12-(d(lm[FACS_IDX.leT],lm[FACS_IDX.leB])+d(lm[FACS_IDX.reT],lm[FACS_IDX.reB]))/2/rd)/0.06);
-    var mw=d(lm[FACS_IDX.mL],lm[FACS_IDX.mR])/rd;
-    var au12=clamp((mw-0.50)/0.20);
-    var au15=clamp((d(lm[FACS_IDX.mLB],lm[FACS_IDX.chin])/rd-0.55)/0.15);
-    var mh=d(lm[FACS_IDX.mUT],lm[FACS_IDX.mLB])/rd;
-    var au25=clamp((mh-0.03)/0.08);
-    var au26=clamp((d(lm[FACS_IDX.nB],lm[FACS_IDX.chin])/rd-0.90)/0.20);
-    return{AU1:au1,AU4:au4,AU6:au6,AU12:au12,AU15:au15,AU25:au25,AU26:au26};
+var VALIDATION_POINTS=[[25,25],[75,25],[50,50],[25,75],[75,75]];
+var VALIDATION_DWELL_MS=800,VALIDATION_PROXIMITY_PX=280,VALIDATION_GRACE_MS=250;
+var RECALIBRATION_RMSE_PX=150,REJECT_RMSE_PX=200;
+function decideCalibration(rmse,recalibrations){
+    if(rmse<=RECALIBRATION_RMSE_PX)return"accept";
+    return recalibrations>=2&&rmse>REJECT_RMSE_PX?"offer-skip":"offer-retry";
 }
-function classifyEmo(a){
-    var sc={joy:a.AU6*0.6+a.AU12*0.4,sadness:a.AU1*0.2+a.AU4*0.3+a.AU15*0.5,surprise:a.AU1*0.25+a.AU25*0.2+a.AU26*0.3,anger:a.AU4*0.6+a.AU25*0.2,disgust:a.AU15*0.5+a.AU4*0.2,fear:a.AU1*0.2+a.AU4*0.35+a.AU25*0.1,neutral:0};
-    var mx=Math.max(a.AU1,a.AU4,a.AU6,a.AU12,a.AU15,a.AU25,a.AU26);
-    sc.neutral=mx<0.15?1-mx:0.1;
-    var be="neutral",bs=sc.neutral;
-    for(var e in sc){if(sc[e]>bs){bs=sc[e];be=e;}}
-    return{emotion:be,confidence:Math.min(1,bs)};
+function runValidation(W,d,recalibrations,onChoice){
+    var overlay=uiOverlay("rgba(0,0,0,0.6)");
+    overlay.style.backdropFilter="blur(12px)";
+    overlay.style.webkitBackdropFilter="blur(12px)";
+    var pill=uiPill(3,75);
+    var message=uiNode("div","margin-top:16px;max-width:512px;font-size:14px;color:rgba(255,255,255,0.8);",uiText("dwell"));
+    var hint=uiNode("div","margin-top:4px;font-size:12px;color:rgba(255,255,255,0.5);");
+    var actions=uiNode("div","margin-top:12px;display:flex;gap:12px;justify-content:center;");
+    var dot=uiDot("#facc15",24);
+    overlay.appendChild(pill);overlay.appendChild(message);overlay.appendChild(hint);overlay.appendChild(actions);overlay.appendChild(dot);
+    document.body.appendChild(overlay);
+    var idx=0,errors=[],dwellStart=null,exitAt=null,samples=[],lastGaze=null,timer=null;
+    function target(i){return[window.innerWidth*VALIDATION_POINTS[i][0]/100,window.innerHeight*VALIDATION_POINTS[i][1]/100];}
+    function showPoint(){
+        dot.moveTo(VALIDATION_POINTS[idx][0],VALIDATION_POINTS[idx][1]);dot.setProgress(0);
+        hint.textContent=uiText("pointOf",{current:idx+1,total:VALIDATION_POINTS.length})+" — "+uiText("tapFallback");
+        pill.setPercent(75+idx/VALIDATION_POINTS.length*25);
+    }
+    function finish(rmse){
+        clearInterval(timer);
+        overlay.removeEventListener("click",onTap);
+        dot.remove();hint.textContent="";
+        var decision=decideCalibration(rmse,recalibrations);
+        if(decision==="accept"){overlay.remove();onChoice("accept",rmse);return;}
+        message.style.color="#fff";message.style.fontWeight="500";
+        message.textContent=uiText(decision==="offer-skip"?"rejected":"failed");
+        var choices=decision==="offer-skip"?[["continueAnyway",true,"accept"],["skip",false,"skip"]]:[["retry",true,"retry"],["continueAnyway",false,"accept"]];
+        choices.forEach(function(c){actions.appendChild(uiButton(uiText(c[0]),c[1],function(){overlay.remove();onChoice(c[2],rmse);}));});
+    }
+    function record(x,y){
+        var t=target(idx);
+        errors.push(Math.sqrt(Math.pow(t[0]-x,2)+Math.pow(t[1]-y,2)));
+        dwellStart=null;exitAt=null;samples=[];
+        idx++;
+        if(idx<VALIDATION_POINTS.length){showPoint();return;}
+        finish(Math.round(Math.sqrt(errors.reduce(function(s,e){return s+e*e;},0)/errors.length)));
+    }
+    function onTap(){if(lastGaze)record(lastGaze[0],lastGaze[1]);}
+    if(!W){finish(999);return;}
+    overlay.addEventListener("click",onTap);
+    showPoint();
+    timer=setInterval(function(){
+        if(!emoVideo){clearInterval(timer);overlay.remove();return;}
+        var face=readFace(),now=Date.now();
+        lastGaze=face?predictXY(extractGazeFeat(face.landmarks,face.matrixes),W,d):null;
+        var t=target(idx);
+        if(lastGaze&&Math.sqrt(Math.pow(t[0]-lastGaze[0],2)+Math.pow(t[1]-lastGaze[1],2))<=VALIDATION_PROXIMITY_PX){
+            exitAt=null;
+            if(dwellStart===null){dwellStart=now;samples=[];}
+            samples.push(lastGaze);
+            dot.setProgress(Math.min((now-dwellStart)/VALIDATION_DWELL_MS,1));
+            if(now-dwellStart<VALIDATION_DWELL_MS)return;
+            var sx=0,sy=0;
+            samples.forEach(function(p){sx+=p[0];sy+=p[1];});
+            record(sx/samples.length,sy/samples.length);
+            return;
+        }
+        if(dwellStart===null)return;
+        if(exitAt===null){exitAt=now;return;}
+        if(now-exitAt>VALIDATION_GRACE_MS){dwellStart=null;exitAt=null;samples=[];dot.setProgress(0);}
+    },CAL_TICK_MS);
+}
+
+var CAMERA_SKIP_KEY="_ecx_cam_skip_"+C.rid,CAMERA_SKIP_MS=600000;
+function isCameraSkipped(){
+    var skippedAt=Number(load(CAMERA_SKIP_KEY));
+    return skippedAt>0&&Date.now()-skippedAt<CAMERA_SKIP_MS;
+}
+function skipCameraCapture(){
+    store(CAMERA_SKIP_KEY,String(Date.now()));
+    stopEmotionCapture();flushEmoVideo();releaseCamera();
+}
+function calibrateGaze(recalibrations){
+    runCalibration(C.gazeCal,function(W,d,xBuf,yBuf){
+        runValidation(W,d,recalibrations,function(choice,rmse){
+            if(choice==="retry"){calibrateGaze(recalibrations+1);return;}
+            if(choice==="skip"){skipCameraCapture();return;}
+            onCalDone(W,d,rmse,xBuf,yBuf);
+        });
+    });
+}
+
+// FACS Action Units from face-api 68 landmarks (same formulas as the Eye Tracking module)
+var FACE_68={leftInnerBrow:21,leftMidBrow:19,leftOuterBrow:17,rightInnerBrow:22,rightMidBrow:24,rightOuterBrow:26,leftEyeInner:39,leftEyeTop:37,leftEyeBottom:41,rightEyeInner:42,rightEyeTop:43,rightEyeBottom:47,noseBottom:33,mouthLeft:48,mouthRight:54,mouthUpperLipTop:51,mouthLowerLipBottom:57,chinBottom:8};
+function extractActionUnits68(points){
+    if(!points||points.length<68)return null;
+    var p=function(name){return points[FACE_68[name]];};
+    var dist=function(a,b){return Math.sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y));};
+    var clamp=function(v){return Math.max(0,Math.min(1,v));};
+    var rd=dist(p("leftEyeInner"),p("rightEyeInner"))||1e-5;
+    var mouthWidth=dist(p("mouthLeft"),p("mouthRight"))/rd;
+    return{
+        AU1:clamp(((dist(p("leftInnerBrow"),p("leftEyeTop"))+dist(p("rightInnerBrow"),p("rightEyeTop")))/2/rd-0.35)/0.15),
+        AU2:clamp(((dist(p("leftOuterBrow"),p("leftEyeTop"))+dist(p("rightOuterBrow"),p("rightEyeTop")))/2/rd-0.35)/0.15),
+        AU4:clamp((0.75-dist(p("leftMidBrow"),p("rightMidBrow"))/rd)/0.15),
+        AU6:clamp((0.12-(dist(p("leftEyeTop"),p("leftEyeBottom"))+dist(p("rightEyeTop"),p("rightEyeBottom")))/2/rd)/0.06),
+        AU12:clamp((mouthWidth-0.50)/0.20),
+        AU15:clamp((dist(p("mouthLowerLipBottom"),p("chinBottom"))/rd-0.55)/0.15),
+        AU20:clamp((mouthWidth-0.50)/0.25),
+        AU25:clamp((dist(p("mouthUpperLipTop"),p("mouthLowerLipBottom"))/rd-0.03)/0.08),
+        AU26:clamp((dist(p("noseBottom"),p("chinBottom"))/rd-0.90)/0.20)
+    };
+}
+function roundTo3(value){return Math.round(value*1000)/1000;}
+function toEmotionSample(detection,timestamp){
+    var best="neutral",bestScore=0,expressions={};
+    for(var key in detection.expressions){
+        if(!EXPRESSION_MAP[key])continue;
+        expressions[EXPRESSION_MAP[key]]=roundTo3(detection.expressions[key]);
+        if(detection.expressions[key]>bestScore){bestScore=detection.expressions[key];best=EXPRESSION_MAP[key];}
+    }
+    var units=extractActionUnits68(detection.landmarks.positions)||{AU1:0,AU2:0,AU4:0,AU6:0,AU12:0,AU15:0,AU20:0,AU25:0,AU26:0};
+    var actionUnits={};
+    for(var unit in units)actionUnits[unit]=roundTo3(units[unit]);
+    return{timestamp:timestamp,emotion:best,confidence:roundTo3(bestScore),expressions:expressions,actionUnits:actionUnits};
 }
 
 // Last known cursor position
@@ -841,22 +1107,32 @@ var cameraReleaseTimer=null;
 function releaseCamera(){
     if(emoStream)emoStream.getTracks().forEach(function(t){t.stop();});
     if(emoVideo)emoVideo.remove();
-    emoStream=null;emoVideo=null;
+    emoStream=null;emoVideo=null;isCaptureStarted=false;
 }
 
+var EMO_SAMPLE_MS=50,GAZE_SAMPLE_MS=500;
+var gazeInterval=null,isDetectingEmotion=false,faceApiReady=false,isCaptureStarted=false;
+function captureElapsedMs(){return emoActiveMs+(Date.now()-emoStartTime);}
 function startSampling(){
     if(emoRunning)return;
     emoRunning=true;
     emoStartTime=Date.now();
-    emoInterval=setInterval(sampleFrame,500);
+    if(mpLandmarker)gazeInterval=setInterval(sampleGaze,GAZE_SAMPLE_MS);
+    if(C.emotions&&faceApiReady)emoInterval=setInterval(sampleEmotion,EMO_SAMPLE_MS);
 }
 
-function startEmotionCapture(){
-    if(!C.emotions||emoRunning)return;
-    withCamera(function(stream){
-        loadMediaPipe(function(){
-            startSampling();
-            if(C.emoVideo)startEmoRecording(stream);
+function beginCapture(){
+    isCaptureStarted=true;
+    startSampling();
+    if(C.emotions&&C.emoVideo&&emoStream)startEmoRecording(emoStream);
+}
+
+function startCameraCapture(){
+    if(!(C.emotions||C.gaze)||isCameraSkipped())return;
+    withCamera(function(){
+        loadCaptureModels(function(){
+            if(C.gaze&&mpLandmarker&&!restoreCalibration()){runCameraCheck(function(){calibrateGaze(0);});return;}
+            beginCapture();
         });
     });
 }
@@ -868,32 +1144,30 @@ function onCalDone(W,d,rmse,xBuf,yBuf){
     if(xBuf&&yBuf){calXbuf=xBuf;calYbuf=yBuf;}
     tapsSinceRetrain=0;
     if(W)store("_ecx_gaze_cal_"+C.rid,JSON.stringify({w:W,d:d,r:rmse,t:Date.now()}));
-    startGazeSampling();
+    beginCapture();
 }
 
-function startGazeCapture(){
-    if(!C.gaze)return;
+function restoreCalibration(){
     var cached=load("_ecx_gaze_cal_"+C.rid);
-    var isCalibrated=false;
-    if(cached){
-        try{var c=JSON.parse(cached);if(Date.now()-c.t<600000){gazeWeights=c.w;gazeFeatDim=c.d;gazeRmsePx=c.r||999;gazeQuality=c.r<=80?"good":c.r<=150?"fair":"low";isCalibrated=true;}}catch(e){}
-    }
-    withCamera(function(){
-        loadMediaPipe(function(){
-            if(!mpLandmarker)return;
-            if(isCalibrated)startGazeSampling();else runCalibration(C.gazeCal,onCalDone);
-        });
-    });
+    if(!cached)return false;
+    try{
+        var c=JSON.parse(cached);
+        if(Date.now()-c.t>=600000)return false;
+        gazeWeights=c.w;gazeFeatDim=c.d;gazeRmsePx=c.r||999;gazeQuality=c.r<=80?"good":c.r<=150?"fair":"low";
+        return true;
+    }catch(e){return false;}
 }
 
-function startGazeSampling(){
-    if(gazeWeights)startSampling();
+function loadCaptureModels(cb){
+    var pending=C.emotions?2:1;
+    var done=function(){pending--;if(pending===0)cb();};
+    loadMediaPipe(done);
+    if(C.emotions)loadFaceApi(done);
 }
 
 function loadMediaPipe(cb){
     if(mpLandmarker){cb();return;}
     var base="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32";
-    // Dynamic import() works in all modern browsers and handles ES modules correctly
     import(base+"/vision_bundle.mjs")
     .then(function(vision){
         return vision.FilesetResolver.forVisionTasks(base+"/wasm")
@@ -905,68 +1179,47 @@ function loadMediaPipe(cb){
         });
     })
     .then(function(lm){mpLandmarker=lm;cb();})
-    .catch(function(){
-        // MediaPipe failed — fall back to face-api.js for emotions only
-        if(!mpLandmarker)reportCaptureError("mediapipe-failed");
-        loadFaceApiFallback(cb);
-    });
+    .catch(function(){reportCaptureError("mediapipe-failed");cb();});
 }
 
-// Fallback: face-api.js if MediaPipe fails (older browsers)
-var useFaceApiFallback=false;
-function loadFaceApiFallback(cb){
-    useFaceApiFallback=true;
-    if(window.faceapi){cb();return;}
-    var sc=document.createElement("script");
-    sc.src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js";
-    sc.onload=function(){
+function loadFaceApi(cb){
+    if(faceApiReady){cb();return;}
+    var onModels=function(){
         Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(C.emoModelUrl),
+            faceapi.nets.faceLandmark68Net.loadFromUri(C.emoModelUrl),
             faceapi.nets.faceExpressionNet.loadFromUri(C.emoModelUrl)
-        ]).then(cb,function(){reportCaptureError("face-models-failed");});
+        ]).then(function(){faceApiReady=true;cb();},function(){reportCaptureError("face-models-failed");cb();});
     };
-    sc.onerror=function(){reportCaptureError("face-models-failed");};
+    if(window.faceapi){onModels();return;}
+    var sc=document.createElement("script");
+    sc.src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js";
+    sc.onload=onModels;
+    sc.onerror=function(){reportCaptureError("face-models-failed");cb();};
     document.head.appendChild(sc);
 }
 
-function sampleFrame(){
+function sampleEmotion(){
+    if(!emoRunning||paused||isDetectingEmotion||!emoVideo||emoVideo.readyState<2)return;
+    var ts=captureElapsedMs();
+    if(ts>EMO_MAX_MS){stopEmotionCapture();return;}
+    isDetectingEmotion=true;
+    faceapi.detectSingleFace(emoVideo,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.25}))
+    .withFaceLandmarks()
+    .withFaceExpressions()
+    .then(function(det){if(det&&emoRunning)emoBuf.push(toEmotionSample(det,ts));})
+    .catch(function(){})
+    .then(function(){isDetectingEmotion=false;});
+}
+
+function sampleGaze(){
     if(!emoRunning||paused||!emoVideo||emoVideo.readyState<2)return;
-    var elapsed=emoActiveMs+(Date.now()-emoStartTime);
-    if(elapsed>EMO_MAX_MS){stopEmotionCapture();return;}
-    var ts=elapsed;
-
-    if(useFaceApiFallback){
-        if(!C.emotions)return;
-        // Legacy face-api.js path (no gaze)
-        faceapi.detectSingleFace(emoVideo,new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.4}))
-        .withFaceExpressions()
-        .then(function(det){
-            if(!det||!emoRunning)return;
-            var expr=det.expressions;
-            var best="neutral",bestScore=0;
-            for(var k in expr){if(expr[k]>bestScore){bestScore=expr[k];best=k;}}
-            var mapped=EXPRESSION_MAP[best]||"neutral";
-            var ex={};for(var e in EXPRESSION_MAP){if(expr[e]!=null)ex[EXPRESSION_MAP[e]]=Math.round(expr[e]*1000)/1000;}
-            emoBuf.push({timestamp:ts,emotion:mapped,confidence:Math.round(bestScore*1000)/1000,expressions:ex});
-        }).catch(function(){});
-        return;
-    }
-
-    // MediaPipe path — emotions via FACS + gaze via iris
-    if(!mpLandmarker)return;
+    var ts=captureElapsedMs();
+    if(ts>EMO_MAX_MS){stopEmotionCapture();return;}
     try{
         var res=mpLandmarker.detectForVideo(emoVideo,performance.now());
         if(!res.faceLandmarks||!res.faceLandmarks.length)return;
         var lm=res.faceLandmarks[0];
-
-        // Emotion from FACS
-        var aus=C.emotions?extractAUs(lm):null;
-        if(aus){
-            var emo=classifyEmo(aus);
-            emoBuf.push({timestamp:ts,emotion:emo.emotion,confidence:Math.round(emo.confidence*1000)/1000});
-        }
-
-        // Gaze from iris (468=left iris, 473=right iris)
         if(lm.length>473){
             var li=lm[468],ri=lm[473];
             var ld=irisDisp(li.x,li.y,lm[33].x,lm[33].y,lm[133].x,lm[133].y,lm[159].y,lm[145].y);
@@ -1030,6 +1283,7 @@ function startEmoRecording(stream){
 function stopEmotionCapture(){
     emoRunning=false;
     if(emoInterval){clearInterval(emoInterval);emoInterval=null;}
+    if(gazeInterval){clearInterval(gazeInterval);gazeInterval=null;}
     if(emoVideo&&emoVideo._recorder){
         try{emoVideo._recorder.stop();}catch(e){}
     }

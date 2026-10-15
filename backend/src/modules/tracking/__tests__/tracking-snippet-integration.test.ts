@@ -41,6 +41,7 @@ const defaultConfig = {
     emotionModelBaseUrl: 'https://cdn.example.com/models',
     captureGaze: false,
     gazeCalibrationPoints: 9 as const,
+    zones: [] as Array<{ id: string; pageUrl: string; selector: string }>,
 };
 
 // ---------------------------------------------------------------------------
@@ -79,12 +80,6 @@ describe('generateTrackingSnippet — JS validity', () => {
         expect(js).toContain('flushGaze');
     });
 
-    it('contains FACS AU extraction functions', () => {
-        const js = generateTrackingSnippet(defaultConfig);
-        expect(js).toContain('extractAUs');
-        expect(js).toContain('classifyEmo');
-        expect(js).toContain('FACS_IDX');
-    });
 
     it('contains MediaPipe loader with dynamic import', () => {
         const js = generateTrackingSnippet(defaultConfig);
@@ -94,11 +89,13 @@ describe('generateTrackingSnippet — JS validity', () => {
         expect(js).toContain('FaceLandmarker');
     });
 
-    it('contains face-api.js fallback', () => {
+    it('loads face-api with the 68-landmark model the action units need', () => {
         const js = generateTrackingSnippet(defaultConfig);
-        expect(js).toContain('loadFaceApiFallback');
-        expect(js).toContain('useFaceApiFallback');
-        expect(js).toContain('vladmandic/face-api');
+        const loader = js.slice(js.indexOf('function loadFaceApi('), js.indexOf('function sampleEmotion('));
+        expect(loader).toContain('vladmandic/face-api@1.7.14');
+        expect(loader).toContain('faceapi.nets.tinyFaceDetector.loadFromUri(C.emoModelUrl)');
+        expect(loader).toContain('faceapi.nets.faceLandmark68Net.loadFromUri(C.emoModelUrl)');
+        expect(loader).toContain('faceapi.nets.faceExpressionNet.loadFromUri(C.emoModelUrl)');
     });
 
     it('gaze endpoint URL is correct', () => {
@@ -112,106 +109,59 @@ describe('generateTrackingSnippet — JS validity', () => {
 // 2. Inline FACS matches module FACS
 // ---------------------------------------------------------------------------
 
-describe('inline FACS vs module FACS — parity', () => {
-    // The snippet inlines a minified version of facsClassifier.ts AU extraction.
-    // These tests verify the inline formulas produce identical results.
+describe('generateTrackingSnippet — action units from face-api 68 landmarks', () => {
+    const js = generateTrackingSnippet(defaultConfig);
+    const source = js.slice(js.indexOf('var FACE_68='), js.indexOf('// Last known cursor position'));
+    const { extractActionUnits68, toEmotionSample } = new Function(
+        `var EXPRESSION_MAP={happy:"joy",sad:"sadness",angry:"anger",surprised:"surprise",disgusted:"disgust",fearful:"fear",neutral:"neutral"};${source}return {extractActionUnits68:extractActionUnits68,toEmotionSample:toEmotionSample};`,
+    )() as {
+        extractActionUnits68: (points: Array<{ x: number; y: number }>) => Record<string, number> | null;
+        toEmotionSample: (detection: unknown, timestamp: number) => { timestamp: number; emotion: string; confidence: number; expressions: Record<string, number>; actionUnits: Record<string, number> };
+    };
 
-    // Reproduce the inline FACS logic from the snippet
-    function inlineExtractAUs(lm: Array<{ x: number; y: number }>) {
-        const FACS_IDX = {
-            liB: 107, riB: 336, lmB: 105, rmB: 334,
-            leI: 133, leO: 33, leT: 159, leB: 145,
-            reI: 362, reO: 263, reT: 386, reB: 374,
-            mL: 61, mR: 291, mUT: 0, mLB: 17,
-            chin: 152, nB: 2,
+    const face = (overrides: Record<number, { x: number; y: number }> = {}) => {
+        const points = Array.from({ length: 68 }, () => ({ x: 100, y: 100 }));
+        const base: Record<number, { x: number; y: number }> = {
+            17: { x: 60, y: 60 }, 19: { x: 75, y: 55 }, 21: { x: 90, y: 60 },
+            22: { x: 110, y: 60 }, 24: { x: 125, y: 55 }, 26: { x: 140, y: 60 },
+            37: { x: 80, y: 75 }, 39: { x: 90, y: 80 }, 41: { x: 80, y: 85 },
+            42: { x: 110, y: 80 }, 43: { x: 120, y: 75 }, 47: { x: 120, y: 85 },
+            33: { x: 100, y: 110 }, 48: { x: 94.5, y: 130 }, 54: { x: 105.5, y: 130 },
+            51: { x: 100, y: 129.7 }, 57: { x: 100, y: 130.3 }, 8: { x: 100, y: 160 },
         };
-        if (!lm || lm.length < 474) return null;
-        const d = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-            Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-        const rd = d(lm[FACS_IDX.leI], lm[FACS_IDX.reI]) || 1e-5;
-        const clamp = (v: number) => Math.max(0, Math.min(1, v));
-        const au1 = clamp(((d(lm[FACS_IDX.liB], lm[FACS_IDX.leT]) + d(lm[FACS_IDX.riB], lm[FACS_IDX.reT])) / 2 / rd - 0.35) / 0.15);
-        const au4 = clamp((0.75 - d(lm[FACS_IDX.lmB], lm[FACS_IDX.rmB]) / rd) / 0.15);
-        const au6 = clamp((0.12 - (d(lm[FACS_IDX.leT], lm[FACS_IDX.leB]) + d(lm[FACS_IDX.reT], lm[FACS_IDX.reB])) / 2 / rd) / 0.06);
-        const mw = d(lm[FACS_IDX.mL], lm[FACS_IDX.mR]) / rd;
-        const au12 = clamp((mw - 0.50) / 0.20);
-        const au15 = clamp((d(lm[FACS_IDX.mLB], lm[FACS_IDX.chin]) / rd - 0.55) / 0.15);
-        const mh = d(lm[FACS_IDX.mUT], lm[FACS_IDX.mLB]) / rd;
-        const au25 = clamp((mh - 0.03) / 0.08);
-        const au26 = clamp((d(lm[FACS_IDX.nB], lm[FACS_IDX.chin]) / rd - 0.90) / 0.20);
-        return { AU1: au1, AU4: au4, AU6: au6, AU12: au12, AU15: au15, AU25: au25, AU26: au26 };
-    }
+        for (const [index, point] of Object.entries({ ...base, ...overrides })) points[Number(index)] = point;
+        return points;
+    };
 
-    function inlineClassifyEmo(a: Record<string, number>) {
-        const sc: Record<string, number> = {
-            joy: a.AU6 * 0.6 + a.AU12 * 0.4,
-            sadness: a.AU1 * 0.2 + a.AU4 * 0.3 + a.AU15 * 0.5,
-            surprise: a.AU1 * 0.25 + a.AU25 * 0.2 + a.AU26 * 0.3,
-            anger: a.AU4 * 0.6 + a.AU25 * 0.2,
-            disgust: a.AU15 * 0.5 + a.AU4 * 0.2,
-            fear: a.AU1 * 0.2 + a.AU4 * 0.35 + a.AU25 * 0.1,
-            neutral: 0,
-        };
-        const mx = Math.max(a.AU1, a.AU4, a.AU6, a.AU12, a.AU15, a.AU25, a.AU26);
-        sc.neutral = mx < 0.15 ? 1 - mx : 0.1;
-        let be = 'neutral', bs = sc.neutral;
-        for (const e in sc) { if (sc[e] > bs) { bs = sc[e]; be = e; } }
-        return { emotion: be, confidence: Math.min(1, bs) };
-    }
-
-    // Build 478-length landmark array with controlled face geometry
-    function buildLandmarks(overrides: Record<number, { x: number; y: number }>): Array<{ x: number; y: number }> {
-        const lm = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5 }));
-        for (const [idx, val] of Object.entries(overrides)) {
-            lm[Number(idx)] = val;
-        }
-        return lm;
-    }
-
-    it('neutral face produces same AU values in inline and module', () => {
-        const lm = buildLandmarks({
-            107: { x: 0.35, y: 0.38 }, 336: { x: 0.65, y: 0.38 }, // inner brows
-            105: { x: 0.30, y: 0.40 }, 334: { x: 0.70, y: 0.40 }, // mid brows
-            133: { x: 0.38, y: 0.45 }, 33: { x: 0.28, y: 0.45 },  // left eye
-            159: { x: 0.33, y: 0.43 }, 145: { x: 0.33, y: 0.47 },
-            362: { x: 0.62, y: 0.45 }, 263: { x: 0.72, y: 0.45 }, // right eye
-            386: { x: 0.67, y: 0.43 }, 374: { x: 0.67, y: 0.47 },
-            61: { x: 0.40, y: 0.60 }, 291: { x: 0.60, y: 0.60 },  // mouth
-            0: { x: 0.50, y: 0.58 }, 17: { x: 0.50, y: 0.62 },
-            152: { x: 0.50, y: 0.75 }, 2: { x: 0.50, y: 0.52 },   // chin, nose bottom
-        });
-
-        const inlineAUs = inlineExtractAUs(lm);
-        expect(inlineAUs).not.toBeNull();
-
-        // Verify all AUs are in [0, 1]
-        for (const [key, val] of Object.entries(inlineAUs!)) {
-            expect(val).toBeGreaterThanOrEqual(0);
-            expect(val).toBeLessThanOrEqual(1);
+    it('returns the nine action units of the Eye Tracking module, all within 0-1', () => {
+        const units = extractActionUnits68(face());
+        expect(Object.keys(units ?? {})).toEqual(['AU1', 'AU2', 'AU4', 'AU6', 'AU12', 'AU15', 'AU20', 'AU25', 'AU26']);
+        for (const value of Object.values(units ?? {})) {
+            expect(value).toBeGreaterThanOrEqual(0);
+            expect(value).toBeLessThanOrEqual(1);
         }
     });
 
-    it('happy face (wide mouth, squinted eyes) → joy in both', () => {
-        const lm = buildLandmarks({
-            107: { x: 0.35, y: 0.38 }, 336: { x: 0.65, y: 0.38 },
-            105: { x: 0.30, y: 0.40 }, 334: { x: 0.70, y: 0.40 },
-            133: { x: 0.38, y: 0.45 }, 33: { x: 0.28, y: 0.45 },
-            159: { x: 0.33, y: 0.44 }, 145: { x: 0.33, y: 0.46 }, // squinted (small eye height)
-            362: { x: 0.62, y: 0.45 }, 263: { x: 0.72, y: 0.45 },
-            386: { x: 0.67, y: 0.44 }, 374: { x: 0.67, y: 0.46 },
-            61: { x: 0.32, y: 0.60 }, 291: { x: 0.68, y: 0.60 },  // wide mouth
-            0: { x: 0.50, y: 0.58 }, 17: { x: 0.50, y: 0.62 },
-            152: { x: 0.50, y: 0.75 }, 2: { x: 0.50, y: 0.52 },
-        });
-
-        const aus = inlineExtractAUs(lm)!;
-        const result = inlineClassifyEmo(aus);
-        expect(result.emotion).toBe('joy');
+    it('raises smile and lip-stretch units for a wide mouth and lips-part for an open mouth', () => {
+        const neutral = extractActionUnits68(face())!;
+        const smile = extractActionUnits68(face({ 48: { x: 82, y: 128 }, 54: { x: 118, y: 128 } }))!;
+        const open = extractActionUnits68(face({ 51: { x: 100, y: 125 }, 57: { x: 100, y: 135 } }))!;
+        expect(smile.AU12).toBeGreaterThan(neutral.AU12);
+        expect(smile.AU20).toBeGreaterThan(neutral.AU20);
+        expect(open.AU25).toBeGreaterThan(neutral.AU25);
     });
 
-    it('inline returns null for short landmark array', () => {
-        const short = Array.from({ length: 400 }, () => ({ x: 0.5, y: 0.5 }));
-        expect(inlineExtractAUs(short)).toBeNull();
+    it('returns null when face-api gives fewer than 68 points', () => {
+        expect(extractActionUnits68(face().slice(0, 67))).toBeNull();
+    });
+
+    it('labels the sample with the top face-api expression and its action units', () => {
+        const sample = toEmotionSample({ expressions: { neutral: 0.1, happy: 0.81234, sad: 0.05 }, landmarks: { positions: face() } }, 1250);
+        expect(sample.timestamp).toBe(1250);
+        expect(sample.emotion).toBe('joy');
+        expect(sample.confidence).toBe(0.812);
+        expect(sample.expressions).toEqual({ neutral: 0.1, joy: 0.812, sadness: 0.05 });
+        expect(Object.keys(sample.actionUnits)).toHaveLength(9);
     });
 });
 
@@ -433,43 +383,80 @@ describe('generateTrackingSnippet — emotion and gaze delivery', () => {
     });
 });
 
-function runStartGazeCapture({ storedCalibration, isMediaPipeLoaded }: { storedCalibration: string | null; isMediaPipeLoaded: boolean }) {
-    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
-    const source = js.slice(js.indexOf('function startGazeCapture(){'), js.indexOf('function startGazeSampling(){'));
+function runStartCameraCapture({ storedCalibration, isMediaPipeLoaded, isSkipped = false, captureGaze = true }: { storedCalibration: string | null; isMediaPipeLoaded: boolean; isSkipped?: boolean; captureGaze?: boolean }) {
+    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze });
+    const source = js.slice(js.indexOf('function startCameraCapture(){'), js.indexOf('function onCalDone(')) +
+        js.slice(js.indexOf('function restoreCalibration(){'), js.indexOf('function loadCaptureModels('));
     const withCamera = vi.fn((cb: () => void) => cb());
-    const startGazeSampling = vi.fn();
-    const runCalibration = vi.fn();
-    new Function('C', 'load', 'withCamera', 'loadMediaPipe', 'mpLandmarker', 'startGazeSampling', 'runCalibration', 'onCalDone',
-        `var gazeWeights,gazeFeatDim,gazeRmsePx,gazeQuality;${source}startGazeCapture();`,
-    )({ gaze: true, rid: 'r', gazeCal: 9 }, () => storedCalibration, withCamera, (cb: () => void) => cb(),
-        isMediaPipeLoaded ? {} : null, startGazeSampling, runCalibration, () => undefined);
-    return { withCamera, startGazeSampling, runCalibration };
+    const beginCapture = vi.fn();
+    const runCameraCheck = vi.fn();
+    new Function('C', 'load', 'withCamera', 'loadCaptureModels', 'mpLandmarker', 'beginCapture', 'runCameraCheck', 'isCameraSkipped',
+        `var gazeWeights,gazeFeatDim,gazeRmsePx,gazeQuality;${source}startCameraCapture();`,
+    )({ gaze: captureGaze, emotions: true, rid: 'r', gazeCal: 9 }, () => storedCalibration, withCamera, (cb: () => void) => cb(),
+        isMediaPipeLoaded ? {} : null, beginCapture, runCameraCheck, () => isSkipped);
+    return { withCamera, beginCapture, runCameraCheck };
 }
 
 describe('generateTrackingSnippet — calibration overlay always closes', () => {
-    it('counts every calibration tick even when MediaPipe or the camera is not ready', () => {
+    it('closes the calibration and validation screens when the camera is released', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
-        const capTimer = js.slice(js.indexOf('var capTimer=setInterval'), js.indexOf('fCount++;') + 'fCount++;'.length);
-        expect(capTimer).not.toContain('{return;}');
-        expect(capTimer).toContain('if(mpLandmarker&&emoVideo&&emoVideo.readyState>=2){');
+        const screens = js.slice(js.indexOf('function runCalibration('), js.indexOf('var CAMERA_SKIP_KEY='));
+        expect(screens.split('if(!emoVideo){clearInterval(timer);overlay.remove();return;}')).toHaveLength(3);
     });
 
-    it('does not open the calibration overlay when MediaPipe failed to load', () => {
-        const { runCalibration } = runStartGazeCapture({ storedCalibration: null, isMediaPipeLoaded: false });
-        expect(runCalibration).not.toHaveBeenCalled();
+    it('skips calibration but still captures emotions when MediaPipe failed to load', () => {
+        const { runCameraCheck, beginCapture } = runStartCameraCapture({ storedCalibration: null, isMediaPipeLoaded: false });
+        expect(runCameraCheck).not.toHaveBeenCalled();
+        expect(beginCapture).toHaveBeenCalledTimes(1);
     });
 });
 
-describe('generateTrackingSnippet — emotions respect captureEmotions', () => {
-    it('only computes MediaPipe emotions when captureEmotions is enabled', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: false, captureGaze: true });
-        expect(js).toContain('var aus=C.emotions?extractAUs(lm):null;');
+describe('generateTrackingSnippet — emotion sampling like the Eye Tracking module', () => {
+    const startSamplingWith = (config: { emotions: boolean }, isFaceApiReady: boolean) => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = js.slice(js.indexOf('function startSampling(){'), js.indexOf('function beginCapture('));
+        const setInterval = vi.fn(() => 1);
+        new Function('C', 'setInterval', 'sampleEmotion', 'sampleGaze', 'mpLandmarker', 'faceApiReady',
+            `var emoRunning=false,emoStartTime=0,emoInterval=null,gazeInterval=null,EMO_SAMPLE_MS=50,GAZE_SAMPLE_MS=500;${source}startSampling();`,
+        )(config, setInterval, 'sampleEmotion', 'sampleGaze', {}, isFaceApiReady);
+        return setInterval.mock.calls as unknown as Array<[string, number]>;
+    };
+
+    it('samples emotions 20 times per second and gaze twice per second', () => {
+        expect(startSamplingWith({ emotions: true }, true)).toEqual([['sampleGaze', 500], ['sampleEmotion', 50]]);
     });
 
-    it('skips the face-api emotion fallback when captureEmotions is disabled', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: false, captureGaze: true });
-        const fallback = js.slice(js.indexOf('if(useFaceApiFallback){'), js.indexOf('faceapi.detectSingleFace'));
-        expect(fallback).toContain('if(!C.emotions)return;');
+    it('does not sample emotions when captureEmotions is off or face-api failed', () => {
+        expect(startSamplingWith({ emotions: false }, true)).toEqual([['sampleGaze', 500]]);
+        expect(startSamplingWith({ emotions: true }, false)).toEqual([['sampleGaze', 500]]);
+    });
+
+    it('waits for the running detection instead of piling up detections on slow devices', async () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = js.slice(js.indexOf('function captureElapsedMs(){'), js.indexOf('function startSampling(){')) +
+            js.slice(js.indexOf('function sampleEmotion(){'), js.indexOf('function sampleGaze(){'));
+        let finishDetection: (detection: null) => void = () => undefined;
+        const detectSingleFace = vi.fn(() => {
+            const pending = new Promise<null>((resolve) => { finishDetection = resolve; });
+            return { withFaceLandmarks: () => ({ withFaceExpressions: () => pending }) };
+        });
+        const sampleEmotion = new Function('faceapi', 'toEmotionSample',
+            `var emoRunning=true,paused=false,isDetectingEmotion=false,emoVideo={readyState:4},EMO_MAX_MS=300000,emoBuf=[],emoActiveMs=0,emoStartTime=Date.now();${source}return sampleEmotion;`,
+        )({ detectSingleFace, TinyFaceDetectorOptions: function TinyFaceDetectorOptions() { return {}; } }, () => ({})) as () => void;
+
+        for (let frame = 0; frame < 5; frame++) sampleEmotion();
+        expect(detectSingleFace).toHaveBeenCalledTimes(1);
+
+        finishDetection(null);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        sampleEmotion();
+        expect(detectSingleFace).toHaveBeenCalledTimes(2);
+    });
+
+    it('starts emotions only after calibration and resumes them only once capture began', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        expect(js.slice(js.indexOf('function onCalDone('), js.indexOf('function restoreCalibration('))).toContain('beginCapture();');
+        expect(js).toContain('if(isCaptureStarted&&emoStream&&!emoRunning)startSampling();');
     });
 });
 
@@ -548,11 +535,11 @@ describe('generateTrackingSnippet — one shared camera', () => {
         expect(reportCaptureError).toHaveBeenCalledWith('camera-unavailable');
     });
 
-    it('reports model load failures for MediaPipe and face-api', () => {
+    it('reports model load failures for MediaPipe and face-api and keeps going', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: true });
-        expect(js).toContain('if(!mpLandmarker)reportCaptureError("mediapipe-failed");');
-        expect(js).toContain('.then(cb,function(){reportCaptureError("face-models-failed");});');
-        expect(js).toContain('sc.onerror=function(){reportCaptureError("face-models-failed");};');
+        expect(js).toContain('.catch(function(){reportCaptureError("mediapipe-failed");cb();});');
+        expect(js).toContain('function(){reportCaptureError("face-models-failed");cb();});');
+        expect(js).toContain('sc.onerror=function(){reportCaptureError("face-models-failed");cb();};');
     });
 
     it('releases the camera 30s after the tab hides and on return after a long absence', () => {
@@ -565,20 +552,26 @@ describe('generateTrackingSnippet — one shared camera', () => {
 });
 
 describe('generateTrackingSnippet — mobile gaze with a stored calibration', () => {
-    it('opens the camera and loads MediaPipe before sampling, without recalibrating', () => {
-        const { withCamera, startGazeSampling, runCalibration } = runStartGazeCapture({
+    it('opens the camera and loads the models before sampling, without recalibrating', () => {
+        const { withCamera, beginCapture, runCameraCheck } = runStartCameraCapture({
             storedCalibration: JSON.stringify({ w: [1], d: 1, r: 60, t: Date.now() }),
             isMediaPipeLoaded: true,
         });
         expect(withCamera).toHaveBeenCalledTimes(1);
-        expect(startGazeSampling).toHaveBeenCalledTimes(1);
-        expect(runCalibration).not.toHaveBeenCalled();
+        expect(beginCapture).toHaveBeenCalledTimes(1);
+        expect(runCameraCheck).not.toHaveBeenCalled();
     });
 
-    it('calibrates when no stored calibration exists', () => {
-        const { runCalibration, startGazeSampling } = runStartGazeCapture({ storedCalibration: null, isMediaPipeLoaded: true });
-        expect(runCalibration).toHaveBeenCalledTimes(1);
-        expect(startGazeSampling).not.toHaveBeenCalled();
+    it('checks the camera and calibrates before capturing when no stored calibration exists', () => {
+        const { runCameraCheck, beginCapture } = runStartCameraCapture({ storedCalibration: null, isMediaPipeLoaded: true });
+        expect(runCameraCheck).toHaveBeenCalledTimes(1);
+        expect(beginCapture).not.toHaveBeenCalled();
+    });
+
+    it('captures right away without calibration when gaze is disabled', () => {
+        const { runCameraCheck, beginCapture } = runStartCameraCapture({ storedCalibration: null, isMediaPipeLoaded: true, captureGaze: false });
+        expect(runCameraCheck).not.toHaveBeenCalled();
+        expect(beginCapture).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -633,25 +626,27 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
 });
 
 describe('generateTrackingSnippet — emotion timestamps across tab switches', () => {
-    const runSampleFrame = async ({ activeMsBeforeHide, msSinceResume }: { activeMsBeforeHide: number; msSinceResume: number }) => {
+    const runSampleEmotion = async ({ activeMsBeforeHide, msSinceResume }: { activeMsBeforeHide: number; msSinceResume: number }) => {
         const js = generateTrackingSnippet(defaultConfig);
-        const sampleFrame = js.slice(js.indexOf('function sampleFrame(){'), js.indexOf('function startEmoRecording('));
+        const source = js.slice(js.indexOf('function captureElapsedMs(){'), js.indexOf('function startSampling(){')) +
+            js.slice(js.indexOf('function sampleEmotion(){'), js.indexOf('function sampleGaze(){'));
+        const detection = { expressions: { happy: 0.9 } };
         const faceapi = {
             TinyFaceDetectorOptions: function TinyFaceDetectorOptions() { return {}; },
-            detectSingleFace: () => ({ withFaceExpressions: () => Promise.resolve({ expressions: { happy: 0.9 } }) }),
+            detectSingleFace: () => ({ withFaceLandmarks: () => ({ withFaceExpressions: () => Promise.resolve(detection) }) }),
         };
-        const emoBuf = new Function('C', 'faceapi',
-            `var emoRunning=true,paused=false,emoVideo={readyState:4},EMO_MAX_MS=300000,useFaceApiFallback=true,emoBuf=[],
-            EXPRESSION_MAP={happy:"joy"},emoActiveMs=${activeMsBeforeHide},emoStartTime=Date.now()-${msSinceResume};
-            ${sampleFrame}sampleFrame();return emoBuf;`,
-        )({ emotions: true }, faceapi) as Array<{ timestamp: number }>;
+        const emoBuf = new Function('faceapi', 'toEmotionSample',
+            `var emoRunning=true,paused=false,isDetectingEmotion=false,emoVideo={readyState:4},EMO_MAX_MS=300000,emoBuf=[],
+            emoActiveMs=${activeMsBeforeHide},emoStartTime=Date.now()-${msSinceResume};
+            ${source}sampleEmotion();return emoBuf;`,
+        )(faceapi, (_det: unknown, timestamp: number) => ({ timestamp })) as Array<{ timestamp: number }>;
         await Promise.resolve();
         await Promise.resolve();
         return emoBuf;
     };
 
     it('keeps counting from the time already captured when the tab comes back', async () => {
-        const emoBuf = await runSampleFrame({ activeMsBeforeHide: 5000, msSinceResume: 1000 });
+        const emoBuf = await runSampleEmotion({ activeMsBeforeHide: 5000, msSinceResume: 1000 });
         expect(emoBuf[0].timestamp).toBeGreaterThanOrEqual(6000);
         expect(emoBuf[0].timestamp).toBeLessThan(6100);
     });
@@ -670,10 +665,10 @@ describe('generateTrackingSnippet — calibrated gaze on every device', () => {
 
     it('predicts gaze from the calibration once it exists and falls back to the cursor before that', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
-        const sampleFrame = js.slice(js.indexOf('function sampleFrame(){'), js.indexOf('function startEmoRecording('));
-        expect(sampleFrame).toContain('if(gazeWeights){\n                var feat=extractGazeFeat(lm,res.facialTransformationMatrixes);');
-        expect(sampleFrame).toContain('gpx=Math.round(lastCursorX+window.scrollX);');
-        expect(sampleFrame).toContain('if(gazeWeights){sample.gazeQuality=gazeQuality;');
+        const sampleGaze = js.slice(js.indexOf('function sampleGaze(){'), js.indexOf('function startEmoRecording('));
+        expect(sampleGaze).toContain('if(gazeWeights){\n                var feat=extractGazeFeat(lm,res.facialTransformationMatrixes);');
+        expect(sampleGaze).toContain('gpx=Math.round(lastCursorX+window.scrollX);');
+        expect(sampleGaze).toContain('if(gazeWeights){sample.gazeQuality=gazeQuality;');
     });
 
     it('opens the camera at gaze resolution whenever gaze is enabled', () => {
@@ -681,3 +676,131 @@ describe('generateTrackingSnippet — calibrated gaze on every device', () => {
         expect(js).toContain('var sizes=C.gaze?[[1280,720],[640,480]]:[[320,240]];');
     });
 });
+
+describe('generateTrackingSnippet — camera screens match the Eye Tracking module', () => {
+    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+    const section = (from: string, to: string) => js.slice(js.indexOf(from), js.indexOf(to));
+    const screensSource = section('var UI_TEXTS={', 'var UI_FONT=');
+
+    const textsFor = (language: string) => new Function('navigator', `${screensSource}return {uiText:uiText};`)({ language }) as {
+        uiText: (key: string, vars?: Record<string, unknown>) => string;
+    };
+
+    it('speaks Spanish by default and English only to English browsers', () => {
+        expect(textsFor('es-CL').uiText('dwell')).toBe('Mira el punto sin mover la cabeza. Avanzará solo.');
+        expect(textsFor('').uiText('skip')).toBe('Saltar esta actividad');
+        expect(textsFor('en-US').uiText('dwell')).toBe('Look at the dot without moving your head. It will move on by itself.');
+        expect(textsFor('es').uiText('pointOf', { current: 2, total: 5 })).toBe('Punto 2 de 5');
+        expect(js).not.toContain('Look at the red dot');
+    });
+
+    const decideCalibration = new Function(`${section('var VALIDATION_POINTS=', 'function runValidation(')}return decideCalibration;`)() as
+        (rmse: number, recalibrations: number) => string;
+
+    it('accepts a good validation and offers to skip only after two retries above 200px', () => {
+        expect(decideCalibration(150, 0)).toBe('accept');
+        expect(decideCalibration(180, 0)).toBe('offer-retry');
+        expect(decideCalibration(230, 1)).toBe('offer-retry');
+        expect(decideCalibration(180, 2)).toBe('offer-retry');
+        expect(decideCalibration(230, 2)).toBe('offer-skip');
+    });
+
+    const rateCameraQuality = new Function(`${section('var QUALITY_CHECK_IDS=', 'function measureLight(')}return rateCameraQuality;`)() as
+        (metrics: Record<string, number>) => Record<string, string>;
+    const goodCamera = { width: 1280, height: 720, brightness: 130, centerBrightness: 130, edgeBrightness: 120, faceRatio: 1, distanceCm: 60, headSpreadPx: 3, headAngleDeg: 5 };
+
+    it('rates the camera with the Eye Tracking thresholds', () => {
+        expect(Object.values(rateCameraQuality(goodCamera)).every(status => status === 'pass')).toBe(true);
+        expect(rateCameraQuality({ ...goodCamera, width: 320, height: 240 }).resolution).toBe('fail');
+        expect(rateCameraQuality({ ...goodCamera, brightness: 50 }).brightness).toBe('fail');
+        expect(rateCameraQuality({ ...goodCamera, brightness: 70 }).brightness).toBe('warn');
+        expect(rateCameraQuality({ ...goodCamera, centerBrightness: 60, edgeBrightness: 200 }).brightness).toBe('warn');
+        expect(rateCameraQuality({ ...goodCamera, faceRatio: 0.5 }).faceDetection).toBe('fail');
+        expect(rateCameraQuality({ ...goodCamera, distanceCm: 90 }).distance).toBe('warn');
+        expect(rateCameraQuality({ ...goodCamera, headSpreadPx: 20 }).headStability).toBe('fail');
+        expect(rateCameraQuality({ ...goodCamera, headAngleDeg: 20 }).headPose).toBe('warn');
+        expect(rateCameraQuality({ ...goodCamera, headAngleDeg: 30 }).headPose).toBe('fail');
+    });
+
+    const runCalibrationFlow = (choices: string[]) => {
+        const recalibrationsSeen: number[] = [];
+        const onCalDone = vi.fn();
+        const skipCameraCapture = vi.fn();
+        const runCalibration = (_points: number, cb: (w: number[], d: number, x: number[], y: number[]) => void) => cb([1], 9, [], []);
+        const runValidation = (_w: number[], _d: number, recalibrations: number, onChoice: (choice: string, rmse: number) => void) => {
+            recalibrationsSeen.push(recalibrations);
+            onChoice(choices[recalibrationsSeen.length - 1], 180);
+        };
+        const calibrateGaze = new Function('C', 'runCalibration', 'runValidation', 'skipCameraCapture', 'onCalDone',
+            `${section('function calibrateGaze(', '// FACS Action Units from face-api 68 landmarks')}return calibrateGaze;`,
+        )({ gazeCal: 9 }, runCalibration, runValidation, skipCameraCapture, onCalDone) as (recalibrations: number) => void;
+        calibrateGaze(0);
+        return { recalibrationsSeen, onCalDone, skipCameraCapture };
+    };
+
+    it('recalibrates on "Intentar de nuevo" and keeps the calibration on "Seguir igual"', () => {
+        const { recalibrationsSeen, onCalDone, skipCameraCapture } = runCalibrationFlow(['retry', 'retry', 'accept']);
+        expect(recalibrationsSeen).toEqual([0, 1, 2]);
+        expect(onCalDone).toHaveBeenCalledWith([1], 9, 180, [], []);
+        expect(skipCameraCapture).not.toHaveBeenCalled();
+    });
+
+    it('turns the camera off on "Saltar esta actividad" without keeping the calibration', () => {
+        const { onCalDone, skipCameraCapture } = runCalibrationFlow(['retry', 'retry', 'skip']);
+        expect(skipCameraCapture).toHaveBeenCalledTimes(1);
+        expect(onCalDone).not.toHaveBeenCalled();
+    });
+
+    it('does not ask for the camera again after the visitor skipped', () => {
+        const { withCamera } = runStartCameraCapture({ storedCalibration: null, isMediaPipeLoaded: true, isSkipped: true });
+        expect(withCamera).not.toHaveBeenCalled();
+    });
+
+});
+
+describe('generateTrackingSnippet — zones marked by the researcher', () => {
+    const zones = [
+        { id: 'cta', pageUrl: 'https://shop.example.com/pricing?ref=ad', selector: 'main > a.buy:nth-of-type(1)' },
+        { id: 'hero', pageUrl: 'https://shop.example.com/pricing', selector: '#hero' },
+        { id: 'other-page', pageUrl: 'https://shop.example.com/about', selector: '#hero' },
+        { id: 'missing', pageUrl: 'https://shop.example.com/pricing', selector: '#gone' },
+    ];
+
+    it('ships each zone with the page path it belongs to', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, zones });
+        expect(js).toContain('"zones":[{"id":"cta","path":"/pricing","selector":"main > a.buy:nth-of-type(1)"}');
+    });
+
+    it('records where each zone of the current page was, in page coordinates, with every fixation', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true, zones });
+        const source = js.slice(js.indexOf('function zoneRectsOnPage(){'), js.indexOf('function feedFixation('));
+        const elements: Record<string, object> = {
+            'main > a.buy:nth-of-type(1)': { getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 40 }) },
+            '#hero': { getBoundingClientRect: () => ({ left: 0, top: -200, width: 800, height: 300 }) },
+        };
+        const zoneRectsOnPage = new Function('C', 'window', 'location', 'document', `${source}return zoneRectsOnPage;`)(
+            { zones: generateZoneConfig(js) },
+            { scrollX: 0, scrollY: 500 },
+            { pathname: '/pricing' },
+            { querySelector: (selector: string) => elements[selector] ?? null },
+        ) as () => Record<string, number[]>;
+
+        expect(zoneRectsOnPage()).toEqual({ cta: [10, 520, 100, 40], hero: [0, 300, 800, 300] });
+        expect(js.slice(js.indexOf('function feedFixation('))).toContain('timestamp:fixState.startT,zones:zoneRectsOnPage()});');
+    });
+
+    it('ignores a selector the page cannot parse instead of breaking capture', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true, zones: [{ id: 'bad', pageUrl: 'https://x.com/', selector: 'div[' }] });
+        const source = js.slice(js.indexOf('function zoneRectsOnPage(){'), js.indexOf('function feedFixation('));
+        const zoneRectsOnPage = new Function('C', 'window', 'location', 'document', `${source}return zoneRectsOnPage;`)(
+            { zones: generateZoneConfig(js) }, { scrollX: 0, scrollY: 0 }, { pathname: '/' },
+            { querySelector: () => { throw new Error('SyntaxError'); } },
+        ) as () => Record<string, number[]>;
+        expect(zoneRectsOnPage()).toEqual({});
+    });
+});
+
+function generateZoneConfig(js: string): unknown {
+    const config = js.slice(js.indexOf('var C=') + 'var C='.length, js.indexOf('};', js.indexOf('var C=')) + 1);
+    return JSON.parse(config).zones;
+}

@@ -53,6 +53,19 @@ interface FunnelDefinition {
     steps: FunnelStep[];
 }
 
+export interface TrackingZone {
+    id: string;
+    label: string;
+    pageUrl: string;
+    selector: string;
+}
+
+export const isTrackingZone = (value: unknown): value is TrackingZone => {
+    if (!value || typeof value !== 'object') return false;
+    const zone = value as Record<string, unknown>;
+    return ['id', 'label', 'pageUrl', 'selector'].every((key) => typeof zone[key] === 'string' && (zone[key] as string).length > 0);
+};
+
 interface TrackingConfig {
     captureClicks: boolean;
     captureScroll: boolean;
@@ -75,6 +88,7 @@ interface TrackingConfig {
     emotionVideoEnabled: boolean;
     captureGaze: boolean;
     gazeCalibrationPoints: 5 | 9;
+    zones: TrackingZone[];
 }
 
 // ─── Session Management ──────────────────────────────────────────────
@@ -289,6 +303,7 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
         emotionVideoEnabled: trackingConfig.emotionVideoEnabled === true,
         captureGaze: trackingConfig.captureGaze === true,
         gazeCalibrationPoints: trackingConfig.gazeCalibrationPoints === 5 ? 5 : 9,
+        zones: Array.isArray(trackingConfig.zones) ? trackingConfig.zones.filter(isTrackingZone) : [],
     };
 };
 
@@ -1451,6 +1466,8 @@ export const saveTrackingConfig = async (
 
 // ─── Emotion Samples Storage ─────────────────────────────────────────
 
+export const MAX_EMOTION_SAMPLES_PER_SESSION = 6000;
+
 /**
  * Append emotion samples to a session. Samples are stored as a JSON array
  * in tracking_sessions.emotion_samples (LONGTEXT). Each call appends to
@@ -1474,8 +1491,7 @@ export const appendEmotionSamples = async (
         try { existing = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { existing = []; }
     }
 
-    // Cap at 1000 samples per session (~150KB JSON)
-    const merged = [...existing, ...samples].slice(-1000);
+    const merged = [...existing, ...samples].slice(-MAX_EMOTION_SAMPLES_PER_SESSION);
     const json = JSON.stringify(merged);
 
     await pool.query(
