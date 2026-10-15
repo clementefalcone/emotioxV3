@@ -1,5 +1,7 @@
 import pool from '../../config/database';
 import { getMediaUrl } from '../../config/local-storage';
+import { computeAoiMetrics } from './aoi-metrics';
+import { aggregateEmotions, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression } from './emotion-metrics';
 
 /**
  * Eye Tracking Analytics
@@ -9,52 +11,6 @@ import { getMediaUrl } from '../../config/local-storage';
 // ==========================================
 // EYE TRACKING RESULTS
 // ==========================================
-
-type EkmanEmotion = 'joy' | 'sadness' | 'surprise' | 'anger' | 'disgust' | 'fear' | 'neutral';
-
-interface EmotionSample {
-  timestamp: number;
-  emotion: EkmanEmotion;
-  confidence: number;
-  actionUnits: Record<string, number>;
-}
-
-interface EmotionAggregation {
-  /** Whether emotion recognition was enabled for this stimulus */
-  enabled: boolean;
-  /** Total emotion samples across all participants */
-  totalSamples: number;
-  /** Percentage distribution per emotion (0–100) */
-  distribution: Record<EkmanEmotion, number>;
-  /** Most frequent emotion across all participants */
-  dominantEmotion: EkmanEmotion;
-  /** Average confidence across all samples */
-  avgConfidence: number;
-  /** Per-participant dominant emotion + sample count */
-  perParticipant: Array<{
-    participantId: string;
-    dominantEmotion: EkmanEmotion;
-    sampleCount: number;
-    distribution: Record<EkmanEmotion, number>;
-  }>;
-  /** Downsampled timeline (1s buckets) aggregated across all participants */
-  timeline: EmotionSample[];
-  /** Aggregated micro-expression detections across all participants */
-  microExpressions?: {
-    total: number;
-    briefCount: number;
-    microCount: number;
-    byEmotion: Record<string, number>;
-    events: Array<{
-      participantId: string;
-      emotion: string;
-      durationMs: number;
-      startTimestamp: number;
-      category: 'brief' | 'micro';
-      peakConfidence: number;
-    }>;
-  };
-}
 
 interface EyeTrackingStimulus {
   moduleId: string;
@@ -310,157 +266,17 @@ const computeEmotionMetrics = (
   responses: any[],
   hasEmotionRecognition: boolean,
 ): EmotionAggregation => {
-  const emptyDistribution = (): Record<EkmanEmotion, number> => ({
-    joy: 0, sadness: 0, surprise: 0, anger: 0, disgust: 0, fear: 0, neutral: 0,
-  });
-
-  if (!hasEmotionRecognition) {
-    return {
-      enabled: false,
-      totalSamples: 0,
-      distribution: emptyDistribution(),
-      dominantEmotion: 'neutral',
-      avgConfidence: 0,
-      perParticipant: [],
-      timeline: [],
-    };
-  }
-
-  const allSamples: EmotionSample[] = [];
-  const perParticipantSamples = new Map<string, EmotionSample[]>();
-
-  for (const row of responses) {
+  if (!hasEmotionRecognition) return emptyEmotionAggregation(false);
+  return aggregateEmotions(responses.flatMap((row) => {
     try {
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-      const emotions: EmotionSample[] = parsed?.emotions ?? [];
-      if (emotions.length === 0) continue;
-
-      const pid = row.participant_id;
-      allSamples.push(...emotions);
-      perParticipantSamples.set(pid, emotions);
-    } catch { /* skip malformed */ }
-  }
-
-  if (allSamples.length === 0) {
-    return {
-      enabled: true,
-      totalSamples: 0,
-      distribution: emptyDistribution(),
-      dominantEmotion: 'neutral',
-      avgConfidence: 0,
-      perParticipant: [],
-      timeline: [],
-    };
-  }
-
-  // Global distribution
-  const counts = emptyDistribution();
-  let totalConfidence = 0;
-  for (const s of allSamples) {
-    counts[s.emotion]++;
-    totalConfidence += s.confidence;
-  }
-  const total = allSamples.length;
-  const distribution = emptyDistribution();
-  for (const [emotion, count] of Object.entries(counts)) {
-    distribution[emotion as EkmanEmotion] = Math.round((count / total) * 10000) / 100;
-  }
-
-  const dominantEmotion = (Object.entries(counts) as [EkmanEmotion, number][])
-    .reduce((best, [e, c]) => c > best[1] ? [e, c] : best, ['neutral' as EkmanEmotion, 0])[0];
-
-  // Per-participant
-  const perParticipant = Array.from(perParticipantSamples.entries()).map(([pid, samples]) => {
-    const pCounts = emptyDistribution();
-    for (const s of samples) pCounts[s.emotion]++;
-    const pTotal = samples.length;
-    const pDist = emptyDistribution();
-    for (const [e, c] of Object.entries(pCounts)) {
-      pDist[e as EkmanEmotion] = Math.round((c / pTotal) * 10000) / 100;
+      const samples: EmotionSample[] = parsed?.emotions ?? [];
+      const microExpressions: MicroExpression[] = Array.isArray(parsed?.microExpressions) ? parsed.microExpressions : [];
+      return [{ participantId: row.participant_id, samples, microExpressions }];
+    } catch {
+      return [];
     }
-    const pDominant = (Object.entries(pCounts) as [EkmanEmotion, number][])
-      .reduce((best, [e, c]) => c > best[1] ? [e, c] : best, ['neutral' as EkmanEmotion, 0])[0];
-
-    return { participantId: pid, dominantEmotion: pDominant, sampleCount: pTotal, distribution: pDist };
-  });
-
-  // Downsampled timeline (1s buckets across all participants)
-  const bucketMs = 1000;
-  const buckets = new Map<number, EmotionSample[]>();
-  for (const s of allSamples) {
-    const key = Math.floor(s.timestamp / bucketMs) * bucketMs;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key)!.push(s);
-  }
-
-  const timeline: EmotionSample[] = [];
-  for (const [ts, bucket] of Array.from(buckets.entries()).sort((a, b) => a[0] - b[0])) {
-    const bCounts: Record<string, number> = {};
-    for (const s of bucket) bCounts[s.emotion] = (bCounts[s.emotion] || 0) + 1;
-    const bDominant = Object.entries(bCounts).sort((a, b) => b[1] - a[1])[0][0] as EkmanEmotion;
-    const bConf = bucket.reduce((sum, s) => sum + s.confidence, 0) / bucket.length;
-    const avgAUs: Record<string, number> = {};
-    for (const s of bucket) {
-      for (const [k, v] of Object.entries(s.actionUnits)) {
-        avgAUs[k] = (avgAUs[k] || 0) + v;
-      }
-    }
-    for (const k of Object.keys(avgAUs)) avgAUs[k] /= bucket.length;
-
-    timeline.push({ timestamp: ts, emotion: bDominant, confidence: bConf, actionUnits: avgAUs });
-  }
-
-  // Micro-expression aggregation from stored detections
-  let microExpressionsAgg: EmotionAggregation['microExpressions'];
-  const allMicroEvents: EmotionAggregation['microExpressions'] extends undefined ? never : NonNullable<EmotionAggregation['microExpressions']>['events'] = [];
-
-  for (const row of responses) {
-    try {
-      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-      const micros = parsed?.microExpressions;
-      if (Array.isArray(micros)) {
-        for (const m of micros) {
-          allMicroEvents.push({
-            participantId: row.participant_id,
-            emotion: m.emotion,
-            durationMs: m.durationMs,
-            startTimestamp: m.startTimestamp,
-            category: m.category,
-            peakConfidence: m.peakConfidence,
-          });
-        }
-      }
-    } catch { /* skip */ }
-  }
-
-  if (allMicroEvents.length > 0) {
-    const byEmotion: Record<string, number> = {};
-    let briefCount = 0;
-    let microCount = 0;
-    for (const e of allMicroEvents) {
-      byEmotion[e.emotion] = (byEmotion[e.emotion] || 0) + 1;
-      if (e.category === 'brief') briefCount++;
-      else microCount++;
-    }
-    microExpressionsAgg = {
-      total: allMicroEvents.length,
-      briefCount,
-      microCount,
-      byEmotion,
-      events: allMicroEvents,
-    };
-  }
-
-  return {
-    enabled: true,
-    totalSamples: total,
-    distribution,
-    dominantEmotion,
-    avgConfidence: totalConfidence / total,
-    perParticipant,
-    timeline,
-    microExpressions: microExpressionsAgg,
-  };
+  }));
 };
 
 /**
@@ -603,141 +419,10 @@ const computeEyeTrackingMetrics = (
   // Total dwell time across all fixations
   const totalDwellTime = allFixations.reduce((sum, f) => sum + f.duration, 0);
 
-  // Compute AOI metrics with soft Gaussian contribution (robust to webcam jitter).
-  // Fixations near AOI borders contribute proportionally instead of binary in/out.
-  const totalParticipants = new Set(allFixations.map(f => f.participantId)).size;
-
-  /**
-   * Soft AOI weight: Gaussian contribution based on distance to AOI center.
-   * Inside AOI → ~1.0. Near border outside → 0.3-0.8. Far away → ~0.
-   * σ = half of AOI's larger dimension (captures ~95% of nearby fixations).
-   */
-  const softAoiWeight = (fx: number, fy: number, aoi: { x: number; y: number; width: number; height: number }): number => {
-    const cx = aoi.x + aoi.width / 2;
-    const cy = aoi.y + aoi.height / 2;
-    const dx = fx - cx;
-    const dy = fy - cy;
-
-    // Check if fully inside — weight 1.0
-    if (fx >= aoi.x && fx <= aoi.x + aoi.width && fy >= aoi.y && fy <= aoi.y + aoi.height) {
-      return 1.0;
-    }
-
-    // Distance to nearest edge (0 = on edge, positive = outside)
-    const distX = Math.max(0, Math.abs(dx) - aoi.width / 2);
-    const distY = Math.max(0, Math.abs(dy) - aoi.height / 2);
-    const edgeDist = Math.sqrt(distX * distX + distY * distY);
-
-    // σ = half of larger dimension — soft falloff outside the box
-    const sigma = Math.max(aoi.width, aoi.height) * 0.35;
-    if (sigma <= 0) return 0;
-    return Math.exp(-(edgeDist * edgeDist) / (2 * sigma * sigma));
-  };
-
-  /** Min weight to consider a fixation as contributing to an AOI. */
-  const SOFT_AOI_MIN_WEIGHT = 0.15;
-
-  const aois = configAois.map(aoi => {
-    // Compute soft weights for all fixations relative to this AOI
-    const weightedFixations = allFixations
-      .map(f => ({ ...f, aoiWeight: softAoiWeight(f.x, f.y, aoi) }))
-      .filter(f => f.aoiWeight >= SOFT_AOI_MIN_WEIGHT);
-
-    const aoiDwellTime = weightedFixations.reduce((sum, f) => sum + f.duration * f.aoiWeight, 0);
-    // Participants who "noticed" the AOI: at least one fixation with weight >= 0.5
-    const noticedParticipants = new Set(
-      weightedFixations.filter(f => f.aoiWeight >= 0.5).map(f => f.participantId)
-    );
-
-    // TTFF: Time To First Fixation — relative to participant's first fixation (stimulus start proxy)
-    const participantStartTime = new Map<string, number>();
-    for (const f of allFixations) {
-      const existing = participantStartTime.get(f.participantId);
-      if (existing === undefined || f.timestamp < existing) {
-        participantStartTime.set(f.participantId, f.timestamp);
-      }
-    }
-
-    const firstAoiFixationByParticipant = new Map<string, number>();
-    for (const f of weightedFixations) {
-      if (f.aoiWeight < 0.5) continue;
-      const existing = firstAoiFixationByParticipant.get(f.participantId);
-      if (existing === undefined || f.timestamp < existing) {
-        firstAoiFixationByParticipant.set(f.participantId, f.timestamp);
-      }
-    }
-    const ttffValues: number[] = [];
-    for (const [pid, aoiTime] of firstAoiFixationByParticipant) {
-      const startTime = participantStartTime.get(pid) ?? aoiTime;
-      ttffValues.push(Math.max(0, aoiTime - startTime));
-    }
-    const avgTTFF = ttffValues.length > 0
-      ? Math.round(ttffValues.reduce((a, b) => a + b, 0) / ttffValues.length)
-      : 0;
-
-    // Notice rate: % of total participants with significant fixation in AOI
-    const noticeRate = totalParticipants > 0
-      ? Math.round((noticedParticipants.size / totalParticipants) * 100)
-      : 0;
-
-    // Effective fixation count: sum of weights (fractional fixations)
-    const effectiveFixationCount = Math.round(
-      weightedFixations.reduce((sum, f) => sum + f.aoiWeight, 0)
-    );
-
-    // Emotion × AOI: find dominant emotion while looking at this AOI
-    // Use weighted fixations (weight >= 0.5) for emotion matching
-    const aoiEmotionCounts: Record<EkmanEmotion, number> = {
-      joy: 0, sadness: 0, surprise: 0, anger: 0, disgust: 0, fear: 0, neutral: 0,
-    };
-    let aoiEmotionTotal = 0;
-    for (const pid of noticedParticipants) {
-      const pEmotions = emotionsByParticipant.get(pid);
-      if (!pEmotions || pEmotions.length === 0) continue;
-      const pFixationsInAOI = weightedFixations.filter(f => f.participantId === pid && f.aoiWeight >= 0.5);
-      for (const fix of pFixationsInAOI) {
-        const fixStart = fix.timestamp;
-        const fixEnd = fix.timestamp + fix.duration;
-        for (const em of pEmotions) {
-          if (em.timestamp >= fixStart - 100 && em.timestamp <= fixEnd + 100) {
-            aoiEmotionCounts[em.emotion]++;
-            aoiEmotionTotal++;
-          }
-        }
-      }
-    }
-
-    let aoiDominantEmotion: EkmanEmotion | undefined;
-    const aoiEmotionDistribution: Record<EkmanEmotion, number> | undefined = aoiEmotionTotal > 0
-      ? (() => {
-          const dist = {} as Record<EkmanEmotion, number>;
-          let bestEmotion: EkmanEmotion = 'neutral';
-          let bestCount = 0;
-          for (const [emotion, count] of Object.entries(aoiEmotionCounts) as [EkmanEmotion, number][]) {
-            dist[emotion] = Math.round((count / aoiEmotionTotal) * 10000) / 100;
-            if (count > bestCount) { bestCount = count; bestEmotion = emotion; }
-          }
-          aoiDominantEmotion = bestEmotion;
-          return dist;
-        })()
-      : undefined;
-
-    return {
-      ...aoi,
-      dwellTimePercent: totalDwellTime > 0 ? Math.round((aoiDwellTime / totalDwellTime) * 100) : 0,
-      fixationCount: effectiveFixationCount,
-      avgDuration: effectiveFixationCount > 0
-        ? Math.round(aoiDwellTime / effectiveFixationCount)
-        : 0,
-      participantCount: noticedParticipants.size,
-      avgTTFF,
-      noticeRate,
-      /** Dominant emotion while looking at this AOI */
-      dominantEmotion: aoiDominantEmotion,
-      /** Emotion distribution while looking at this AOI */
-      emotionDistribution: aoiEmotionDistribution,
-    };
-  });
+  const aois = configAois.map(aoi => ({
+    ...aoi,
+    ...computeAoiMetrics({ fixations: allFixations, rectFor: () => aoi, emotionsByParticipant }),
+  }));
 
   const uniqueParticipants = new Set(allFixations.map(f => f.participantId));
   const avgDwellTime = uniqueParticipants.size > 0
