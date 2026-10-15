@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import simpleheat from 'simpleheat';
 import * as trackingService from '../../../services/tracking.service';
+import { sanitizeSnapshot } from '../../../utils/snapshotHtml';
 
 interface PageSnapshotHeatmapProps {
     researchId: string;
@@ -20,26 +21,6 @@ interface PageSnapshotHeatmapProps {
     /** External opacity value (0-80). If provided, hides internal slider. */
     externalOpacity?: number;
 }
-
-/**
- * Strip all script-related content from HTML to prevent sandbox warnings.
- * Removes <script> tags, inline event handlers (onclick, onload, etc.), and javascript: URLs.
- */
-const sanitizeSnapshot = (html: string): string => {
-    let clean = html;
-    // Remove <script>...</script> and <script ... />
-    clean = clean.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    clean = clean.replace(/<script\b[^>]*\/>/gi, '');
-    // Remove <noscript>...</noscript>
-    clean = clean.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
-    // Remove inline event handlers (on*)
-    clean = clean.replace(/\s+on\w+\s*=\s*"[^"]*"/gi, '');
-    clean = clean.replace(/\s+on\w+\s*=\s*'[^']*'/gi, '');
-    // Remove javascript: URLs
-    clean = clean.replace(/href\s*=\s*"javascript:[^"]*"/gi, 'href="#"');
-    clean = clean.replace(/href\s*=\s*'javascript:[^']*'/gi, "href='#'");
-    return clean;
-};
 
 // Map scroll reach percentage to color (green=most viewed → red=least viewed)
 const scrollPctToColor = (pct: number): string => {

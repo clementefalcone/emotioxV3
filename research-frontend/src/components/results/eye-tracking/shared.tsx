@@ -67,10 +67,13 @@ export const ViewModeTab = ({
   </button>
 );
 
-export const AOIRow = ({ aoi, index, stimulusUrl }: { aoi: EyeTrackingAOI; index: number; stimulusUrl: string }) => (
+type AOIRowData = Pick<EyeTrackingAOI, 'label' | 'dwellTimePercent' | 'fixationCount' | 'avgDuration' | 'participantCount' | 'avgTTFF' | 'noticeRate' | 'dominantEmotion'>
+  & Partial<Pick<EyeTrackingAOI, 'x' | 'y' | 'width' | 'height'>>;
+
+export const AOIRow = ({ aoi, index, stimulusUrl, subtitle }: { aoi: AOIRowData; index: number; stimulusUrl?: string; subtitle?: string }) => (
   <div className="flex items-center gap-4 p-3 bg-white border rounded-lg">
     {/* Thumbnail: cropped preview of the AOI region */}
-    {stimulusUrl && (
+    {stimulusUrl && aoi.x !== undefined && aoi.y !== undefined && aoi.width !== undefined && aoi.height !== undefined && (
       <div className="w-16 h-12 rounded overflow-hidden flex-shrink-0 border bg-gray-50">
         <img
           src={stimulusUrl}
@@ -89,7 +92,7 @@ export const AOIRow = ({ aoi, index, stimulusUrl }: { aoi: EyeTrackingAOI; index
       <p className="text-sm font-medium text-gray-900 truncate">
         {aoi.label || `Area of Interest (AOI)`}
       </p>
-      <p className="text-xs text-gray-400">#{index + 1}</p>
+      <p className="text-xs text-gray-400">{subtitle ?? `#${index + 1}`}</p>
     </div>
 
     {/* Stats */}

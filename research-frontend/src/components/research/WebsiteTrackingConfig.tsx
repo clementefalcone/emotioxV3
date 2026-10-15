@@ -12,6 +12,7 @@ import * as trackingService from '../../services/tracking.service';
 import type { TrackingConfig } from '../../services/tracking.service';
 import { researchKeys } from '../../hooks/useResearchQuery';
 import { CopyButton } from '../ui/CopyButton';
+import { TrackingZonesEditor } from './TrackingZonesEditor';
 import type { Research } from '../../services/research.service';
 
 interface WebsiteTrackingConfigProps {
@@ -46,6 +47,7 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
         emotionVideoEnabled: existingConfig.emotionVideoEnabled === true,
         captureGaze: existingConfig.captureGaze === true,
         gazeCalibrationPoints: existingConfig.gazeCalibrationPoints === 5 ? 5 : 9,
+        zones: existingConfig.zones || [],
     });
     const [domainInput, setDomainInput] = useState('');
 
@@ -269,6 +271,14 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                     </div>
                 </div>
             </div>
+
+            {config.captureGaze && (
+                <TrackingZonesEditor
+                    researchId={research.id}
+                    zones={config.zones}
+                    onChange={(zones) => setConfig((prev) => ({ ...prev, zones }))}
+                />
+            )}
 
             {/* Consent customization — only when enabled, full width */}
             {config.consentRequired && (

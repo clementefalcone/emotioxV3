@@ -13,24 +13,30 @@ vi.mock('../../../../services/tracking.service', () => ({
 
 import * as trackingService from '../../../../services/tracking.service';
 
+const distribution = { neutral: 35, joy: 25, sadness: 10, anger: 5, surprise: 15, fear: 5, disgust: 5 };
+const actionUnits = { AU1: 0.1, AU2: 0.1, AU4: 0.2, AU6: 0.5, AU12: 0.6, AU15: 0.1, AU20: 0.3, AU25: 0.2, AU26: 0.1 };
+
 const mockEmotionData = {
     totalSessions: 12,
-    totalSamples: 3400,
-    distribution: {
-        neutral: 35,
-        joy: 25,
-        sadness: 10,
-        anger: 5,
-        surprise: 15,
-        fear: 5,
-        disgust: 5,
+    emotions: {
+        enabled: true,
+        totalSamples: 3400,
+        distribution,
+        dominantEmotion: 'neutral' as const,
+        avgConfidence: 0.72,
+        perParticipant: [
+            { participantId: 'visitor-a', dominantEmotion: 'joy' as const, sampleCount: 2000, distribution },
+            { participantId: 'visitor-b', dominantEmotion: 'neutral' as const, sampleCount: 1400, distribution },
+        ],
+        timeline: [
+            { timestamp: 0, emotion: 'neutral' as const, confidence: 0.8, actionUnits },
+            { timestamp: 1000, emotion: 'joy' as const, confidence: 0.7, actionUnits },
+        ],
+        microExpressions: {
+            total: 1, briefCount: 0, microCount: 1, byEmotion: { disgust: 1 },
+            events: [{ participantId: 'visitor-a', emotion: 'disgust', durationMs: 250, startTimestamp: 1000, category: 'micro' as const, peakConfidence: 0.7 }],
+        },
     },
-    dominantEmotion: 'neutral' as const,
-    avgConfidence: 0.72,
-    timeline: [
-        { timestampS: 0, emotion: 'neutral' as const, confidence: 0.8 },
-        { timestampS: 1, emotion: 'joy' as const, confidence: 0.7 },
-    ],
     perSession: [
         {
             sessionId: 's1',
@@ -81,7 +87,7 @@ describe('TrackingEmotionsTab', () => {
     it('shows empty state when no emotion data (totalSamples = 0)', async () => {
         vi.mocked(trackingService.getTrackingEmotions).mockResolvedValue({
             ...mockEmotionData,
-            totalSamples: 0,
+            emotions: { ...mockEmotionData.emotions, totalSamples: 0 },
         });
         renderComponent({ researchId: 'r1' });
 
@@ -90,32 +96,20 @@ describe('TrackingEmotionsTab', () => {
         });
     });
 
-    it('renders emotion distribution bars for all 7 emotions', async () => {
+    it('shows the Eye Tracking emotion panels: EmScore, moods, action units, micro-expressions and participants', async () => {
         vi.mocked(trackingService.getTrackingEmotions).mockResolvedValue(mockEmotionData);
         renderComponent({ researchId: 'r1' });
 
         await waitFor(() => {
-            expect(screen.getByText('Expression Distribution')).toBeInTheDocument();
+            expect(screen.getByText('EmScore')).toBeInTheDocument();
         });
-
-        // All 7 emotion labels should be in the distribution bars
-        // Some labels may appear multiple times (distribution + session list)
-        const emotionLabels = ['Neutral', 'Happy', 'Sad', 'Angry', 'Surprised', 'Scared', 'Disgusted'];
-        for (const label of emotionLabels) {
-            expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
-        }
-    });
-
-    it('shows dominant emotion and confidence in summary cards', async () => {
-        vi.mocked(trackingService.getTrackingEmotions).mockResolvedValue(mockEmotionData);
-        renderComponent({ researchId: 'r1' });
-
-        await waitFor(() => {
-            // Dominant = Neutral
-            expect(screen.getByText('Dominant')).toBeInTheDocument();
-            // avgConfidence 0.72 = 72%
-            expect(screen.getByText('72%')).toBeInTheDocument();
-        });
+        expect(screen.getByText('Distribución de emociones')).toBeInTheDocument();
+        expect(screen.getByText('Frustración')).toBeInTheDocument();
+        expect(screen.getByText('Average Action Unit Activation')).toBeInTheDocument();
+        expect(screen.getByText('Micro-Expressions')).toBeInTheDocument();
+        expect(screen.getByText('Per Participant')).toBeInTheDocument();
+        expect(screen.getByText('visitor-a')).toBeInTheDocument();
+        expect(screen.getByText(/72% confianza promedio/)).toBeInTheDocument();
     });
 
     it('renders circumplex canvas element', async () => {

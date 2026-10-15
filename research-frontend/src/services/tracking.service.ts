@@ -4,6 +4,7 @@
  */
 
 import apiClient from './api/client';
+import type { EkmanEmotion, EmotionAggregation } from './analytics.service';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -41,7 +42,32 @@ export interface TrackingConfig {
     emotionVideoEnabled: boolean;
     captureGaze: boolean;
     gazeCalibrationPoints: 5 | 9;
+    zones: TrackingZone[];
 }
+
+export interface TrackingZone {
+    id: string;
+    label: string;
+    pageUrl: string;
+    selector: string;
+}
+
+export interface TrackingZoneMetrics extends TrackingZone {
+    visits: number;
+    dwellTimePercent: number;
+    fixationCount: number;
+    avgDuration: number;
+    participantCount: number;
+    avgTTFF: number;
+    noticeRate: number;
+    dominantEmotion?: EkmanEmotion;
+    emotionDistribution?: Record<EkmanEmotion, number>;
+}
+
+export const getTrackingZones = async (researchId: string): Promise<TrackingZoneMetrics[]> => {
+    const response = await apiClient.get<{ zones: TrackingZoneMetrics[] }>(`/tracking/${researchId}/zones`);
+    return response.zones;
+};
 
 export interface FunnelDropoffResult {
     funnel: { id: string; name: string };
@@ -443,15 +469,9 @@ export const generateTrackingReport = async (researchId: string, sections?: Reco
 
 // ─── Emotion Analytics ──────────────────────────────────────────────
 
-type EkmanEmotion = 'joy' | 'sadness' | 'surprise' | 'anger' | 'disgust' | 'fear' | 'neutral';
-
 export interface TrackingEmotionData {
     totalSessions: number;
-    totalSamples: number;
-    distribution: Record<EkmanEmotion, number>;
-    dominantEmotion: EkmanEmotion;
-    avgConfidence: number;
-    timeline: Array<{ timestampS: number; emotion: EkmanEmotion; confidence: number }>;
+    emotions: EmotionAggregation;
     perSession: Array<{
         sessionId: string;
         visitorId: string;

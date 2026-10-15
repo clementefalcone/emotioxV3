@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
 import * as trackingService from '../../../services/tracking.service';
 import type { TrackingGazeData } from '../../../services/tracking.service';
+import { TrackingZonesPanel } from './TrackingZonesPanel';
 
 type GazeQuadrant =
     | 'top-left' | 'top-center' | 'top-right'
@@ -92,6 +93,8 @@ export const TrackingAttentionTab = ({ researchId, selectedPageUrl }: TrackingAt
                 />
                 <SummaryCard label="Focus Zone" value={QUADRANT_LABELS[data.dominantQuadrant]} />
             </div>
+
+            <TrackingZonesPanel researchId={researchId} />
 
             {/* Main panels */}
             <div className="flex gap-3">

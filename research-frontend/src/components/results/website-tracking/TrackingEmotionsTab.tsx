@@ -1,25 +1,15 @@
-/**
- * TrackingEmotionsTab
- * Displays facial emotion analytics for Website Tracking sessions.
- * Layout: distribution bars + circumplex + valence/arousal timeline + session list.
- */
-
 import { useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SmilePlus, Video } from 'lucide-react';
 import * as trackingService from '../../../services/tracking.service';
 import type { TrackingEmotionData } from '../../../services/tracking.service';
+import type { EkmanEmotion } from '../../../services/analytics.service';
+import { EmotionPanel } from '../eye-tracking/EmotionPanel';
+import { EMOTION_LABELS } from '../eye-tracking/shared';
 
-type EkmanEmotion = 'joy' | 'sadness' | 'surprise' | 'anger' | 'disgust' | 'fear' | 'neutral';
-
-const EMOTION_LABELS: Record<EkmanEmotion, string> = {
-    neutral: 'Neutral', joy: 'Happy', sadness: 'Sad',
-    anger: 'Angry', surprise: 'Surprised', fear: 'Scared', disgust: 'Disgusted',
-};
-
-const EMOTION_COLORS: Record<EkmanEmotion, string> = {
+const EMOTION_HEX: Record<EkmanEmotion, string> = {
     neutral: '#94a3b8', joy: '#22c55e', sadness: '#3b82f6',
-    anger: '#ef4444', surprise: '#f59e0b', fear: '#8b5cf6', disgust: '#6366f1',
+    anger: '#ef4444', surprise: '#f59e0b', fear: '#8b5cf6', disgust: '#f97316',
 };
 
 const ALL_EMOTIONS: EkmanEmotion[] = ['neutral', 'joy', 'sadness', 'anger', 'surprise', 'fear', 'disgust'];
@@ -42,8 +32,7 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
         queryFn: () => trackingService.getTrackingEmotions(researchId, selectedPageUrl),
     });
 
-    // Fallback: if selected page has no data, fetch all pages combined
-    const pageHasData = (pageData?.totalSamples ?? 0) > 0;
+    const pageHasData = (pageData?.emotions.totalSamples ?? 0) > 0;
     const { data: allData, isLoading: allLoading } = useQuery({
         queryKey: ['tracking', researchId, 'emotions', '__all__'],
         queryFn: () => trackingService.getTrackingEmotions(researchId, undefined),
@@ -66,7 +55,7 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
         );
     }
 
-    if (!data || data.totalSamples === 0) {
+    if (!data || data.emotions.totalSamples === 0) {
         return (
             <div className="bg-white rounded-xl border border-gray-200 flex items-center justify-center py-20">
                 <div className="text-center">
@@ -80,50 +69,21 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
 
     return (
         <div className="space-y-3">
-            {/* Summary cards */}
-            <div className="flex gap-3">
-                <SummaryCard label="Sessions" value={data.totalSessions} />
-                <SummaryCard label="Samples" value={data.totalSamples.toLocaleString()} />
-                <SummaryCard label="Dominant" value={EMOTION_LABELS[data.dominantEmotion]} color={EMOTION_COLORS[data.dominantEmotion]} />
-                <SummaryCard label="Confidence" value={`${Math.round(data.avgConfidence * 100)}%`} />
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <EmotionPanel emotions={data.emotions} />
             </div>
 
-            {/* Main panels */}
             <div className="flex gap-3">
-                {/* Distribution bars */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1">
-                    <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Expression Distribution</h3>
-                    <p className="text-[10px] text-gray-300 mb-3">Webcam-based estimation. Best for relative comparisons across pages, not absolute measurement.</p>
-                    <div className="space-y-2">
-                        {ALL_EMOTIONS.map(e => (
-                            <div key={e} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-600 w-16 text-right">{EMOTION_LABELS[e]}</span>
-                                <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
-                                    <div
-                                        className="h-full rounded transition-all"
-                                        style={{ width: `${data.distribution[e]}%`, backgroundColor: EMOTION_COLORS[e] }}
-                                    />
-                                </div>
-                                <span className="text-[11px] text-gray-400 w-10 text-right">{data.distribution[e]}%</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Circumplex */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4" style={{ width: 280 }}>
                     <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Affect Space</h3>
                     <CircumplexCanvas data={data} />
                 </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1 min-w-0">
+                    <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Valence & Arousal Timeline</h3>
+                    <TimelineCanvas data={data} />
+                </div>
             </div>
 
-            {/* Timeline */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Valence & Arousal Timeline</h3>
-                <TimelineCanvas data={data} />
-            </div>
-
-            {/* Session list */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">
                     Sessions with Emotions ({data.perSession.length})
@@ -133,7 +93,7 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
                         <div key={s.sessionId} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs">
                             <div
                                 className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: EMOTION_COLORS[s.dominantEmotion] }}
+                                style={{ backgroundColor: EMOTION_HEX[s.dominantEmotion] }}
                             />
                             <span className="text-gray-700 font-medium truncate flex-1">{s.pageUrl}</span>
                             <span className="text-gray-400">{EMOTION_LABELS[s.dominantEmotion]}</span>
@@ -146,15 +106,6 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
         </div>
     );
 };
-
-// ─── Summary Card ────────────────────────────────────────────────────
-
-const SummaryCard = ({ label, value, color }: { label: string; value: string | number; color?: string }) => (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 flex-1">
-        <p className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</p>
-        <p className="text-lg font-semibold mt-0.5" style={color ? { color } : undefined}>{value}</p>
-    </div>
-);
 
 // ─── Circumplex Canvas ───────────────────────────────────────────────
 
@@ -198,14 +149,14 @@ const CircumplexCanvas = ({ data }: { data: TrackingEmotionData }) => {
 
         // Plot emotion dots
         ALL_EMOTIONS.forEach(e => {
-            const pct = data.distribution[e];
+            const pct = data.emotions.distribution[e];
             if (pct < 1) return;
             const va = VA_MAP[e];
             const dx = cx + va.v * r;
             const dy = cy - va.a * r;
             const dotR = Math.max(4, Math.min(16, pct / 3));
             ctx.globalAlpha = 0.7;
-            ctx.fillStyle = EMOTION_COLORS[e];
+            ctx.fillStyle = EMOTION_HEX[e];
             ctx.beginPath();
             ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
             ctx.fill();
