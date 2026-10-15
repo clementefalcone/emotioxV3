@@ -1,3 +1,25 @@
+## v0.98.0 — Website Tracking: Eye Tracking parity for gaze and emotions (2026-10-15)
+
+### feat(tracking): camera check, calibration and validation like Eye Tracking
+- **Why.** The snippet calibration was English-only ("Look at the red dot"), retried silently and accepted any result.
+- **Change.** Camera check with the six Eye Tracking checks and thresholds, calibration with timed green dot and ring, five-point validation with dwell and tap fallback over the blurred site. Failure offers "Intentar de nuevo / Seguir igual", after two retries above 200 px "Seguir igual / Saltar esta actividad". Skip turns the camera off for 10 minutes. Spanish by default, English for English browsers. Three-step progress pill.
+
+### feat(tracking): face-api emotions at 20 Hz with action units
+- **Why.** Web Tracking classified emotions with MediaPipe at 2 Hz and dropped action units, so results were not comparable with Eye Tracking and micro-expressions were impossible.
+- **Change.** Same engine as Eye Tracking (TinyFaceDetector + 68 landmarks + expressions), 20 Hz, one detection at a time. Samples carry the top expression, the 7 probabilities and the 9 action units (identical to `extractActionUnitsFrom68`: max difference 7.8e-16 over 1000 random faces). Emotions start after calibration. MediaPipe stays for gaze. Session cap 1000 → 6000 samples (5 min at 20 Hz). Requires `face_landmark_68_model` in `~/emotioxv3/media/face-api-models/`.
+
+### feat(analytics): one emotion and AOI computation for both modules
+- `analytics/emotion-metrics.ts` (distribution, per participant, 1 s timeline with action units, micro-expressions) and `analytics/aoi-metrics.ts` (soft AOI weight, dwell, fixations, duration, viewers, TTFF, notice rate, emotion per AOI) are used by Eye Tracking and Website Tracking. Eye Tracking per-participant emotions now merge repeated responses instead of keeping the last.
+- Website Tracking emotions: per visitor, Eye Tracking timeline rule, micro-expressions detected server-side; valence/arousal kept.
+
+### feat(tracking): zones marked by the researcher
+- Config "Zones": pick a captured page, click an element, name it. Stored as a unique selector; the snippet records each zone's position with every fixation, so zones follow the element on any screen. `GET /tracking/:id/zones` returns the Eye Tracking AOI metrics per zone (one visit = one viewer). Attention tab lists them with the Eye Tracking AOI row. `PUT /tracking/:id/config` rejects malformed zones (400).
+
+### feat(results): Website Tracking emotions tab uses the Eye Tracking panel
+- EmScore, mood states, distribution, timeline, action units, micro-expressions and per-participant table, plus the existing affect space, valence/arousal timeline and session list.
+
+- **Tests.** Backend 626 → 652, research-frontend 643 → 651, 0 failing.
+
 ## v0.97.19 — Participant: start button and calibration text on phones (2026-10-14)
 
 ### fix(participant): "Comenzar" was below the fold on the welcome screen
