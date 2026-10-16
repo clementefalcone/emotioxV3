@@ -746,21 +746,23 @@ export const getTextAnalysis = async (
     return response.analysis;
 };
 
-/** Trigger LLM analysis (fire-and-forget, returns 202). Optionally filter by participant IDs or selected texts. */
+/** Run LLM analysis and return it. Optionally filter by participant IDs or selected texts. */
 export const triggerTextAnalysis = async (
     researchId: string,
     moduleId: string,
     participantIds?: string[],
     selectedTexts?: Array<{ text: string; mood: string }>,
-): Promise<void> => {
+): Promise<TextAnalysis> => {
     const body: Record<string, unknown> = {};
     if (selectedTexts && selectedTexts.length > 0) {
         body.selectedTexts = selectedTexts;
     } else if (participantIds && participantIds.length > 0) {
         body.participantIds = participantIds;
     }
-    await apiClient.post(
+    const response = await apiClient.post<{ analysis: TextAnalysis }>(
         `/analytics/research/${researchId}/text-analysis/${moduleId}`,
-        body
+        body,
+        { timeout: 120000 },
     );
+    return response.analysis;
 };

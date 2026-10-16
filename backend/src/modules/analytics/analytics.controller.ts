@@ -166,7 +166,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promis
             return success({ analysis }, 200, undefined, origin);
         }
 
-        // POST /analytics/research/:id/text-analysis/:moduleId — trigger LLM analysis (fire-and-forget)
+        // POST /analytics/research/:id/text-analysis/:moduleId — run LLM analysis and return it
         const textAnalysisPostMatch = path.match(/^\/analytics\/research\/([^\/]+)\/text-analysis\/([^\/]+)$/);
         if (textAnalysisPostMatch && httpMethod === 'POST') {
             const [, researchId, moduleId] = textAnalysisPostMatch;
@@ -174,11 +174,8 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promis
             const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : (event.body ?? {});
             const participantIds: string[] | undefined = Array.isArray(body.participantIds) ? body.participantIds : undefined;
             const selectedTexts: Array<{ text: string; mood: string }> | undefined = Array.isArray(body.selectedTexts) ? body.selectedTexts : undefined;
-            // Fire-and-forget: respond immediately, analysis runs in background
-            triggerTextAnalysis(researchId, moduleId, participantIds, selectedTexts).catch(err =>
-                console.error(`[TextAnalysis] Background analysis failed for ${researchId}/${moduleId}:`, err)
-            );
-            return success({ status: 'analyzing' }, 202, undefined, origin);
+            const analysis = await triggerTextAnalysis(researchId, moduleId, participantIds, selectedTexts);
+            return success({ analysis }, 200, undefined, origin);
         }
 
         // GET /analytics/research/:id/emotion-analysis

@@ -103,16 +103,7 @@ export const VOCComments = ({
         ? selectedComments.map(i => comments[i]).filter(Boolean).map(c => ({ text: c.text, mood: c.mood || '' }))
         : undefined;
       const pids = !selectedTexts && filteredParticipantIds ? Array.from(filteredParticipantIds) : undefined;
-      await triggerTextAnalysis(researchId, moduleId, pids, selectedTexts);
-      // Poll for completion (max 30s)
-      for (let i = 0; i < 10; i++) {
-        await new Promise(r => setTimeout(r, 3000));
-        const result = await getTextAnalysis(researchId, moduleId);
-        if (result && (result.themes.length > 0 || result.keywords.length > 0)) {
-          setAnalysis(result);
-          break;
-        }
-      }
+      setAnalysis(await triggerTextAnalysis(researchId, moduleId, pids, selectedTexts));
     } catch (err) {
       console.error('[VOCComments] Analysis failed:', err);
     } finally {

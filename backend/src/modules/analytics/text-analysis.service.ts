@@ -169,18 +169,16 @@ export const getTextAnalysis = async (
 };
 
 /**
- * Triggers GPT-4o analysis for text responses of a specific module.
+ * Runs GPT-4o analysis for text responses of a specific module, caches it and returns it.
  * - moduleId = UUID → Cognitive Short/Long Text module
  * - moduleId = "voc" → all SmartVOC VOC responses across the research
- *
- * Fire-and-forget: caller gets 202, analysis runs in background.
  */
 export const triggerTextAnalysis = async (
     researchId: string,
     moduleId: string,
     participantIds?: string[],
     selectedTexts?: Array<{ text: string; mood: string }>,
-): Promise<void> => {
+): Promise<InsightsAnalysis> => {
     // If frontend sent pre-selected texts, use those directly (skip DB fetch)
     const entries = selectedTexts && selectedTexts.length > 0
         ? selectedTexts.filter(e => e.text && e.text.trim().length > 0)
@@ -195,11 +193,12 @@ export const triggerTextAnalysis = async (
             keywords: [],
         };
         await saveCachedAnalysis(researchId, moduleId, emptyAnalysis);
-        return;
+        return emptyAnalysis;
     }
 
     // Reuse exact same analysis logic from insights service
     const { analyzeInsights } = await import('../insights/insights.service');
     const analysis = await analyzeInsights(entries, `module-${moduleId}`);
     await saveCachedAnalysis(researchId, moduleId, analysis);
+    return analysis;
 };
