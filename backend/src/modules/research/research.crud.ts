@@ -9,9 +9,8 @@ export const list = async (userId: string, role?: string) => {
     try {
         console.log('[Research Service] list() called for userId:', userId, 'role:', role);
         const ownership = buildOwnershipClause(userId, role);
-        // MySQL uses 'config' instead of 'settings', map it to 'settings' for frontend compatibility
         const query = `
-        SELECT r.id, r.name, r.description, r.status, r.research_type_id, r.created_by, r.config, r.created_at, r.updated_at, r.archived_at,
+        SELECT r.id, r.name, r.description, r.status, r.research_type_id, r.created_by, r.created_at, r.updated_at, r.archived_at,
                rt.name as research_type_name,
                rtech.name as research_technique_name,
                e.name as enterprise_name,
@@ -26,37 +25,10 @@ export const list = async (userId: string, role?: string) => {
       `;
         console.log('[Research Service] Executing query with userId:', userId);
         const result = await pool.query(query, [...ownership.params]);
-        console.log('[Research Service] Query result:', {
-            rowCount: result.rowCount,
-            rowsLength: result.rows.length,
-            firstRow: result.rows[0] || null
-        });
-
-        // Ensure each research has an empty stages array if not present
-        // Map 'config' to 'settings' for frontend compatibility (MySQL uses 'config', frontend expects 'settings')
-        // Also parse config/settings if it's a string (MySQL JSON fields can come as strings)
-        const researches = result.rows.map((research: Record<string, unknown>) => {
-            let settings = research.config || research.settings;
-            if (typeof settings === 'string') {
-                try {
-                    settings = JSON.parse(settings);
-                } catch (parseError) {
-                    console.warn('[Research Service] Failed to parse config/settings JSON:', parseError);
-                    settings = {};
-                }
-            }
-
-            // Remove 'config' from response and use 'settings' instead for frontend compatibility
-            const { config, ...researchWithoutConfig } = research;
-
-            return {
-                ...researchWithoutConfig,
-                settings: settings || {},
-                stages: research.stages || []
-            };
-        });
-
-        return researches;
+        return result.rows.map((research: Record<string, unknown>) => ({
+            ...research,
+            stages: research.stages || []
+        }));
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const errorStack = error instanceof Error ? error.stack : undefined;
