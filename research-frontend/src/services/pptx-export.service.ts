@@ -255,7 +255,7 @@ export async function generateResultsPptx(ctx: ExportContext): Promise<void> {
         try {
             const analysis = await getTextAnalysis(ctx.researchId, 'voc');
             if (analysis && analysis.themes.length > 0) {
-                addThemesSlide(pptx, 'SmartVOC — Themes', analysis);
+                addThemesSlide(pptx, 'SmartVOC — Themes', analysis, vocCount);
             }
         } catch { /* no cached analysis */ }
     }
@@ -367,7 +367,7 @@ export async function generateResultsPptx(ctx: ExportContext): Promise<void> {
                 try {
                     const analysis = await getTextAnalysis(ctx.researchId, mod.moduleId);
                     if (analysis && analysis.themes.length > 0) {
-                        addThemesSlide(pptx, `Themes — ${name}`, analysis);
+                        addThemesSlide(pptx, `Themes — ${name}`, analysis, texts.length);
                     }
                 } catch { /* no cached analysis */ }
             }
@@ -586,7 +586,7 @@ function addSlideHeader(slide: PptxGenJS.Slide, title: string) {
     });
 }
 
-function addThemesSlide(pptx: PptxGenJS, title: string, analysis: TextAnalysis) {
+function addThemesSlide(pptx: PptxGenJS, title: string, analysis: TextAnalysis, totalEntries: number) {
     const slide = pptx.addSlide();
     addSlideHeader(slide, title);
 
@@ -594,12 +594,13 @@ function addThemesSlide(pptx: PptxGenJS, title: string, analysis: TextAnalysis) 
         const y = 1.6 + i * 1.1;
         const sentColor = theme.sentimentScore > 0.2 ? GREEN : theme.sentimentScore < -0.2 ? RED : '9CA3AF';
         const sentLabel = theme.sentimentScore > 0.2 ? 'positive' : theme.sentimentScore < -0.2 ? 'negative' : 'neutral';
+        const mentionShare = totalEntries > 0 ? Math.min(theme.count / totalEntries, 1) : 0;
 
         slide.addText(theme.name, {
             x: 0.8, y, w: 6, h: 0.35,
             fontSize: 13, fontFace: FONT, color: DARK, bold: true,
         });
-        slide.addText(`${theme.count} mentions · ${sentLabel}`, {
+        slide.addText(`${theme.count} mentions (${Math.round(mentionShare * 100)}%) · ${sentLabel}`, {
             x: 7, y, w: 4, h: 0.35,
             fontSize: 10, fontFace: FONT, color: sentColor, align: 'right',
         });
@@ -608,13 +609,12 @@ function addThemesSlide(pptx: PptxGenJS, title: string, analysis: TextAnalysis) 
             fontSize: 10, fontFace: FONT, color: BODY,
         });
 
-        // Relevance bar
         slide.addShape(pptx.ShapeType.rect, {
             x: 0.8, y: y + 0.75, w: 10.5, h: 0.08,
             fill: { color: LIGHT_BG },
         });
         slide.addShape(pptx.ShapeType.rect, {
-            x: 0.8, y: y + 0.75, w: 10.5 * theme.magnitude, h: 0.08,
+            x: 0.8, y: y + 0.75, w: 10.5 * mentionShare, h: 0.08,
             fill: { color: ACCENT },
         });
     });
