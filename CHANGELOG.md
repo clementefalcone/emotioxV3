@@ -1,3 +1,10 @@
+## v0.99.6 — Action Units illustrated with a face (2026-10-16)
+
+### feat(results): AU tooltip shows a drawn face
+- **Why.** AU codes and FACS names (e.g. "AU12 Lip Corner Pull") mean little to researchers who do not know the coding system.
+- **Change.** Hovering an AU row in "Average Action Unit Activation" shows an SVG face with the moving part highlighted (brows, cheeks/eyes, mouth, jaw), Ekman-style but drawn in-house (no copyrighted FACS photos). `ActionUnitFace.tsx`. Applies to Eye Tracking, Emotion Analysis and Website Tracking emotions, which share `EmotionPanel`.
+- **Tests.** `EmotionPanel.test.tsx` checks all 9 AUs have a face. Research-frontend 673 → 674, 0 failing.
+
 ## v0.99.5 — NEV: long-term value and short-term spend (2026-10-16)
 
 ### fix(results): NEV split into two blocks with the pyramid clusters
