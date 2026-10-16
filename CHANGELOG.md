@@ -1,3 +1,11 @@
+## v0.99.4 — Slides export: native charts for cognitive questions (2026-10-16)
+
+### fix(export): cognitive slides charted from their own endpoints
+- **Root cause.** The export read responses from the cognitive-tasks payload, which only carries counts for choice, scale and ranking modules, so Linear Scale and Single Choice slides came out with just a title; Navigation Flow was skipped. Themes slides drew the LLM "relevance" bar next to the mention count.
+- **Fix.** Each module type fetches the endpoint the results page uses and draws a native, editable PowerPoint chart: choice shares (bar), scale distribution with average (column), ranking mean position (bar). Navigation Flow shows responses, completion, correct clicks and average time. Themes bar = share of comments. Cognitive slides live in `pptxCognitiveSlides.ts`, brand helpers in `pptxSlideKit.ts`.
+- **Check.** "Simulador de Pensión - Desktop" export: 18 → 28 slides, 0 → 7 charts, values match the results page.
+- **Tests.** `pptxCognitiveSlides.test.ts` (11) generates a deck and checks charts. Research-frontend 657 → 668, 0 failing.
+
 ## v0.99.3 — Keywords counted from real comments (2026-10-16)
 
 ### fix(insights): keyword counts and lists come from the comments
