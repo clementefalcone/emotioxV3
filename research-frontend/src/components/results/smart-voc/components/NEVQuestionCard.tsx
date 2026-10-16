@@ -1,17 +1,12 @@
 import { ArrowUpIcon, ArrowDownIcon } from 'lucide-react';
 import { Card } from '../../../ui/Card';
 import { cn } from '../../../../lib/utils';
+import type { NevValueBlock } from '../nevValueBlocks';
 
 interface EmotionalState {
   name: string;
   value: number;
   isPositive: boolean;
-}
-
-interface Cluster {
-  name: string;
-  value: number;
-  trend: 'up' | 'down';
 }
 
 interface NEVQuestionCardProps {
@@ -20,8 +15,8 @@ interface NEVQuestionCardProps {
   /** NEV score from -100 (all negative) to +100 (all positive). Used for correct positive/negative label and color. */
   nevScore: number;
   emotionalStates: EmotionalState[];
-  longTermClusters: Cluster[];
-  shortTermClusters: Cluster[];
+  longTerm: NevValueBlock;
+  shortTerm: NevValueBlock;
   badges?: Array<{ label: string; color: string }>;
   className?: string;
 }
@@ -31,8 +26,8 @@ export const NEVQuestionCard = ({
   title,
   nevScore,
   emotionalStates,
-  longTermClusters,
-  shortTermClusters,
+  longTerm,
+  shortTerm,
   badges = [
     { label: 'Linear Scale question', color: 'text-green-600 bg-green-50' },
     { label: 'Conditionality disabled', color: 'text-blue-600 bg-blue-50' },
@@ -118,78 +113,62 @@ export const NEVQuestionCard = ({
         </div>
       </div>
 
-      {/* Clusters side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold mb-3">Clusters that Drive Long-Term Value</h3>
-          {longTermClusters.length > 0 ? (
-            <div className="space-y-2">
-              {longTermClusters.map((cluster) => (
-                <div key={cluster.name} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{cluster.name}</span>
-                  <div className="flex items-center gap-1">
-                    <div className="relative group">
-                      {cluster.trend === 'up' ? (
-                        <ArrowUpIcon className="h-4 w-4 text-[#4ADE80]" />
-                      ) : (
-                        <ArrowDownIcon className="h-4 w-4 text-[#F87171]" />
-                      )}
-                      <div className="absolute left-6 top-0 z-10 hidden group-hover:block bg-white border border-gray-300 rounded shadow-lg p-2 text-xs text-gray-700 w-56">
-                        {cluster.trend === 'up'
-                          ? 'This cluster has increased in the last period.'
-                          : 'This cluster has decreased in the last period.'}
-                      </div>
-                    </div>
-                    <span className={cn(
-                      'text-sm font-medium',
-                      cluster.trend === 'up' ? 'text-[#4ADE80]' : 'text-[#F87171]'
-                    )}>
-                      {cluster.value.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-sm text-center py-4">Emotion data will appear once participants respond to this question.</p>
-          )}
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold mb-3">Clusters that Drive Short-Term Value</h3>
-          {shortTermClusters.length > 0 ? (
-            <div className="space-y-2">
-              {shortTermClusters.map((cluster) => (
-                <div key={cluster.name} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{cluster.name}</span>
-                  <div className="flex items-center gap-1">
-                    <div className="relative group">
-                      {cluster.trend === 'up' ? (
-                        <ArrowUpIcon className="h-4 w-4 text-[#4ADE80]" />
-                      ) : (
-                        <ArrowDownIcon className="h-4 w-4 text-[#F87171]" />
-                      )}
-                      <div className="absolute left-6 top-0 z-10 hidden group-hover:block bg-white border border-gray-300 rounded shadow-lg p-2 text-xs text-gray-700 w-56">
-                        {cluster.trend === 'up'
-                          ? 'This cluster has increased in the last period.'
-                          : 'This cluster has decreased in the last period.'}
-                      </div>
-                    </div>
-                    <span className={cn(
-                      'text-sm font-medium',
-                      cluster.trend === 'up' ? 'text-[#4ADE80]' : 'text-[#F87171]'
-                    )}>
-                      {cluster.value.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-sm text-center py-4">Emotion data will appear once participants respond to this question.</p>
-          )}
-        </Card>
+      <div className="flex flex-col md:flex-row gap-4">
+        <ValueBlockCard title="Long-Term Value" subtitle="All emotions" block={longTerm} />
+        <ValueBlockCard title="Short-Term Spend" subtitle="Attention and Destroying clusters" block={shortTerm} />
       </div>
     </Card>
   );
 }
+
+interface ValueBlockCardProps {
+  title: string;
+  subtitle: string;
+  block: NevValueBlock;
+}
+
+const ValueBlockCard = ({ title, subtitle, block }: ValueBlockCardProps) => {
+  const hasData = block.clusters.some(cluster => cluster.value > 0);
+  return (
+    <Card className="p-4 flex-1">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <p className="text-xs text-gray-500">{subtitle}</p>
+        </div>
+        {hasData && (
+          <span className={cn(
+            'px-2 py-0.5 text-xs font-medium rounded-md',
+            block.nev < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+          )}>
+            NEV {block.nev}
+          </span>
+        )}
+      </div>
+      {hasData ? (
+        <div className="space-y-2">
+          {block.clusters.map((cluster) => (
+            <div key={cluster.name} className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">{cluster.name}</span>
+              <div className="flex items-center gap-1">
+                {cluster.trend === 'up' ? (
+                  <ArrowUpIcon className="h-4 w-4 text-[#4ADE80]" />
+                ) : (
+                  <ArrowDownIcon className="h-4 w-4 text-[#F87171]" />
+                )}
+                <span className={cn(
+                  'text-sm font-medium',
+                  cluster.trend === 'up' ? 'text-[#4ADE80]' : 'text-[#F87171]'
+                )}>
+                  {cluster.value.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-400 text-sm text-center py-4">Emotion data will appear once participants respond to this question.</p>
+      )}
+    </Card>
+  );
+};
