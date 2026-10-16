@@ -96,6 +96,14 @@ describe('EmotionPanel', () => {
         expect(screen.getByText('Average Action Unit Activation')).toBeInTheDocument();
     });
 
+    it('illustrates every action unit with a face in its tooltip', () => {
+        render(<EmotionPanel emotions={buildEmotions()} />);
+        expect(screen.getAllByRole('img').map(face => face.getAttribute('aria-label'))).toEqual([
+            'AU1 Inner Brow Raise', 'AU2 Outer Brow Raise', 'AU4 Brow Lowerer', 'AU6 Cheek Raiser', 'AU12 Lip Corner Pull',
+            'AU15 Lip Corner Depress', 'AU20 Lip Stretcher', 'AU25 Lips Part', 'AU26 Jaw Drop',
+        ]);
+    });
+
     it('explains missing action units when no landmark data was captured', () => {
         render(<EmotionPanel emotions={buildEmotions({
             timeline: [{ timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: {} as EmotionAggregation['timeline'][number]['actionUnits'] }],

@@ -3,6 +3,7 @@ import { SmilePlus } from 'lucide-react';
 import type { EmotionAggregation, EkmanEmotion } from '../../../services/analytics.service';
 import { EMOTION_COLORS, EMOTION_LABELS } from './shared';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
+import { ActionUnitFace } from './ActionUnitFace';
 
 const EmotionDistributionChart = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
   const sorted = useMemo(() =>
@@ -120,8 +121,14 @@ const ActionUnitsPanel = ({ timeline }: { timeline: EmotionAggregation['timeline
             const val = avgAUs[au];
             return (
               <div key={au} className="flex items-center gap-3">
-                <span className="text-xs font-mono w-10 text-gray-600">{au}</span>
-                <span className="text-xs text-gray-500 w-32 truncate">{AU_LABELS[au]}</span>
+                <div className="relative group flex items-center gap-3 cursor-help">
+                  <span className="text-xs font-mono w-10 text-gray-600">{au}</span>
+                  <span className="text-xs text-gray-500 w-32 truncate">{AU_LABELS[au]}</span>
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 p-2 bg-white border border-slate-200 rounded-lg shadow-lg flex flex-col items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-20">
+                    <ActionUnitFace au={au} label={AU_LABELS[au]} />
+                    <span className="text-[11px] font-medium text-slate-700 whitespace-nowrap">{au} · {AU_LABELS[au]}</span>
+                  </div>
+                </div>
                 <div className="flex-1 h-4 bg-gray-100 rounded overflow-hidden">
                   <div
                     className="h-full bg-indigo-500 rounded transition-all"
