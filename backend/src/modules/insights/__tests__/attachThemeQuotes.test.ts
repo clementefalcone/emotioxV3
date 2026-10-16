@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { attachThemeQuotes } from '../insights.service';
+import { attachThemeQuotes, buildEntrySample } from '../insights.service';
 
 const sample = ['hice clic en un lugar equivocado', 'el texto era pequeño', 'cambió la edad'];
 const baseTheme = { name: 'Interacción del Usuario', description: 'd', magnitude: 0.9, sentimentScore: -0.6 };
@@ -22,5 +22,15 @@ describe('attachThemeQuotes', () => {
 
     it('gives an empty list when the model returns no entries', () => {
         expect(analyze(undefined)).toMatchObject({ count: 0, supportingQuotes: [] });
+    });
+});
+
+describe('buildEntrySample', () => {
+    it('sends up to 200 entries to the model, so studies with 101-200 comments are fully analyzed', () => {
+        const entries = Array.from({ length: 250 }, (_, i) => ({ text: `comentario ${i + 1}`, mood: '' }));
+        const sample = buildEntrySample(entries);
+        expect(sample).toHaveLength(200);
+        expect(sample[103]).toBe('comentario 104');
+        expect(sample[199]).toBe('comentario 200');
     });
 });

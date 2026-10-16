@@ -80,8 +80,7 @@ export const analyzeInsights = async (
         return emptyAnalysis();
     }
 
-    // Prepare text sample (limit to avoid token overflow)
-    const sample = entries.slice(0, 100).map(e => e.text);
+    const sample = buildEntrySample(entries);
     const sampleTexts = sample.map((text, i) => `${i + 1}. ${text}`).join('\n');
     const moodDistribution = entries.reduce((acc, e) => {
         acc[e.mood] = (acc[e.mood] || 0) + 1;
@@ -146,6 +145,11 @@ Rules:
         return emptyAnalysis();
     }
 };
+
+const MAX_ANALYZED_ENTRIES = 200;
+
+export const buildEntrySample = (entries: Array<{ text: string }>): string[] =>
+    entries.slice(0, MAX_ANALYZED_ENTRIES).map(e => e.text);
 
 type LlmInsightsAnalysis = Omit<InsightsAnalysis, 'themes'> & {
     themes: Array<Omit<InsightsAnalysis['themes'][number], 'count' | 'supportingQuotes'> & { entries?: unknown }>;
