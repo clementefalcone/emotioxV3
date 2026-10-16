@@ -6,6 +6,7 @@ import { enterprisesService, type Enterprise, type EnterpriseResearch } from '..
 import { researchService } from '../../services/research.service';
 import { CustomSelect } from '../../components/ui/CustomSelect';
 import { useToast } from '../../hooks/useToast';
+import { buildMonthlyCreations } from '../../utils/monthlyCreations';
 
 const STATUS_STYLES: Record<string, { dot: string; bg: string; text: string }> = {
     draft:     { dot: 'bg-gray-400',    bg: 'bg-gray-50',    text: 'text-gray-600' },
@@ -23,6 +24,7 @@ export const ResearchHistoryPage = () => {
     const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
     const [researches, setResearches] = useState<EnterpriseResearch[]>([]);
     const [loading, setLoading] = useState(true);
+    const [monthsShown, setMonthsShown] = useState<number | null>(null);
 
     useEffect(() => {
         enterprisesService.list().then(res => {
@@ -35,24 +37,15 @@ export const ResearchHistoryPage = () => {
     useEffect(() => {
         if (!selectedEnterpriseId) return;
         setSelectedEnterprise(enterprises.find(e => e.id === selectedEnterpriseId) || null);
+        setMonthsShown(null);
         enterprisesService.listResearches(selectedEnterpriseId)
             .then(res => setResearches(res.researches))
             .catch(() => setResearches([]));
     }, [selectedEnterpriseId, enterprises]);
 
-    const chartData = useMemo(() => {
-        if (researches.length === 0) return [];
-        const byMonth = new Map<string, { draft: number; active: number; completed: number }>();
-        const sorted = [...researches].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        for (const r of sorted) {
-            const key = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-            const bucket = byMonth.get(key) || { draft: 0, active: 0, completed: 0 };
-            const status = r.status as keyof typeof bucket;
-            if (status in bucket) bucket[status]++; else bucket.draft++;
-            byMonth.set(key, bucket);
-        }
-        return Array.from(byMonth.entries()).map(([month, c]) => ({ month, ...c, total: c.draft + c.active + c.completed }));
-    }, [researches]);
+    const allMonths = useMemo(() => buildMonthlyCreations(researches, new Date()), [researches]);
+    const visibleMonthCount = Math.min(monthsShown ?? allMonths.length, allMonths.length);
+    const chartData = allMonths.slice(allMonths.length - visibleMonthCount);
 
     const stats = useMemo(() => {
         const byStatus = { draft: 0, active: 0, completed: 0 };
@@ -111,6 +104,21 @@ export const ResearchHistoryPage = () => {
                         <div className="flex items-center gap-3 mb-3">
                             <h2 className="text-[13px] font-semibold text-gray-900">{selectedEnterprise?.name || 'Client'}</h2>
                             <span className="text-[11px] text-gray-400">{researches.length} project{researches.length !== 1 ? 's' : ''}</span>
+                            {allMonths.length > 1 && (
+                                <div className="ml-auto flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-500 whitespace-nowrap">Last</span>
+                                    <input
+                                        type="range"
+                                        min={1}
+                                        max={allMonths.length}
+                                        value={visibleMonthCount}
+                                        onChange={(e) => setMonthsShown(Number(e.target.value))}
+                                        aria-label="Months shown"
+                                        className="w-32 h-1.5 accent-blue-600"
+                                    />
+                                    <span className="text-[11px] text-gray-700 font-medium whitespace-nowrap w-16">{visibleMonthCount} month{visibleMonthCount !== 1 ? 's' : ''}</span>
+                                </div>
+                            )}
                         </div>
                         {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={220}>
