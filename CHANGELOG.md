@@ -1,3 +1,11 @@
+## v0.99.5 — NEV: long-term value and short-term spend (2026-10-16)
+
+### fix(results): NEV split into two blocks with the pyramid clusters
+- **Why.** NEV mixed both horizons in one score, and the clusters did not follow the emotional value pyramid (`docs/emociones.jpeg`): trust sat in Advocacy, an "Engagement" cluster mixed horizons, and Destroying only counted toward the short term. Cluster arrows claimed a period-over-period change that was never computed.
+- **Change.** Clusters: Advocacy (feliz, satisfecho), Recommendation (confiado, valorado, cuidado, enfocado, seguro), Attention (interesado, enérgico, estimulado, exploratorio, indulgente), Destroying (the 8 negatives). **Long-Term Value** weighs all four clusters; **Short-Term Spend** weighs Attention against Destroying. Each block shows its own NEV and cluster shares (summing to 100%). The arrow tooltip is gone; green = positive cluster present, red = Destroying present.
+- **Check.** CX TADI (12M): long-term NEV 93 (Advocacy 17.24%, Recommendation 44.83%, Attention 34.48%, Destroying 3.45%); short-term NEV 82 (Attention 90.91%, Destroying 9.09%).
+- **Tests.** `nevValueBlocks.test.ts` (5). Research-frontend 668 → 673, 0 failing.
+
 ## v0.99.4 — Slides export: native charts for cognitive questions (2026-10-16)
 
 ### fix(export): cognitive slides charted from their own endpoints
