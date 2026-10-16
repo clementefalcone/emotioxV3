@@ -20,7 +20,7 @@ export interface InsightsAnalysis {
         actionables: string[];
     };
     themes: Array<{ name: string; count: number; description: string; magnitude: number; sentimentScore: number; supportingQuotes?: string[] }>;
-    keywords: Array<{ word: string; count: number; sentiment: string }>;
+    keywords: Array<{ word: string; count: number; sentiment: string; supportingQuotes?: string[] }>;
 }
 
 /**
@@ -110,13 +110,13 @@ In addition to the analysis above, return a JSON object with exactly this struct
     { "name": "theme name", "entries": [1, 4, 7], "description": "Two sentences minimum: first explain the theme and its behavioral/neurological significance, then link it to concrete business impact at the shelf/purchase level", "magnitude": 0.89, "sentimentScore": 0.75 }
   ],
   "keywords": [
-    { "word": "keyword", "count": approximate_count, "sentiment": "positive|negative|neutral" }
+    { "word": "keyword", "entries": [2, 5], "sentiment": "positive|negative|neutral" }
   ]
 }
 
 Rules:
 - 3-5 themes, sorted by relevance. magnitude is 0-1 (importance). sentimentScore is -1 to +1 (negative to positive). description: 2 sentences minimum — explain the theme significance then link to business impact. entries: the numbers of EVERY text entry that expresses this theme (an entry may belong to several themes).
-- 8-12 keywords, sorted by frequency
+- 8-12 keywords, sorted by frequency. entries: the numbers of EVERY text entry that uses this keyword in any form (plural, gender, tense or synonym spelling, e.g. "completada" counts for "completado").
 - 3-5 actionables, specific, prioritized, and linked to business impact
 - Be critical and honest. Do not soften negative results.
 - Give more weight to what is NOT mentioned than what is mentioned (absences are very important).
@@ -136,7 +136,7 @@ Rules:
         });
 
         const text = response.choices[0]?.message?.content || '';
-        const parsed = attachThemeQuotes(JSON.parse(text) as LlmInsightsAnalysis, sample);
+        const parsed = attachEntryQuotes(JSON.parse(text) as LlmInsightsAnalysis, sample);
 
         console.log(`[Insights] Analysis complete: ${parsed.themes?.length || 0} themes, ${parsed.keywords?.length || 0} keywords`);
         return parsed;
@@ -151,18 +151,38 @@ const MAX_ANALYZED_ENTRIES = 200;
 export const buildEntrySample = (entries: Array<{ text: string }>): string[] =>
     entries.slice(0, MAX_ANALYZED_ENTRIES).map(e => e.text);
 
-type LlmInsightsAnalysis = Omit<InsightsAnalysis, 'themes'> & {
-    themes: Array<Omit<InsightsAnalysis['themes'][number], 'count' | 'supportingQuotes'> & { entries?: unknown }>;
+type LlmEntryLinks = { entries?: unknown };
+type LlmInsightsAnalysis = Omit<InsightsAnalysis, 'themes' | 'keywords'> & {
+    themes: Array<Omit<InsightsAnalysis['themes'][number], 'count' | 'supportingQuotes'> & LlmEntryLinks>;
+    keywords: Array<Omit<InsightsAnalysis['keywords'][number], 'count' | 'supportingQuotes'> & LlmEntryLinks>;
 };
 
-export const attachThemeQuotes = (analysis: LlmInsightsAnalysis, sample: string[]): InsightsAnalysis => ({
+const quoteEntries = (entries: unknown, sample: string[]): string[] => {
+    const lineNumbers = Array.isArray(entries) ? entries : [];
+    return [...new Set(lineNumbers
+        .filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= sample.length)
+        .map(n => sample[n - 1]))];
+};
+
+const normalizeForMatch = (text: string): string =>
+    text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const quoteKeywordEntries = (word: string, entries: unknown, sample: string[]): string[] => {
+    const needle = normalizeForMatch(word);
+    const literalMatches = needle ? sample.filter(text => normalizeForMatch(text).includes(needle)) : [];
+    const linked = new Set([...quoteEntries(entries, sample), ...literalMatches]);
+    return sample.filter(text => linked.has(text)).filter((text, i, all) => all.indexOf(text) === i);
+};
+
+export const attachEntryQuotes = (analysis: LlmInsightsAnalysis, sample: string[]): InsightsAnalysis => ({
     ...analysis,
     themes: (analysis.themes ?? []).map(({ entries, ...theme }) => {
-        const lineNumbers = Array.isArray(entries) ? entries : [];
-        const supportingQuotes = [...new Set(lineNumbers
-            .filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= sample.length)
-            .map(n => sample[n - 1]))];
+        const supportingQuotes = quoteEntries(entries, sample);
         return { ...theme, count: supportingQuotes.length, supportingQuotes };
+    }),
+    keywords: (analysis.keywords ?? []).map(({ entries, ...keyword }) => {
+        const supportingQuotes = quoteKeywordEntries(keyword.word, entries, sample);
+        return { ...keyword, count: supportingQuotes.length, supportingQuotes };
     }),
 });
 
