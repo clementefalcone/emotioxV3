@@ -1,3 +1,11 @@
+## v0.99.8 — History chart: every month since the first project (2026-10-16)
+
+### fix(history): continuous month axis with a range slider
+- **Root cause.** The History chart grouped projects by creation month and only drew months that had one, so a client with every project in the same month (Actibio, Coca-Cola) showed a single bar, and gaps between months vanished (CBCL May and Aug looked adjacent).
+- **Fix.** `buildMonthlyCreations` builds every month from the client's first project to today, empty months at 0. A slider ("Last N months", max = months since the first project) picks how many recent months to show; it resets to all months when the client changes.
+- **Check.** Production, Actibio: Jun 26 → Oct 26 (5 months); slider at 3 shows Aug → Oct.
+- **Tests.** `monthlyCreations.test.ts` (3). Research-frontend 674 → 677, 0 failing.
+
 ## v0.99.7 — Research list loads without study configs (2026-10-16)
 
 ### perf(research): GET /research no longer returns `config`
