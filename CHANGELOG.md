@@ -1,3 +1,16 @@
+## v0.99.0 — Eye Tracking: consent and face guide; theme mentions from LLM quotes (2026-10-15)
+
+### feat(eye-tracking): consent, face guide and controlled calibration
+- **Why.** The camera was requested without explanation, setup relied on self-declared checkboxes, "face detected" only counted bright pixels, and calibration could not tell when the face left the frame.
+- **Change.** Three screens like Emotio SMI. (1) Consent: what is saved and what is not; "Acepto y activo la cámara" triggers the browser permission, "No acepto" skips the activity without camera or response. (2) Face guide: live circle driven by MediaPipe landmarks (centered, eye span for distance, head within 20°), one instruction at a time, "Continuar" only when centered. (3) Calibration over the full camera feed with "En zona" and an interruption counter; a point does not advance while the face is out of zone, and `calibrationInterruptions` is saved with the response. Validation and viewing unchanged.
+- **Removed.** `IntroPhase`, `SetupPhase`, `SessionQualityGate`, `lib/eyeTracking/sessionQualityChecks` and their translations.
+- **Tests.** `facePosition.test.ts` (8), renderer: starts at consent without camera, accept turns camera on, denied permission stays, decline skips without saving, interruptions counted. Participant 1171 → 1121 (61 removed with deleted code).
+
+### fix(insights): theme mentions counted from the comments the LLM used
+- **Root cause.** Mentions were counted by searching the theme name's words in each comment. Abstract names ("Interacción del Usuario") never appear literally, so themes showed "0 mentions (0%)" next to 90% relevance.
+- **Fix.** Entries go numbered to the LLM, which returns the entries behind each theme; `attachThemeQuotes` turns them into exact `supportingQuotes` and the real `count`. Text results (`VOCComments`) and Insights Finding use `findThemeMentions`. Analyses cached before this release show 0 until "Refresh analysis".
+- **Tests.** Backend 652 → 655, research-frontend 651 → 654, 0 failing.
+
 ## v0.98.0 — Website Tracking: Eye Tracking parity for gaze and emotions (2026-10-15)
 
 ### feat(tracking): camera check, calibration and validation like Eye Tracking
