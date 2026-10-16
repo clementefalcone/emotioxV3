@@ -93,12 +93,6 @@ vi.mock('../../lib/eyeTracking/attention/sessionMetrics', () => ({
     computeSpatialCoverage: vi.fn(() => 1),
 }));
 
-vi.mock('./eye-tracking/IntroPhase', () => ({
-    IntroPhase: () => <div data-testid="intro-phase" />,
-}));
-vi.mock('./eye-tracking/SetupPhase', () => ({
-    SetupPhase: () => <div data-testid="setup-phase" />,
-}));
 vi.mock('./eye-tracking/PreparingPhase', () => ({
     PreparingPhase: () => <div data-testid="preparing-phase" />,
 }));
@@ -113,9 +107,6 @@ vi.mock('./eye-tracking/ViewingPhase', () => ({
 }));
 vi.mock('./eye-tracking/CompletePhase', () => ({
     CompletePhase: () => <div data-testid="complete-phase" />,
-}));
-vi.mock('./eye-tracking/SessionQualityGate', () => ({
-    SessionQualityGate: () => <div data-testid="quality-gate" />,
 }));
 
 let mockDeviceType = 'desktop';

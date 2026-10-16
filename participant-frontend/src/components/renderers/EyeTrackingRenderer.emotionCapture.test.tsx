@@ -130,18 +130,23 @@ vi.mock('../../lib/eyeTracking/attention/sessionMetrics', () => ({
     computeSpatialCoverage: vi.fn(() => 1),
 }));
 
-vi.mock('./eye-tracking/IntroPhase', () => ({
-    IntroPhase: ({ onNext }: { onNext: () => void }) => <button data-testid="intro-next" onClick={onNext}>Next</button>,
+vi.mock('./eye-tracking/ConsentPhase', () => ({
+    ConsentPhase: ({ onAccept, onDecline }: { onAccept: () => Promise<boolean>; onDecline: () => void }) => (
+        <>
+            <button data-testid="consent-accept" onClick={() => { void onAccept(); }}>Accept</button>
+            <button data-testid="consent-decline" onClick={onDecline}>Decline</button>
+        </>
+    ),
 }));
-vi.mock('./eye-tracking/SetupPhase', () => ({
-    SetupPhase: ({ onReady }: { onReady: () => void }) => <button data-testid="setup-ready" onClick={onReady}>Ready</button>,
+vi.mock('./eye-tracking/FacePositionPhase', () => ({
+    FacePositionPhase: ({ onContinue }: { onContinue: () => void }) => <button data-testid="face-continue" onClick={onContinue}>Continue</button>,
 }));
 vi.mock('./eye-tracking/PreparingPhase', () => ({
     PreparingPhase: () => <div data-testid="preparing-phase" />,
 }));
 vi.mock('./eye-tracking/CalibrationPhase', () => ({
-    CalibrationPhase: ({ calibrationAreaRef, dwellStartedAt }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; dwellStartedAt: number | null }) => (
-        <div data-testid="calibration-phase" data-dwelling={String(dwellStartedAt !== null)} ref={calibrationAreaRef} />
+    CalibrationPhase: ({ calibrationAreaRef, dwellStartedAt, interruptionCount }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; dwellStartedAt: number | null; interruptionCount: number }) => (
+        <div data-testid="calibration-phase" data-dwelling={String(dwellStartedAt !== null)} data-interruptions={interruptionCount} ref={calibrationAreaRef} />
     ),
 }));
 vi.mock('./eye-tracking/ValidationPhase', () => ({
@@ -158,9 +163,6 @@ vi.mock('./eye-tracking/ViewingPhase', () => ({
 vi.mock('./eye-tracking/CompletePhase', () => ({
     CompletePhase: () => <div data-testid="complete-phase" />,
 }));
-vi.mock('./eye-tracking/SessionQualityGate', () => ({
-    SessionQualityGate: ({ onPass }: { onPass: () => void }) => <button data-testid="qg-pass" onClick={onPass}>Pass</button>,
-}));
 
 let mockDeviceType = 'mobile';
 vi.mock('./eye-tracking/types', async () => {
@@ -175,6 +177,7 @@ import { EyeTrackingRenderer } from './EyeTrackingRenderer';
 import { rememberCalibration } from './eye-tracking/calibrationCache';
 import { detectMicroExpressions, detectFixationsIDT, mapFixationsToImageCoords } from '../../lib/eyeTracking';
 
+const mockGetUserMedia = vi.fn();
 const trainedPredictor = { isReady: () => true } as unknown as GazePredictor;
 const STIMULUS_RECT = { left: 0, top: 0, width: 400, height: 300, x: 0, y: 0, right: 400, bottom: 300, toJSON: () => ({}) } as DOMRect;
 
@@ -199,6 +202,9 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         mockDeviceType = 'mobile';
         vi.useFakeTimers({ shouldAdvanceTime: true });
         rememberCalibration('previous-et-module', { residuals: [{ u: 0.5, v: 0.5, dx: 0, dy: 0 }], rmsePx: 10, predictor: trainedPredictor });
+        Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: mockGetUserMedia } });
+        mockGetUserMedia.mockResolvedValue({ getTracks: () => [] });
+        vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
     });
 
     afterEach(() => {
@@ -252,13 +258,49 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(container.querySelector('video')).not.toBeNull();
     });
 
-    it('calibration cached by the same module is not reused: starts at intro', () => {
+    it('calibration cached by the same module is not reused: starts at consent without asking for the camera', () => {
         rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
         const { queryByTestId } = render(
             <EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />
         );
-        expect(queryByTestId('intro-next')).not.toBeNull();
+        expect(queryByTestId('consent-accept')).not.toBeNull();
         expect(queryByTestId('preparing-phase')).toBeNull();
+        expect(mockGetUserMedia).not.toHaveBeenCalled();
+    });
+
+    it('accepting consent turns on the camera and shows the face guide', async () => {
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        const { getByTestId, queryByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+
+        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
+
+        expect(mockGetUserMedia).toHaveBeenCalledTimes(1);
+        expect(queryByTestId('face-continue')).not.toBeNull();
+    });
+
+    it('stays on consent when camera permission is denied', async () => {
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        mockGetUserMedia.mockRejectedValue(new DOMException('denied', 'NotAllowedError'));
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { getByTestId, queryByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+
+        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
+
+        expect(queryByTestId('consent-accept')).not.toBeNull();
+        expect(queryByTestId('face-continue')).toBeNull();
+    });
+
+    it('declining consent skips the activity without camera or saved response', async () => {
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        const onComplete = vi.fn();
+        const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={onComplete} />);
+
+        fireEvent.click(getByTestId('consent-decline'));
+        await act(async () => { vi.advanceTimersByTime(3000); });
+
+        expect(onComplete).toHaveBeenCalledTimes(1);
+        expect(mockGetUserMedia).not.toHaveBeenCalled();
+        expect(mockSaveResponse).not.toHaveBeenCalled();
     });
 
     it('mobile records camera gaze during viewing without taps', async () => {
@@ -299,9 +341,8 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         mockMPGaze.gazePosRef = { current: { x: 2000, y: 2000 } } as unknown as typeof mockMPGaze.gazePosRef;
 
         const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
-        fireEvent.click(getByTestId('intro-next'));
-        fireEvent.click(getByTestId('setup-ready'));
-        fireEvent.click(getByTestId('qg-pass'));
+        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
+        fireEvent.click(getByTestId('face-continue'));
         await act(async () => { vi.advanceTimersByTime(2100); });
         for (let point = 0; point < 3; point++) {
             await act(async () => { vi.advanceTimersByTime(2500); });
@@ -322,9 +363,8 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         mockMPGaze.gazePosRef = { current: { x: 2000, y: 2000 } } as unknown as typeof mockMPGaze.gazePosRef;
 
         const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
-        fireEvent.click(getByTestId('intro-next'));
-        fireEvent.click(getByTestId('setup-ready'));
-        fireEvent.click(getByTestId('qg-pass'));
+        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
+        fireEvent.click(getByTestId('face-continue'));
         await act(async () => { vi.advanceTimersByTime(2100); });
         for (let point = 0; point < 3; point++) {
             await act(async () => { vi.advanceTimersByTime(2500); });
@@ -348,9 +388,8 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         const module = makeModule('false');
         const onComplete = vi.fn();
         const { getByTestId, queryByTestId, rerender } = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
-        fireEvent.click(getByTestId('intro-next'));
-        fireEvent.click(getByTestId('setup-ready'));
-        fireEvent.click(getByTestId('qg-pass'));
+        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
+        fireEvent.click(getByTestId('face-continue'));
 
         for (let elapsedMs = 0; elapsedMs < 2400; elapsedMs += 200) {
             rerender(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
@@ -367,9 +406,8 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         const module = makeModule('false');
         const onComplete = vi.fn();
         const rendered = render(<EyeTrackingRenderer module={module} onComplete={onComplete} />);
-        fireEvent.click(rendered.getByTestId('intro-next'));
-        fireEvent.click(rendered.getByTestId('setup-ready'));
-        fireEvent.click(rendered.getByTestId('qg-pass'));
+        await act(async () => { fireEvent.click(rendered.getByTestId('consent-accept')); });
+        fireEvent.click(rendered.getByTestId('face-continue'));
         await act(async () => { vi.advanceTimersByTime(2100); });
         const rerenderEvery200ms = async (durationMs: number) => {
             for (let elapsedMs = 0; elapsedMs < durationMs; elapsedMs += 200) {
@@ -393,13 +431,14 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps the calibration point while the face is not detected', async () => {
+    it('keeps the calibration point and counts an interruption each time the face is not detected', async () => {
         mockMPGaze.gazeState = 'closed';
-        const { rerenderEvery200ms } = await reachCalibration();
+        const { getByTestId, rerenderEvery200ms } = await reachCalibration();
 
         await rerenderEvery200ms(5200);
 
         expect(mockMPGaze.calibrate).not.toHaveBeenCalled();
+        expect(getByTestId('calibration-phase').getAttribute('data-interruptions')).toBe('2');
     });
 
     it('saves the captured emotion samples and their micro-expressions in the response', async () => {

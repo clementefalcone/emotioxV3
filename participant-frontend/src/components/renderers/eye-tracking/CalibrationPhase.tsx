@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS, HYBRID_CALIB_POINT_COUNT } from './types';
@@ -11,6 +11,8 @@ interface CalibrationPhaseProps {
     dwellDurationMs: number;
     cameraRef?: React.RefObject<HTMLVideoElement | null>;
     calibrationAreaRef?: React.RefObject<HTMLDivElement | null>;
+    isFaceInZone: boolean;
+    interruptionCount: number;
 }
 
 export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
@@ -19,10 +21,11 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
     dwellDurationMs,
     cameraRef,
     calibrationAreaRef,
+    isFaceInZone,
+    interruptionCount,
 }) => {
     const { t } = useTranslation();
     const previewRef = useRef<HTMLVideoElement>(null);
-    const [streamReady, setStreamReady] = useState(false);
 
     const calibrationPercent = Math.round(25 + (calibrationIndex / HYBRID_CALIB_POINT_COUNT) * 35);
     const calDotImagePct = HYBRID_IMAGE_CALIBRATION_POINTS[calibrationIndex];
@@ -31,11 +34,8 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
         if (!cameraRef) return;
         const check = setInterval(() => {
             const stream = cameraRef.current?.srcObject as MediaStream | null;
-            if (stream && stream.active) {
-                setStreamReady(true);
-                if (previewRef.current && previewRef.current.srcObject !== stream) {
-                    previewRef.current.srcObject = stream;
-                }
+            if (stream && stream.active && previewRef.current) {
+                previewRef.current.srcObject = stream;
                 clearInterval(check);
             }
         }, 200);
@@ -44,17 +44,37 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-white">
-            <div className="flex flex-col items-center gap-2 px-6 text-center" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
+            <video
+                ref={previewRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                style={{ transform: 'scaleX(-1)' }}
+            />
+
+            <div className="relative flex flex-col items-center gap-2 px-6 text-center" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
                 <StepProgressPill step={2} total={TOTAL_STEPS} percent={calibrationPercent} />
                 <h2 className="text-lg font-bold text-gray-900 mt-2">
                     {t('eyeTracking.dwellInstruction', 'Look at the dot without moving your head. It will move on by itself.')}
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-600">
                     {t('eyeTracking.pointOf', 'Punto {{current}} de {{total}}', {
                         current: calibrationIndex + 1,
                         total: HYBRID_CALIB_POINT_COUNT,
                     })}
                 </p>
+                <div className="flex items-center gap-4 text-xs text-gray-600">
+                    <span>
+                        {t('eyeTracking.calib.interruptions', 'Interruptions')} <strong className="text-gray-900">{interruptionCount}</strong>
+                    </span>
+                    <span className={`flex items-center gap-1.5 font-medium ${isFaceInZone ? 'text-green-600' : 'text-red-500'}`}>
+                        <span className={`w-2 h-2 rounded-full ${isFaceInZone ? 'bg-green-500' : 'bg-red-500'}`} />
+                        {isFaceInZone
+                            ? t('eyeTracking.calib.inZone', 'In zone')
+                            : t('eyeTracking.calib.outOfZone', 'Out of zone · look at the screen')}
+                    </span>
+                </div>
             </div>
 
             <div ref={calibrationAreaRef} className="flex-1 relative">
@@ -68,21 +88,6 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
                     </div>
                 )}
             </div>
-
-            {streamReady && (
-                <div className="flex justify-center pb-4">
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
-                        <video
-                            ref={previewRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-cover"
-                            style={{ transform: 'scaleX(-1)' }}
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

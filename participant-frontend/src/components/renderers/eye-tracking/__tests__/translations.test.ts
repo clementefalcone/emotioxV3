@@ -19,7 +19,7 @@ const lookup = (locale: object, key: string): unknown =>
 
 describe('eye tracking translations', () => {
     it('finds the keys used by the participant screens', () => {
-        expect(usedKeys).toContain('eyeTracking.qg.title');
+        expect(usedKeys).toContain('eyeTracking.consent.title');
         expect(usedKeys).toContain('eyeTracking.lowResolutionWarning');
     });
 

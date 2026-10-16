@@ -61,14 +61,13 @@ import type { CalibrationEllipse } from '../../lib/eyeTracking/attention/types';
 import { ProbabilisticHeatmap } from '../../lib/eyeTracking/attention/probabilisticHeatmap';
 import { computeSessionConfidence, computeSpatialCoverage } from '../../lib/eyeTracking/attention/sessionMetrics';
 
-import { IntroPhase } from './eye-tracking/IntroPhase';
-import { SetupPhase } from './eye-tracking/SetupPhase';
+import { ConsentPhase } from './eye-tracking/ConsentPhase';
+import { FacePositionPhase } from './eye-tracking/FacePositionPhase';
 import { PreparingPhase } from './eye-tracking/PreparingPhase';
 import { CalibrationPhase } from './eye-tracking/CalibrationPhase';
 import { ValidationPhase } from './eye-tracking/ValidationPhase';
 import { ViewingPhase } from './eye-tracking/ViewingPhase';
 import { CompletePhase } from './eye-tracking/CompletePhase';
-import { SessionQualityGate } from './eye-tracking/SessionQualityGate';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -99,7 +98,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     // Skip intro/setup/calibration if a recent ET calibration exists (consecutive ET modules)
     const cachedCalibration = useMemo(() => recallCalibration(module.id), [module.id]);
-    const [phase, setPhase] = useState<ETPhase>(cachedCalibration ? 'preparing' : 'intro');
+    const [phase, setPhase] = useState<ETPhase>(cachedCalibration ? 'preparing' : 'consent');
     const [resolvedUrl, setResolvedUrl] = useState<string>('');
     const [resolvedShelfUrls, setResolvedShelfUrls] = useState<string[]>([]);
     const [timeLeft, setTimeLeft] = useState(Math.ceil(viewingDuration / 1000));
@@ -115,10 +114,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     /** Snapshot of image bounding rect captured during viewing phase (before complete hides the image). */
     const viewingRectRef = useRef<DOMRect | null>(null);
 
-    // Setup checkboxes
-    const [checks, setChecks] = useState([false, false, false, false]);
-    const allChecked = checks.every(Boolean);
-
     /** 9-point calibration on stimulus image (3x3 grid) + IDW field. */
     const [calibrationIndex, setCalibrationIndex] = useState(0);
     const calibrationResidualsRef = useRef<HybridCalibrationResidual[]>(cachedCalibration?.residuals ?? []);
@@ -132,6 +127,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const [validationPointErrors, setValidationPointErrors] = useState<number[]>([]);
     /** Average RMSE across all 5 validation points (null until all measured). */
     const [validationRmse, setValidationRmse] = useState<number | null>(null);
+    const [calibrationInterruptions, setCalibrationInterruptions] = useState(0);
 
     // --- Gaze engines (both hooks always called — React rules — only active engine is started) ---
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -208,17 +204,19 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const microGazeSamplesRef = useRef<{ x: number; y: number }[]>([]);
 
     // Camera management
-    const startCamera = useCallback(async () => {
+    const startCamera = useCallback(async (): Promise<boolean> => {
         // Skip if camera is already running (prevents orphaned MediaStreams)
-        if (videoRef.current?.srcObject) return;
+        if (videoRef.current?.srcObject) return true;
         try {
             const stream = await navigator.mediaDevices.getUserMedia(BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS);
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
             }
+            return true;
         } catch (err) {
             console.error('[EyeTrackingRenderer] Camera error:', err);
+            return false;
         }
     }, []);
 
@@ -574,11 +572,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getStimulusElement reads refs only, stable
     }, [phase, viewingDuration]);
 
-    useEffect(() => {
-        if (phase !== 'setup') return;
-        void startCamera();
-    }, [phase, startCamera]);
-
     // "Preparing" phase: start camera + auto-advance
     // If cached calibration exists, skip to viewing; otherwise go to calibration.
     useEffect(() => {
@@ -606,9 +599,9 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
     }, [phase, startCamera, cachedCalibration, viewingDuration]);
 
-    // Start BlazeGaze early in quality-gate so face detection check can use gazeState
+    // Start gaze engine while positioning the face so its landmarks drive the guide circle
     useEffect(() => {
-        if (phase !== 'quality-gate') return;
+        if (phase !== 'face') return;
         gaze.start();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
     }, [phase]);
@@ -703,6 +696,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 gazePipeline: 'hybrid-zone-idt',
                 calibrationRmsePx: calibrationRmsePxRef.current,
                 validationRmsePx: validationRmse,
+                calibrationInterruptions,
                 emotions: hasEmotionRecognition ? faceEmotions.getSamples() : undefined,
                 microExpressions: hasEmotionRecognition ? detectMicroExpressions(faceEmotions.getSamples()) : undefined,
                 viewportWidth: window.innerWidth,
@@ -900,6 +894,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             setDwellStartedAt(performance.now());
             calibrationTimerRef.current = window.setTimeout(() => {
                 if (gazeStateRef.current !== 'open' || !getCalibrationDot(calibrationIndex)) {
+                    if (gazeStateRef.current !== 'open') setCalibrationInterruptions(count => count + 1);
                     holdPoint();
                     return;
                 }
@@ -913,15 +908,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         return () => window.clearTimeout(calibrationTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recordCalibrationPoint reads refs only
     }, [phase, calibrationIndex, viewingDuration, isPreviewMode]);
-
-    // Toggle a setup checkbox
-    const toggleCheck = useCallback((index: number) => {
-        setChecks(prev => {
-            const next = [...prev];
-            next[index] = !next[index];
-            return next;
-        });
-    }, []);
 
     // --- 5-point validation with dwell detection (Fase C) ---
     const VALIDATION_DWELL_MS = 800;
@@ -1052,6 +1038,12 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal
     }, [blaze, viewingDuration]);
 
+    const handleConsentAccept = useCallback(async () => {
+        const isCameraOn = await startCamera();
+        if (isCameraOn) setPhase('face');
+        return isCameraOn;
+    }, [startCamera]);
+
     /** Reject session — session quality too low after max attempts. */
     const handleRejectSession = useCallback(() => {
         gaze.stop();
@@ -1098,34 +1090,23 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     let phaseContent: React.ReactNode = null;
 
-    if (phase === 'intro') {
+    if (phase === 'consent') {
         phaseContent = (
-            <IntroPhase
+            <ConsentPhase
                 taskDescription={taskDescription}
-                isBlazeLoaded={gaze.isLoaded}
-                onNext={() => setPhase('setup')}
+                hasEmotionRecognition={hasEmotionRecognition}
+                isGazeModelLoaded={gaze.isLoaded}
+                onAccept={handleConsentAccept}
+                onDecline={handleRejectSession}
             />
         );
-    } else if (phase === 'setup') {
+    } else if (phase === 'face') {
         phaseContent = (
-            <SetupPhase
-                checks={checks}
-                allChecked={allChecked}
-                onToggleCheck={toggleCheck}
-                onReady={() => setPhase('quality-gate')}
+            <FacePositionPhase
                 cameraRef={videoRef}
-            />
-        );
-    } else if (phase === 'quality-gate') {
-        phaseContent = (
-            <SessionQualityGate
-                cameraRef={videoRef}
-                gazeActive={gaze.gazeState === 'open'}
-                faceConfidence={mpGaze.lastLandmarksRef.current ? (mpGaze.gazeState === 'open' ? 1.0 : 0.85) : 0}
-                headPoseRef={mpGaze.headPoseRef}
                 landmarksRef={mpGaze.lastLandmarksRef}
-                onPass={() => setPhase('preparing')}
-                onReject={() => setPhase('preparing')}
+                headPoseRef={mpGaze.headPoseRef}
+                onContinue={() => setPhase('preparing')}
             />
         );
     } else if (phase === 'preparing') {
@@ -1146,6 +1127,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     dwellDurationMs={CALIBRATION_POINT_MS}
                     cameraRef={videoRef}
                     calibrationAreaRef={calibrationAreaRef}
+                    isFaceInZone={gaze.gazeState === 'open'}
+                    interruptionCount={calibrationInterruptions}
                 />
             </>
         );

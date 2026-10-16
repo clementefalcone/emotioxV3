@@ -131,22 +131,6 @@ export type {
 export { detectMicroExpressions } from './microExpressionDetector';
 export type { MicroExpression } from './microExpressionDetector';
 
-export {
-    measureBrightness,
-    checkBrightness,
-    checkResolution,
-    checkDistance,
-    checkHeadStability,
-    checkFaceConfidence,
-    checkFullscreen,
-    checkLandscape,
-    checkHeadPose,
-    estimateDistanceCm,
-    computePositionVariance,
-    evaluateGate,
-} from './sessionQualityChecks';
-export type { QualityCheckResult, QualityGateResult, CheckStatus, QualityCheckId } from './sessionQualityChecks';
-
 export { RuntimeQualityMonitor } from './runtimeQualityMonitor';
 export type { RuntimeQualityCallbacks, RuntimeQualityConfig } from './runtimeQualityMonitor';
 

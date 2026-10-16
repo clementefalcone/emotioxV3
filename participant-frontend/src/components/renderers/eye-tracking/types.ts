@@ -33,11 +33,11 @@ export interface ShelfConfig {
 
 /**
  * Phases:
- * intro → setup → quality-gate → preparing → calibration → validating → viewing → complete
+ * consent → face → preparing → calibration → validating → viewing → complete
  * If validation fails, loops back to calibration (re-calibrate).
- * quality-gate: pre-calibration environment checks (brightness, distance, resolution, head stability, face detection).
+ * face: live guide circle driven by MediaPipe landmarks; continues only when the face is centered.
  */
-export type ETPhase = 'intro' | 'setup' | 'quality-gate' | 'preparing' | 'calibration' | 'validating' | 'viewing' | 'complete';
+export type ETPhase = 'consent' | 'face' | 'preparing' | 'calibration' | 'validating' | 'viewing' | 'complete';
 
 export const TOTAL_STEPS = 4;
 
