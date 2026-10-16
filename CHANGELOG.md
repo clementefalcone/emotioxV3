@@ -1,3 +1,11 @@
+## v0.99.7 — Research list loads without study configs (2026-10-16)
+
+### perf(research): GET /research no longer returns `config`
+- **Root cause.** The list query selected `r.config` for every study, so Attention Prediction stimuli (heatmaps, AOIs) traveled with the list: 5.2 MB for 36 studies (largest study 1.6 MB). `/research/research`, Dashboard and In Progress waited on that download.
+- **Fix.** The list selects only the card fields. No list consumer reads `settings`; detail views fetch the study by id.
+- **Check.** Production: 5,247 KB → 21 KB, ~0.9–1.3 s → ~0.27 s; the API calls on page load finish ~2 s after navigation instead of ~3.9 s.
+- **Tests.** Backend 667 → 667, 0 failing.
+
 ## v0.99.6 — Action Units illustrated with a face (2026-10-16)
 
 ### feat(results): AU tooltip shows a drawn face
