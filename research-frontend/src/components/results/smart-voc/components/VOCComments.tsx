@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, ClipboardList, Hash, Sparkles, Loader2, RefreshCw, Quote } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { User, ClipboardList, Hash, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { Card } from '../../../ui/Card';
 import { Badge } from '../../../ui/Badge';
-import { Drawer } from '../../../ui/Drawer';
+import { ThemeCard } from '../../shared/ThemeCard';
 import { cn } from '../../../../lib/utils';
 import {
     getTextAnalysis,
@@ -55,7 +55,6 @@ export const VOCComments = ({
   const [analysis, setAnalysis] = useState<TextAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
-  const [selectedThemeIdx, setSelectedThemeIdx] = useState<number | null>(null);
 
   // Resolve researchId from prop or URL
   const researchId = researchIdProp ?? (() => {
@@ -65,14 +64,6 @@ export const VOCComments = ({
     return urlParts.includes('results') ? urlParts[urlParts.indexOf('results') + 1] ?? '' : '';
   })();
 
-  const themeMatches = useMemo(() => {
-    if (!analysis?.themes.length || !comments.length) return new Map<number, Comment[]>();
-    const map = new Map<number, Comment[]>();
-    analysis.themes.forEach((theme, idx) => {
-      map.set(idx, findThemeMentions(theme.supportingQuotes, comments));
-    });
-    return map;
-  }, [analysis?.themes, comments]);
 
   // Load cached analysis on mount
   useEffect(() => {
@@ -491,47 +482,15 @@ export const VOCComments = ({
 
                 {analysis && analysis.themes.length > 0 ? (
                   <div className="space-y-3">
-                    {analysis.themes.map((theme, i) => {
-                      const matched = themeMatches.get(i) ?? [];
-                      const realCount = matched.length;
-                      const pct = comments.length > 0 ? Math.round((realCount / comments.length) * 100) : 0;
-                      return (
-                        <div
-                          key={i}
-                          onClick={() => setSelectedThemeIdx(i)}
-                          className="bg-gray-50 rounded-lg p-4 space-y-2 transition-colors cursor-pointer hover:bg-blue-50 hover:border-blue-200 border border-transparent"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-gray-900">{theme.name}</span>
-                              {realCount > 0 && <Quote className="h-3.5 w-3.5 text-blue-400" />}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500">{realCount} mentions ({pct}%)</span>
-                              <span className={cn(
-                                'text-xs font-medium px-2 py-0.5 rounded-full',
-                                theme.sentimentScore > 0.2 ? 'bg-green-100 text-green-700' :
-                                theme.sentimentScore < -0.2 ? 'bg-red-100 text-red-700' :
-                                'bg-gray-100 text-gray-600'
-                              )}>
-                                {theme.sentimentScore > 0.2 ? 'positive' : theme.sentimentScore < -0.2 ? 'negative' : 'neutral'}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-600 leading-relaxed">{theme.description}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-400 w-16">Relevance</span>
-                            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                              <div
-                                className="h-1.5 rounded-full bg-blue-500 transition-all"
-                                style={{ width: `${Math.round(theme.magnitude * 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-gray-400 w-8 text-right">{Math.round(theme.magnitude * 100)}%</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {analysis.themes.map(theme => (
+                      <ThemeCard
+                        key={theme.name}
+                        name={theme.name}
+                        description={theme.description}
+                        mentions={findThemeMentions(theme.supportingQuotes, comments)}
+                        totalEntries={comments.length}
+                      />
+                    ))}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-48">
@@ -667,78 +626,6 @@ export const VOCComments = ({
           </div>
         </div>
       </div>
-      {/* Theme Verbatim Drawer */}
-      {selectedThemeIdx !== null && analysis?.themes[selectedThemeIdx] && (
-        <ThemeVerbatimDrawer
-          theme={analysis.themes[selectedThemeIdx]}
-          matchedComments={themeMatches.get(selectedThemeIdx) ?? []}
-          totalComments={comments.length}
-          onClose={() => setSelectedThemeIdx(null)}
-        />
-      )}
     </Card>
-  );
-};
-
-// ─── Theme Verbatim Drawer ──────────────────────────────────────────
-
-interface ThemeVerbatimDrawerProps {
-  theme: { name: string; description: string; sentimentScore: number };
-  matchedComments: Comment[];
-  totalComments: number;
-  onClose: () => void;
-}
-
-const ThemeVerbatimDrawer = ({ theme, matchedComments, totalComments, onClose }: ThemeVerbatimDrawerProps) => {
-  const pct = totalComments > 0 ? Math.round((matchedComments.length / totalComments) * 100) : 0;
-
-  return (
-    <Drawer isOpen onClose={onClose} title={theme.name} width="sm">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-500">
-            {matchedComments.length} mentions ({pct}%)
-          </p>
-          <span className={cn(
-            'text-xs font-medium px-2 py-0.5 rounded-full',
-            theme.sentimentScore > 0.2 ? 'bg-green-100 text-green-700' :
-            theme.sentimentScore < -0.2 ? 'bg-red-100 text-red-700' :
-            'bg-gray-100 text-gray-600'
-          )}>
-            {theme.sentimentScore > 0.2 ? 'positive' : theme.sentimentScore < -0.2 ? 'negative' : 'neutral'}
-          </span>
-        </div>
-
-        <p className="text-xs text-gray-600 leading-relaxed">{theme.description}</p>
-
-        <div className="space-y-3 border-t border-gray-100 pt-4">
-          <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Matching verbatims</h4>
-          {matchedComments.length > 0 ? (
-            matchedComments.map((comment, i) => (
-              <div key={i} className="flex gap-3 items-start">
-                <Quote className="h-4 w-4 text-blue-300 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 leading-relaxed italic">"{comment.text}"</p>
-                  {comment.mood && (
-                    <span className={cn(
-                      'text-[10px] font-medium px-1.5 py-0.5 rounded mt-1 inline-block',
-                      comment.mood === 'positive' ? 'bg-green-50 text-green-600' :
-                      comment.mood === 'negative' ? 'bg-red-50 text-red-600' :
-                      'bg-gray-50 text-gray-500'
-                    )}>
-                      {comment.mood}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-gray-400 text-center py-8">
-              No matching comments found for this theme.
-            </p>
-          )}
-        </div>
-      </div>
-    </Drawer>
   );
 };

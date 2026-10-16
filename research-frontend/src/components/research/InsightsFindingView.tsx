@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Upload, RotateCw, Settings2, ChevronDown, MessageSquareQuote, Download } from 'lucide-react';
+import { Upload, RotateCw, Settings2, Download } from 'lucide-react';
 import { Drawer } from '../ui/Drawer';
 import { type Research, researchService } from '../../services/research.service';
 import { researchKeys } from '../../hooks/useResearchQuery';
@@ -10,6 +10,8 @@ import { parseDocument, detectCsvColumns, type CsvColumnInfo } from '../../utils
 import { CsvColumnSelector } from './CsvColumnSelector';
 import { cn } from '../../lib/utils';
 import { findThemeMentions } from '../../utils/themeMentions';
+import { ThemeCard } from '../results/shared/ThemeCard';
+import { MOOD_COLORS } from '../results/shared/moodColors';
 
 interface InsightsAnalysis {
     sentiment: { summary: string; description: string; actionables: string[] };
@@ -31,13 +33,6 @@ interface InsightsFindingViewProps {
     research: Research;
     fileId: string;
 }
-
-const MOOD_COLORS: Record<string, string> = {
-    positive: 'text-green-600 bg-green-50',
-    negative: 'text-red-600 bg-red-50',
-    neutral: 'text-gray-600 bg-gray-100',
-    indeterminate: 'text-gray-400 bg-gray-50',
-};
 
 type TabId = 'sentiment' | 'themes' | 'keywords';
 
@@ -271,7 +266,6 @@ export const InsightsFindingView = ({ research, fileId }: InsightsFindingViewPro
     const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabId>('sentiment');
-    const [expandedThemes, setExpandedThemes] = useState<Set<number>>(new Set());
     const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const triggeredRef = useRef<string | null>(null); // prevent re-trigger loop
@@ -738,79 +732,15 @@ export const InsightsFindingView = ({ research, fileId }: InsightsFindingViewPro
                                         <div className="space-y-3">
                                             <h5 className="font-semibold text-sm text-gray-900">Themes</h5>
                                             {themes.length > 0 ? (
-                                                themes.map((theme, i) => {
-                                                    const matchingEntries = findThemeMentions(theme.supportingQuotes, entries);
-                                                    const realCount = matchingEntries.length;
-                                                    const isExpanded = expandedThemes.has(i);
-                                                    return (
-                                                        <div key={i} className="bg-gray-50 rounded-lg overflow-hidden">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setExpandedThemes(prev => {
-                                                                    const next = new Set(prev);
-                                                                    if (next.has(i)) next.delete(i); else next.add(i);
-                                                                    return next;
-                                                                })}
-                                                                className="w-full text-left p-3 cursor-pointer hover:bg-gray-100 transition-colors"
-                                                            >
-                                                                <div className="flex items-center justify-between mb-1">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-medium text-gray-900">{theme.name}</span>
-                                                                        <ChevronDown className={cn(
-                                                                            'w-3.5 h-3.5 text-gray-400 transition-transform',
-                                                                            isExpanded && 'rotate-180'
-                                                                        )} />
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-xs font-semibold text-blue-600">{entries.length > 0 ? Math.round((realCount / entries.length) * 100) : 0}%</span>
-                                                                        <span className="text-xs text-gray-500">{realCount} mentions</span>
-                                                                    </div>
-                                                                </div>
-                                                                {/* Percentage bar */}
-                                                                <div className="w-full h-1.5 bg-gray-200 rounded-full mb-2">
-                                                                    <div
-                                                                        className="h-full bg-blue-500 rounded-full transition-all"
-                                                                        style={{ width: `${entries.length > 0 ? Math.round((realCount / entries.length) * 100) : 0}%` }}
-                                                                    />
-                                                                </div>
-                                                                <p className="text-xs text-gray-600">{theme.description}</p>
-                                                            </button>
-                                                            {/* Matching entries — smooth accordion via grid-rows */}
-                                                            <div
-                                                                className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-                                                                style={{ gridTemplateRows: isExpanded ? '1fr' : '0fr' }}
-                                                            >
-                                                                <div className="overflow-hidden">
-                                                                    <div className="px-3 pb-3 border-t border-gray-200 pt-2">
-                                                                        <div className="flex items-center justify-between mb-2">
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <MessageSquareQuote className="w-3 h-3 text-gray-400" />
-                                                                                <span className="text-[11px] font-medium text-gray-500">Matching entries</span>
-                                                                            </div>
-                                                                            <span className="text-[10px] text-gray-400">{realCount} results</span>
-                                                                        </div>
-                                                                        <div className="max-h-[240px] overflow-y-auto space-y-1">
-                                                                            {matchingEntries.map((entry, qi) => (
-                                                                                <div key={qi} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-white transition-colors">
-                                                                                    <p className="text-xs text-gray-600 italic flex-1 min-w-0 mr-3">"{entry.text}"</p>
-                                                                                    <span className={cn(
-                                                                                        'text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize flex-shrink-0',
-                                                                                        MOOD_COLORS[entry.mood] || MOOD_COLORS.indeterminate
-                                                                                    )}>
-                                                                                        {entry.mood}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ))}
-                                                                            {realCount === 0 && (
-                                                                                <p className="text-xs text-gray-400 italic">No matching entries found</p>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })
+                                                themes.map(theme => (
+                                                    <ThemeCard
+                                                        key={theme.name}
+                                                        name={theme.name}
+                                                        description={theme.description}
+                                                        mentions={findThemeMentions(theme.supportingQuotes, entries)}
+                                                        totalEntries={entries.length}
+                                                    />
+                                                ))
                                             ) : !isAnalyzing ? (
                                                 <p className="text-sm text-gray-400">No themes data available yet.</p>
                                             ) : null}

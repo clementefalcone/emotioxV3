@@ -38,13 +38,14 @@ describe('VOCComments refresh analysis', () => {
 
         await waitFor(() => expect(screen.getByText('Confusión en la Interfaz')).toBeTruthy());
         expect(screen.queryByText('Interacción del Usuario')).toBeNull();
-        expect(screen.getByText('1 mentions (50%)')).toBeTruthy();
+        expect(screen.getByText('1 mentions')).toBeTruthy();
+        expect(screen.getByText('50%')).toBeTruthy();
         expect(mockGetTextAnalysis).toHaveBeenCalledTimes(1);
     });
 
-    it('opens the theme comments in a drawer mounted on the page body, not inside the results card', async () => {
+    it('lists only the comments the model assigned to a theme under that theme, like Insights Finding', async () => {
         mockGetTextAnalysis.mockResolvedValueOnce(refreshedAnalysis);
-        const { container } = render(
+        render(
             <VOCComments
                 researchId="research-1"
                 moduleId="module-1"
@@ -52,12 +53,12 @@ describe('VOCComments refresh analysis', () => {
             />,
         );
         fireEvent.click(screen.getByRole('button', { name: /Themes/ }));
-        fireEvent.click(await screen.findByText('Confusión en la Interfaz'));
+        const themeButton = (await screen.findByText('Confusión en la Interfaz')).closest('button');
+        const themeCard = themeButton?.parentElement;
+        fireEvent.click(themeButton as HTMLButtonElement);
 
-        const drawer = await screen.findByRole('dialog');
-        expect(drawer.parentElement).toBe(document.body);
-        expect(container.contains(drawer)).toBe(false);
-        expect(drawer.textContent).toContain('"el texto era pequeño"');
-        expect(drawer.textContent).not.toContain('cambio la edad');
+        expect(screen.queryByRole('dialog')).toBeNull();
+        expect(themeCard?.textContent).toContain('"el texto era pequeño"');
+        expect(themeCard?.textContent).not.toContain('cambio la edad');
     });
 });
