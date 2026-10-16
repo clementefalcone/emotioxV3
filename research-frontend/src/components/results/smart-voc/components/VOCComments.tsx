@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, ClipboardList, Hash, Sparkles, Loader2, RefreshCw, X, Quote } from 'lucide-react';
+import { User, ClipboardList, Hash, Sparkles, Loader2, RefreshCw, Quote } from 'lucide-react';
 import { Card } from '../../../ui/Card';
 import { Badge } from '../../../ui/Badge';
+import { Drawer } from '../../../ui/Drawer';
 import { cn } from '../../../../lib/utils';
 import {
     getTextAnalysis,
@@ -692,39 +693,25 @@ const ThemeVerbatimDrawer = ({ theme, matchedComments, totalComments, onClose }:
   const pct = totalComments > 0 ? Math.round((matchedComments.length / totalComments) * 100) : 0;
 
   return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/30 z-40 transition-opacity"
-        onClick={onClose}
-      />
-      <div className="fixed inset-y-0 right-0 w-[420px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-slate-800 truncate">{theme.name}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {matchedComments.length} mentions ({pct}%)
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={cn(
-              'text-xs font-medium px-2 py-0.5 rounded-full',
-              theme.sentimentScore > 0.2 ? 'bg-green-100 text-green-700' :
-              theme.sentimentScore < -0.2 ? 'bg-red-100 text-red-700' :
-              'bg-gray-100 text-gray-600'
-            )}>
-              {theme.sentimentScore > 0.2 ? 'positive' : theme.sentimentScore < -0.2 ? 'negative' : 'neutral'}
-            </span>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-              <X className="h-4 w-4 text-gray-500" />
-            </button>
-          </div>
+    <Drawer isOpen onClose={onClose} title={theme.name} width="sm">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-500">
+            {matchedComments.length} mentions ({pct}%)
+          </p>
+          <span className={cn(
+            'text-xs font-medium px-2 py-0.5 rounded-full',
+            theme.sentimentScore > 0.2 ? 'bg-green-100 text-green-700' :
+            theme.sentimentScore < -0.2 ? 'bg-red-100 text-red-700' :
+            'bg-gray-100 text-gray-600'
+          )}>
+            {theme.sentimentScore > 0.2 ? 'positive' : theme.sentimentScore < -0.2 ? 'negative' : 'neutral'}
+          </span>
         </div>
 
-        <div className="px-5 py-3 border-b border-gray-50 shrink-0">
-          <p className="text-xs text-gray-600 leading-relaxed">{theme.description}</p>
-        </div>
+        <p className="text-xs text-gray-600 leading-relaxed">{theme.description}</p>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: '60vh' }}>
+        <div className="space-y-3 border-t border-gray-100 pt-4">
           <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Matching verbatims</h4>
           {matchedComments.length > 0 ? (
             matchedComments.map((comment, i) => (
@@ -752,16 +739,6 @@ const ThemeVerbatimDrawer = ({ theme, matchedComments, totalComments, onClose }:
           )}
         </div>
       </div>
-
-      <style>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-in-right {
-          animation: slideInRight 0.25s ease-out;
-        }
-      `}</style>
-    </>
+    </Drawer>
   );
 };

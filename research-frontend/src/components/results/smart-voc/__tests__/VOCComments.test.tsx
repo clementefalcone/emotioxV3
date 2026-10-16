@@ -41,4 +41,23 @@ describe('VOCComments refresh analysis', () => {
         expect(screen.getByText('1 mentions (50%)')).toBeTruthy();
         expect(mockGetTextAnalysis).toHaveBeenCalledTimes(1);
     });
+
+    it('opens the theme comments in a drawer mounted on the page body, not inside the results card', async () => {
+        mockGetTextAnalysis.mockResolvedValueOnce(refreshedAnalysis);
+        const { container } = render(
+            <VOCComments
+                researchId="research-1"
+                moduleId="module-1"
+                comments={[{ text: 'el texto era pequeño', mood: 'negative' }, { text: 'cambio la edad', mood: 'neutral' }]}
+            />,
+        );
+        fireEvent.click(screen.getByRole('button', { name: /Themes/ }));
+        fireEvent.click(await screen.findByText('Confusión en la Interfaz'));
+
+        const drawer = await screen.findByRole('dialog');
+        expect(drawer.parentElement).toBe(document.body);
+        expect(container.contains(drawer)).toBe(false);
+        expect(drawer.textContent).toContain('"el texto era pequeño"');
+        expect(drawer.textContent).not.toContain('cambio la edad');
+    });
 });
