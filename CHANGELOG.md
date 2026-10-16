@@ -1,3 +1,17 @@
+## v0.99.3 — Keywords counted from real comments (2026-10-16)
+
+### fix(insights): keyword counts and lists come from the comments
+- **Root cause.** SmartVOC showed the LLM's `approximate_count` (3.5: "cambio" 22 vs 16 real) with no way to see the comments; Insights Finding counted literal matches, so other word forms gave 0 ("completado" while people wrote "completada").
+- **Fix.** The LLM links the entries behind each keyword; the backend adds every entry whose words start with the keyword's stem (Spanish suffixes stripped, accent and case insensitive), merges keywords sharing a stem, drops zero-count ones and sorts by real count. `supportingQuotes` and `count` are saved per keyword.
+
+### refactor(results): one keyword list for SmartVOC and Insights Finding
+- `KeywordList` (extracted from Insights Finding): chips with real count and %, click lists the matching comments with mood. SmartVOC drops its frequency table. `findThemeMentions` renamed `findQuotedEntries`.
+
+### chore(data): saved analyses regenerated in production
+- 9 text-question analyses (7 studies) and 6 Insights Finding files re-analyzed. 3 `voc` analyses kept as they were: those studies have no VOC responses now, so a new run came back empty.
+- **Deploy note.** `deploy-backend-cpanel.sh` rsyncs without `--delete`; a renamed test left on the server broke `tsc` until removed by hand.
+- **Tests.** Backend 656 → 667, research-frontend 656 → 657, 0 failing.
+
 ## v0.99.2 — Theme cards shared with Insights Finding; 200-entry analysis (2026-10-16)
 
 ### fix(results): theme drawer covered only part of the screen
