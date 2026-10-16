@@ -1,3 +1,10 @@
+## v0.99.1 — Refreshed text analysis shows at once (2026-10-16)
+
+### fix(insights): "Refresh analysis" kept showing the previous analysis
+- **Root cause.** The POST ran the LLM in the background (202) and the client polled the cache every 3 s, stopping at the first result with themes. The previous analysis was still cached, so the first poll returned it and the screen kept the old themes until reload. Found testing v0.99.0 on "Simulador de Pensión" 3.5 (new analysis saved at 09:23:35, screen unchanged).
+- **Fix.** `POST /analytics/research/:id/text-analysis/:moduleId` waits for the analysis and returns it (200). `triggerTextAnalysis` returns it with a 120 s timeout; `VOCComments` sets it directly. No polling.
+- **Tests.** `VOCComments.test.tsx`: after refresh the new themes replace the saved ones without reloading (failed before). Research-frontend 654 → 655, backend 655, 0 failing.
+
 ## v0.99.0 — Eye Tracking: consent and face guide; theme mentions from LLM quotes (2026-10-15)
 
 ### feat(eye-tracking): consent, face guide and controlled calibration
