@@ -1,3 +1,17 @@
+## v0.99.2 — Theme cards shared with Insights Finding; 200-entry analysis (2026-10-16)
+
+### fix(results): theme drawer covered only part of the screen
+- **Root cause.** The verbatims drawer was a `fixed` element inside the results card, so an ancestor clipped it (panel and overlay stopped short of the bottom) and the list was capped at 60vh. Superseded by the shared card below.
+
+### refactor(results): SmartVOC uses the Insights Finding theme card
+- **Why.** Researchers compared both screens: Insights lists each theme's verbatims under it; SmartVOC hid them in a side panel with a different layout.
+- **Change.** `ThemeCard` (mentions %, bar, description, expandable verbatims with mood) extracted from Insights Finding and used by both. SmartVOC drops the side panel, the theme sentiment badge and the relevance bar.
+
+### fix(insights): up to 200 entries reach the LLM
+- **Root cause.** Only the first 100 entries were sent, while Insights Finding stores up to 200 per file; entries 101+ could never be assigned to a theme.
+- **Change.** `buildEntrySample` sends up to 200. Insights Finding analyses saved before v0.99.0 (6 files) and the 5 files with 101-104 entries were re-analyzed in production.
+- **Tests.** Backend 655 → 656, research-frontend 656, 0 failing.
+
 ## v0.99.1 — Refreshed text analysis shows at once (2026-10-16)
 
 ### fix(insights): "Refresh analysis" kept showing the previous analysis
