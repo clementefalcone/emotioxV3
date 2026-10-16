@@ -167,11 +167,36 @@ const quoteEntries = (entries: unknown, sample: string[]): string[] => {
 const normalizeForMatch = (text: string): string =>
     text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-const quoteKeywordEntries = (word: string, entries: unknown, sample: string[]): string[] => {
-    const needle = normalizeForMatch(word);
-    const literalMatches = needle ? sample.filter(text => normalizeForMatch(text).includes(needle)) : [];
-    const linked = new Set([...quoteEntries(entries, sample), ...literalMatches]);
-    return sample.filter(text => linked.has(text)).filter((text, i, all) => all.indexOf(text) === i);
+const SPANISH_SUFFIXES = ['iendo', 'ando', 'ado', 'ada', 'ido', 'ida', 'ar', 'er', 'ir', 'es', 'os', 'as', 'o', 'a', 'e'];
+const MIN_STEM_LENGTH = 4;
+
+export const stemKeyword = (word: string): string => {
+    const normalized = normalizeForMatch(word.trim());
+    const suffix = SPANISH_SUFFIXES.find(ending => normalized.endsWith(ending) && normalized.length - ending.length >= MIN_STEM_LENGTH);
+    return suffix ? normalized.slice(0, -suffix.length) : normalized;
+};
+
+const containsStem = (text: string, stem: string): boolean =>
+    new RegExp(`(^|[^a-z0-9])${stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(normalizeForMatch(text));
+
+type LlmKeyword = LlmInsightsAnalysis['keywords'][number];
+
+const mergeKeywordsByStem = (keywords: LlmKeyword[], sample: string[]): InsightsAnalysis['keywords'] => {
+    const groups = new Map<string, { keyword: Omit<LlmKeyword, 'entries'>; linked: Set<string> }>();
+    for (const { entries, ...keyword } of keywords) {
+        const stem = stemKeyword(keyword.word);
+        if (!stem) continue;
+        const group = groups.get(stem) ?? { keyword, linked: new Set<string>() };
+        quoteEntries(entries, sample).forEach(text => group.linked.add(text));
+        groups.set(stem, group);
+    }
+    return [...groups.entries()]
+        .map(([stem, { keyword, linked }]) => {
+            const supportingQuotes = [...new Set(sample.filter(text => linked.has(text) || containsStem(text, stem)))];
+            return { ...keyword, count: supportingQuotes.length, supportingQuotes };
+        })
+        .filter(keyword => keyword.count > 0)
+        .sort((first, second) => second.count - first.count);
 };
 
 export const attachEntryQuotes = (analysis: LlmInsightsAnalysis, sample: string[]): InsightsAnalysis => ({
@@ -180,10 +205,7 @@ export const attachEntryQuotes = (analysis: LlmInsightsAnalysis, sample: string[
         const supportingQuotes = quoteEntries(entries, sample);
         return { ...theme, count: supportingQuotes.length, supportingQuotes };
     }),
-    keywords: (analysis.keywords ?? []).map(({ entries, ...keyword }) => {
-        const supportingQuotes = quoteKeywordEntries(keyword.word, entries, sample);
-        return { ...keyword, count: supportingQuotes.length, supportingQuotes };
-    }),
+    keywords: mergeKeywordsByStem(analysis.keywords ?? [], sample),
 });
 
 const emptyAnalysis = (): InsightsAnalysis => ({

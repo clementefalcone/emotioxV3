@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { attachEntryQuotes, buildEntrySample } from '../insights.service';
+import { attachEntryQuotes, buildEntrySample, stemKeyword } from '../insights.service';
 
 const sample = ['hice clic en un lugar equivocado', 'el texto era pequeño', 'cambió la edad'];
 const baseTheme = { name: 'Interacción del Usuario', description: 'd', magnitude: 0.9, sentimentScore: -0.6 };
@@ -44,10 +44,38 @@ describe('attachEntryQuotes', () => {
         expect(analyze([0, 3, 3, 4, 1.5, '2']).themes[0].supportingQuotes).toEqual(['cambió la edad']);
     });
 
-    it('gives an empty list when the model returns no entries', () => {
+    it('gives a theme an empty list and drops a keyword nobody wrote when the model returns no entries', () => {
         const analysis = analyze(undefined, undefined);
         expect(analysis.themes[0]).toMatchObject({ count: 0, supportingQuotes: [] });
-        expect(analysis.keywords[0]).toMatchObject({ count: 0, supportingQuotes: [] });
+        expect(analysis.keywords).toEqual([]);
+    });
+
+    it('matches other forms of a keyword by its stem at the start of a word', () => {
+        const analysis = attachEntryQuotes(
+            {
+                sentiment: { summary: '', description: '', actionables: [] },
+                themes: [],
+                keywords: [{ word: 'cambiar', sentiment: 'neutral', entries: [] }],
+            },
+            ['cambio la edad', 'CAMBIÓ el monto', 'se cambiaba la edad', 'intercambio de datos', 'nada'],
+        );
+        expect(analysis.keywords[0].supportingQuotes).toEqual(['cambio la edad', 'CAMBIÓ el monto', 'se cambiaba la edad']);
+    });
+
+    it('merges keywords the model repeated with the same stem and sorts by real count', () => {
+        const analysis = attachEntryQuotes(
+            {
+                sentiment: { summary: '', description: '', actionables: [] },
+                themes: [],
+                keywords: [
+                    { word: 'edad', sentiment: 'neutral', entries: [] },
+                    { word: 'cambiar', sentiment: 'neutral', entries: [] },
+                    { word: 'cambio', sentiment: 'negative', entries: [4] },
+                ],
+            },
+            ['cambio la edad', 'cambió el monto', 'se cambiaba', 'no noté nada'],
+        );
+        expect(analysis.keywords.map(kw => [kw.word, kw.count])).toEqual([['cambiar', 4], ['edad', 1]]);
     });
 });
 
@@ -58,5 +86,19 @@ describe('buildEntrySample', () => {
         expect(sample).toHaveLength(200);
         expect(sample[103]).toBe('comentario 104');
         expect(sample[199]).toBe('comentario 200');
+    });
+});
+
+describe('stemKeyword', () => {
+    it.each([
+        ['cambiar', 'cambi'],
+        ['cambió', 'cambi'],
+        ['completado', 'complet'],
+        ['pensiones', 'pension'],
+        ['Pensión', 'pension'],
+        ['rojo', 'rojo'],
+        ['edad', 'edad'],
+    ])('%s -> %s', (word, stem) => {
+        expect(stemKeyword(word)).toBe(stem);
     });
 });
