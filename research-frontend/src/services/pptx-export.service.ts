@@ -6,17 +6,9 @@
 import PptxGenJS from 'pptxgenjs';
 import type { SmartVOCAnalytics } from './smartVOC.service';
 import type { CognitiveTaskResults, IATModuleResult } from './analytics.service';
-import { getTextAnalysis, type TextAnalysis } from './analytics.service';
-
-// ─── Brand ────────────────────────────────────────────────────────────
-const ACCENT = '006AFF';
-const DARK = '1E293B';
-const BODY = '64748B';
-const LIGHT_BG = 'F1F5F9';
-const GREEN = '22C55E';
-const RED = 'EF4444';
-const AMBER = 'F59E0B';
-const FONT = 'Plus Jakarta Sans';
+import { getTextAnalysis } from './analytics.service';
+import { ACCENT, DARK, BODY, LIGHT_BG, GREEN, RED, AMBER, FONT, addSlideHeader, addThemesSlide } from './pptxSlideKit';
+import { addCognitiveSlides } from './pptxCognitiveSlides';
 
 interface ExportContext {
     researchName: string;
@@ -260,150 +252,8 @@ export async function generateResultsPptx(ctx: ExportContext): Promise<void> {
         } catch { /* no cached analysis */ }
     }
 
-    // ── Cognitive Task Slides ────────────────────────────────────────
-    if (ctx.cognitive && ctx.cognitive.modules.length > 0) {
-        for (const mod of ctx.cognitive.modules) {
-            const name = mod.moduleName;
-            const lower = name.toLowerCase();
-
-            // Skip modules rendered with dedicated endpoints (only count)
-            if (['navigation flow', 'preference test'].some(n => lower.includes(n))) continue;
-            if (mod.totalResponses === 0) continue;
-
-            const slide = pptx.addSlide();
-            addSlideHeader(slide, `Cognitive — ${name}`);
-
-            // Choice modules: show distribution
-            if (lower.includes('single choice') || lower.includes('multiple choice')) {
-                const counts: Record<string, number> = {};
-                for (const r of mod.responses) {
-                    const val = typeof r.value === 'string' ? r.value : JSON.stringify(r.value);
-                    counts[val] = (counts[val] || 0) + 1;
-                }
-                const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a);
-                const maxCount = sorted[0]?.[1] || 1;
-
-                sorted.slice(0, 10).forEach(([label, count], i) => {
-                    const y = 1.6 + i * 0.5;
-                    const barW = (count / maxCount) * 7;
-                    slide.addText(label.slice(0, 30), {
-                        x: 0.8, y, w: 3, h: 0.4,
-                        fontSize: 11, fontFace: FONT, color: BODY, align: 'right',
-                    });
-                    slide.addShape(pptx.ShapeType.rect, {
-                        x: 4, y: y + 0.08, w: barW, h: 0.25,
-                        fill: { color: ACCENT },
-                    });
-                    slide.addText(`${count} (${Math.round(count / mod.totalResponses * 100)}%)`, {
-                        x: 4 + barW + 0.15, y, w: 2, h: 0.4,
-                        fontSize: 10, fontFace: FONT, color: BODY,
-                    });
-                });
-            }
-
-            // Scale modules: show average + distribution
-            if (lower.includes('linear scale')) {
-                const values = mod.responses
-                    .map(r => Number(r.value))
-                    .filter(v => !isNaN(v));
-                if (values.length > 0) {
-                    const avg = Math.round(values.reduce((s, v) => s + v, 0) / values.length * 10) / 10;
-                    const min = Math.min(...values);
-                    const max = Math.max(...values);
-
-                    slide.addText(String(avg), {
-                        x: 0.8, y: 1.6, w: 3, h: 1,
-                        fontSize: 48, fontFace: FONT, color: ACCENT, bold: true, align: 'center',
-                    });
-                    slide.addText(`Average (${values.length} responses, range ${min}–${max})`, {
-                        x: 0.8, y: 2.6, w: 3, h: 0.3,
-                        fontSize: 10, fontFace: FONT, color: BODY, align: 'center',
-                    });
-                }
-            }
-
-            // Text modules: show sentiment + sample
-            if (lower.includes('short text') || lower.includes('long text')) {
-                const texts = mod.responses
-                    .filter(r => typeof r.value === 'string' && r.value.trim().length > 0)
-                    .map(r => ({
-                        text: r.value as string,
-                        sentiment: ((r.metadata as Record<string, unknown> | undefined)?.sentiment as string) || '',
-                    }));
-
-                const sentCounts = { positive: 0, negative: 0, neutral: 0 };
-                for (const t of texts) {
-                    const s = t.sentiment.toLowerCase() as keyof typeof sentCounts;
-                    if (s in sentCounts) sentCounts[s]++;
-                }
-
-                slide.addText(`${texts.length} responses`, {
-                    x: 0.8, y: 1.6, w: 3, h: 0.4,
-                    fontSize: 14, fontFace: FONT, color: DARK, bold: true,
-                });
-
-                const sentLabels = [
-                    { l: 'Positive', c: sentCounts.positive, cl: GREEN },
-                    { l: 'Negative', c: sentCounts.negative, cl: RED },
-                    { l: 'Neutral', c: sentCounts.neutral, cl: '9CA3AF' },
-                ];
-                sentLabels.forEach((s, i) => {
-                    slide.addText(`${s.l}: ${s.c}`, {
-                        x: 0.8 + i * 2.5, y: 2.1, w: 2, h: 0.3,
-                        fontSize: 11, fontFace: FONT, color: s.cl,
-                    });
-                });
-
-                // Sample
-                const sample = texts.slice(0, 5).map(t => ({
-                    text: `"${t.text.slice(0, 100)}${t.text.length > 100 ? '...' : ''}"`,
-                    options: { fontSize: 10, fontFace: FONT, color: BODY, italic: true, lineSpacingMultiple: 1.4, bullet: { code: '201C', color: ACCENT } as const },
-                }));
-                if (sample.length > 0) {
-                    slide.addText(sample, { x: 0.8, y: 2.8, w: 11.4, h: 4, valign: 'top' as const });
-                }
-
-                // Text analysis themes
-                try {
-                    const analysis = await getTextAnalysis(ctx.researchId, mod.moduleId);
-                    if (analysis && analysis.themes.length > 0) {
-                        addThemesSlide(pptx, `Themes — ${name}`, analysis, texts.length);
-                    }
-                } catch { /* no cached analysis */ }
-            }
-
-            // Ranking modules
-            if (lower.includes('ranking')) {
-                const positionCounts = new Map<string, number[]>();
-                for (const r of mod.responses) {
-                    try {
-                        const val = typeof r.value === 'string' ? JSON.parse(r.value) : r.value;
-                        const items: string[] = Array.isArray(val) ? val : (val as { items: string[] })?.items || [];
-                        items.forEach((item, pos) => {
-                            const counts = positionCounts.get(item) || [];
-                            counts[pos] = (counts[pos] || 0) + 1;
-                            positionCounts.set(item, counts);
-                        });
-                    } catch { /* skip */ }
-                }
-
-                const ranked = [...positionCounts.entries()]
-                    .map(([item, counts]) => ({ item, firstPlace: counts[0] || 0 }))
-                    .sort((a, b) => b.firstPlace - a.firstPlace);
-
-                ranked.slice(0, 8).forEach((r, i) => {
-                    const y = 1.6 + i * 0.5;
-                    slide.addText(`${i + 1}. ${r.item}`, {
-                        x: 0.8, y, w: 6, h: 0.4,
-                        fontSize: 12, fontFace: FONT, color: i === 0 ? ACCENT : BODY, bold: i === 0,
-                    });
-                    slide.addText(`${r.firstPlace}× first place`, {
-                        x: 7, y, w: 3, h: 0.4,
-                        fontSize: 11, fontFace: FONT, color: BODY,
-                    });
-                });
-            }
-        }
+    if (ctx.cognitive) {
+        await addCognitiveSlides(pptx, ctx.researchId, ctx.cognitive);
     }
 
     // ── IAT Slides ────────────────────────────────────────────────────
@@ -571,51 +421,4 @@ function addIATSlide(pptx: PptxGenJS, mod: IATModuleResult) {
             );
         }
     }
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function addSlideHeader(slide: PptxGenJS.Slide, title: string) {
-    slide.addShape('rect' as unknown as PptxGenJS.ShapeType, {
-        x: 0, y: 0, w: '100%', h: 0.06,
-        fill: { color: ACCENT },
-    });
-    slide.addText(title, {
-        x: 0.8, y: 0.4, w: 11, h: 0.6,
-        fontSize: 20, fontFace: FONT, color: DARK, bold: true,
-    });
-}
-
-function addThemesSlide(pptx: PptxGenJS, title: string, analysis: TextAnalysis, totalEntries: number) {
-    const slide = pptx.addSlide();
-    addSlideHeader(slide, title);
-
-    analysis.themes.slice(0, 5).forEach((theme, i) => {
-        const y = 1.6 + i * 1.1;
-        const sentColor = theme.sentimentScore > 0.2 ? GREEN : theme.sentimentScore < -0.2 ? RED : '9CA3AF';
-        const sentLabel = theme.sentimentScore > 0.2 ? 'positive' : theme.sentimentScore < -0.2 ? 'negative' : 'neutral';
-        const mentionShare = totalEntries > 0 ? Math.min(theme.count / totalEntries, 1) : 0;
-
-        slide.addText(theme.name, {
-            x: 0.8, y, w: 6, h: 0.35,
-            fontSize: 13, fontFace: FONT, color: DARK, bold: true,
-        });
-        slide.addText(`${theme.count} mentions (${Math.round(mentionShare * 100)}%) · ${sentLabel}`, {
-            x: 7, y, w: 4, h: 0.35,
-            fontSize: 10, fontFace: FONT, color: sentColor, align: 'right',
-        });
-        slide.addText(theme.description, {
-            x: 0.8, y: y + 0.35, w: 10.5, h: 0.35,
-            fontSize: 10, fontFace: FONT, color: BODY,
-        });
-
-        slide.addShape(pptx.ShapeType.rect, {
-            x: 0.8, y: y + 0.75, w: 10.5, h: 0.08,
-            fill: { color: LIGHT_BG },
-        });
-        slide.addShape(pptx.ShapeType.rect, {
-            x: 0.8, y: y + 0.75, w: 10.5 * mentionShare, h: 0.08,
-            fill: { color: ACCENT },
-        });
-    });
 }
