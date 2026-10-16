@@ -732,7 +732,7 @@ export interface TextAnalysis {
         actionables: string[];
     };
     themes: Array<{ name: string; count: number; description: string; magnitude: number; sentimentScore: number; supportingQuotes?: string[] }>;
-    keywords: Array<{ word: string; count: number; sentiment: string }>;
+    keywords: Array<{ word: string; count: number; sentiment: string; supportingQuotes?: string[] }>;
 }
 
 /** Fetch cached LLM analysis for a module (or "voc" for all VOC responses). */

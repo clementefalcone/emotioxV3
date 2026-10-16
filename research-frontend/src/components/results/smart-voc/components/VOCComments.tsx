@@ -3,6 +3,7 @@ import { User, ClipboardList, Hash, Sparkles, Loader2, RefreshCw } from 'lucide-
 import { Card } from '../../../ui/Card';
 import { Badge } from '../../../ui/Badge';
 import { ThemeCard } from '../../shared/ThemeCard';
+import { KeywordList } from '../../shared/KeywordList';
 import { cn } from '../../../../lib/utils';
 import {
     getTextAnalysis,
@@ -11,7 +12,7 @@ import {
 } from '../../../../services/analytics.service';
 import { participantsService, type Participant } from '../../../../services/participants.service';
 import { smartVOCService, type SmartVOCResponse } from '../../../../services/smartVOC.service';
-import { findThemeMentions } from '../../../../utils/themeMentions';
+import { findQuotedEntries } from '../../../../utils/quotedEntries';
 
 interface Comment {
   text: string;
@@ -487,7 +488,7 @@ export const VOCComments = ({
                         key={theme.name}
                         name={theme.name}
                         description={theme.description}
-                        mentions={findThemeMentions(theme.supportingQuotes, comments)}
+                        mentions={findQuotedEntries(theme.supportingQuotes, comments)}
                         totalEntries={comments.length}
                       />
                     ))}
@@ -550,56 +551,7 @@ export const VOCComments = ({
                 </div>
 
                 {analysis && analysis.keywords.length > 0 ? (
-                  <div className="space-y-4">
-                    {/* Tag cloud */}
-                    <div className="flex flex-wrap gap-2">
-                      {analysis.keywords.map((kw, i) => (
-                        <span
-                          key={i}
-                          className={cn(
-                            'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border',
-                            kw.sentiment === 'positive' ? 'bg-green-50 text-green-700 border-green-200' :
-                            kw.sentiment === 'negative' ? 'bg-red-50 text-red-700 border-red-200' :
-                            'bg-gray-50 text-gray-700 border-gray-200'
-                          )}
-                        >
-                          {kw.word}
-                          <span className="text-[10px] opacity-60">({kw.count}, {comments.length > 0 ? Math.round((kw.count / comments.length) * 100) : 0}%)</span>
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Frequency table */}
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-gray-50 border-b">
-                          <tr>
-                            <th className="p-2.5 text-left text-gray-600 font-medium">Keyword</th>
-                            <th className="p-2.5 text-center text-gray-600 font-medium w-20">Count</th>
-                            <th className="p-2.5 text-left text-gray-600 font-medium w-24">Sentiment</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                          {analysis.keywords.map((kw, i) => (
-                            <tr key={i} className="border-b last:border-b-0">
-                              <td className="p-2.5 text-gray-800">{kw.word}</td>
-                              <td className="p-2.5 text-center text-gray-600">{kw.count} ({comments.length > 0 ? Math.round((kw.count / comments.length) * 100) : 0}%)</td>
-                              <td className="p-2.5">
-                                <span className={cn(
-                                  'text-xs font-medium px-2 py-0.5 rounded-full',
-                                  kw.sentiment === 'positive' ? 'bg-green-100 text-green-700' :
-                                  kw.sentiment === 'negative' ? 'bg-red-100 text-red-700' :
-                                  'bg-gray-100 text-gray-600'
-                                )}>
-                                  {kw.sentiment}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <KeywordList keywords={analysis.keywords} entries={comments} />
                 ) : (
                   <div className="flex items-center justify-center h-48">
                     <div className="text-center">

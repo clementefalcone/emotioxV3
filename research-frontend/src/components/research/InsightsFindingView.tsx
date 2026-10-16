@@ -9,14 +9,15 @@ import { mediaService } from '../../services/media.service';
 import { parseDocument, detectCsvColumns, type CsvColumnInfo } from '../../utils/documentParser';
 import { CsvColumnSelector } from './CsvColumnSelector';
 import { cn } from '../../lib/utils';
-import { findThemeMentions } from '../../utils/themeMentions';
+import { findQuotedEntries } from '../../utils/quotedEntries';
 import { ThemeCard } from '../results/shared/ThemeCard';
+import { KeywordList } from '../results/shared/KeywordList';
 import { MOOD_COLORS } from '../results/shared/moodColors';
 
 interface InsightsAnalysis {
     sentiment: { summary: string; description: string; actionables: string[] };
     themes: Array<{ name: string; count: number; description: string; supportingQuotes?: string[] }>;
-    keywords: Array<{ word: string; count: number; sentiment: string }>;
+    keywords: Array<{ word: string; count: number; sentiment: string; supportingQuotes?: string[] }>;
 }
 
 interface FileItem {
@@ -266,7 +267,6 @@ export const InsightsFindingView = ({ research, fileId }: InsightsFindingViewPro
     const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabId>('sentiment');
-    const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const triggeredRef = useRef<string | null>(null); // prevent re-trigger loop
 
@@ -737,7 +737,7 @@ export const InsightsFindingView = ({ research, fileId }: InsightsFindingViewPro
                                                         key={theme.name}
                                                         name={theme.name}
                                                         description={theme.description}
-                                                        mentions={findThemeMentions(theme.supportingQuotes, entries)}
+                                                        mentions={findQuotedEntries(theme.supportingQuotes, entries)}
                                                         totalEntries={entries.length}
                                                     />
                                                 ))
@@ -751,79 +751,11 @@ export const InsightsFindingView = ({ research, fileId }: InsightsFindingViewPro
                                 {/* Keywords tab */}
                                 {activeTab === 'keywords' && (() => {
                                     const kwList = analysis?.keywords || [];
-                                    const normalize = (s: string) => {
-                                        // Repair common UTF-8→Latin-1 mojibake (Spanish)
-                                        const repaired = s
-                                            .replace(/Ã¡/g, 'á').replace(/Ã©/g, 'é').replace(/Ã­/g, 'í')
-                                            .replace(/Ã³/g, 'ó').replace(/Ãº/g, 'ú').replace(/Ã±/g, 'ñ')
-                                            .replace(/Ã¼/g, 'ü').replace(/Ã'/g, 'Ñ');
-                                        return repaired.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                                    };
-                                    const needle = selectedKeyword ? normalize(selectedKeyword) : '';
-                                    const matchingEntries = selectedKeyword
-                                        ? entries.filter(e => normalize(e.text).includes(needle))
-                                        : [];
                                     return (
                                         <div className="space-y-3">
                                             <h5 className="font-semibold text-sm text-gray-900">Keywords</h5>
                                             {kwList.length > 0 ? (
-                                                <>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {kwList.map((kw, i) => {
-                                                            const isActive = selectedKeyword === kw.word;
-                                                            const realCount = entries.filter(e => normalize(e.text).includes(normalize(kw.word))).length;
-                                                            const pctKw = entries.length > 0 ? Math.round((realCount / entries.length) * 100) : 0;
-                                                            return (
-                                                                <button
-                                                                    key={i}
-                                                                    type="button"
-                                                                    onClick={() => setSelectedKeyword(isActive ? null : kw.word)}
-                                                                    className={cn(
-                                                                        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
-                                                                        isActive
-                                                                            ? 'ring-2 ring-blue-400 ring-offset-1'
-                                                                            : '',
-                                                                        kw.sentiment === 'positive' ? 'bg-green-50 text-green-700 hover:bg-green-100' :
-                                                                        kw.sentiment === 'negative' ? 'bg-red-50 text-red-700 hover:bg-red-100' :
-                                                                        'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                                                    )}
-                                                                >
-                                                                    {kw.word}
-                                                                    <span className="text-[10px] opacity-60">({realCount} · {pctKw}%)</span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    {/* Matching comments table */}
-                                                    <div
-                                                        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-                                                        style={{ gridTemplateRows: selectedKeyword ? '1fr' : '0fr' }}
-                                                    >
-                                                        <div className="overflow-hidden">
-                                                            {matchingEntries.length > 0 && (
-                                                                <div className="border rounded-lg mt-1">
-                                                                    <div className="px-3 py-2 bg-gray-50 border-b text-xs text-gray-500 flex items-center justify-between">
-                                                                        <span>Comments containing "<span className="font-medium text-gray-700">{selectedKeyword}</span>"</span>
-                                                                        <span>{matchingEntries.length} results</span>
-                                                                    </div>
-                                                                    <div className="max-h-[240px] overflow-y-auto divide-y">
-                                                                        {matchingEntries.map((entry, ei) => (
-                                                                            <div key={ei} className="flex items-center justify-between px-3 py-2">
-                                                                                <span className="text-xs text-gray-700 flex-1 min-w-0 mr-3">{entry.text}</span>
-                                                                                <span className={cn(
-                                                                                    'text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize flex-shrink-0',
-                                                                                    MOOD_COLORS[entry.mood] || MOOD_COLORS.indeterminate
-                                                                                )}>
-                                                                                    {entry.mood}
-                                                                                </span>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </>
+                                                <KeywordList keywords={kwList} entries={entries} />
                                             ) : !isAnalyzing ? (
                                                 <p className="text-sm text-gray-400">No keywords data available yet.</p>
                                             ) : null}

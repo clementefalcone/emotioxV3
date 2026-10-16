@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findThemeMentions } from '../themeMentions';
+import { findQuotedEntries } from '../quotedEntries';
 
 const comments = [
     { text: 'hice clic en un lugar equivocado', mood: 'negative' },
@@ -8,16 +8,16 @@ const comments = [
     { text: 'me gustó', mood: 'positive' },
 ];
 
-describe('findThemeMentions', () => {
+describe('findQuotedEntries', () => {
     it('returns the comments the model assigned to the theme even when they do not contain the theme name', () => {
-        expect(findThemeMentions(['hice clic en un lugar equivocado'], comments)).toEqual([comments[0]]);
+        expect(findQuotedEntries(['hice clic en un lugar equivocado'], comments)).toEqual([comments[0]]);
     });
 
     it('counts every participant who wrote the same quoted text', () => {
-        expect(findThemeMentions(['el texto era pequeño'], comments)).toHaveLength(2);
+        expect(findQuotedEntries(['el texto era pequeño'], comments)).toHaveLength(2);
     });
 
     it('finds nothing for analyses saved without quotes', () => {
-        expect(findThemeMentions(undefined, comments)).toEqual([]);
+        expect(findQuotedEntries(undefined, comments)).toEqual([]);
     });
 });

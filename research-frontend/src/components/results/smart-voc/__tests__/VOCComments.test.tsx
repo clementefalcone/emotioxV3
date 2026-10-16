@@ -5,7 +5,7 @@ import type { TextAnalysis } from '../../../../services/analytics.service';
 const buildAnalysis = (themeName: string, supportingQuotes: string[]): TextAnalysis => ({
     sentiment: { summary: 'summary', description: 'description', actionables: [] },
     themes: [{ name: themeName, count: supportingQuotes.length, description: 'd', magnitude: 0.9, sentimentScore: -0.5, supportingQuotes }],
-    keywords: [],
+    keywords: [{ word: 'completado', count: 1, sentiment: 'positive', supportingQuotes: ['la tarea estaba completada'] }],
 });
 
 const savedAnalysis = buildAnalysis('Interacción del Usuario', []);
@@ -60,5 +60,26 @@ describe('VOCComments refresh analysis', () => {
         expect(screen.queryByRole('dialog')).toBeNull();
         expect(themeCard?.textContent).toContain('"el texto era pequeño"');
         expect(themeCard?.textContent).not.toContain('cambio la edad');
+    });
+
+    it('counts a keyword from its linked comments and lists them on click, even in another word form', async () => {
+        mockGetTextAnalysis.mockResolvedValueOnce(refreshedAnalysis);
+        render(
+            <VOCComments
+                researchId="research-1"
+                moduleId="module-1"
+                comments={[{ text: 'la tarea estaba completada', mood: 'positive' }, { text: 'cambio la edad', mood: 'neutral' }]}
+            />,
+        );
+        fireEvent.click(screen.getByRole('button', { name: /Keywords/ }));
+        const chip = await screen.findByRole('button', { name: /completado/ });
+        expect(chip.textContent).toContain('(1 · 50%)');
+
+        fireEvent.click(chip);
+
+        const panel = screen.getByText(/Comments containing/).closest('.border');
+        expect(panel?.textContent).toContain('la tarea estaba completada');
+        expect(panel?.textContent).not.toContain('cambio la edad');
+        expect(screen.queryByRole('columnheader', { name: 'Count' })).toBeNull();
     });
 });
