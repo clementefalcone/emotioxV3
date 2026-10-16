@@ -10,6 +10,7 @@ import {
 } from '../../../../services/analytics.service';
 import { participantsService, type Participant } from '../../../../services/participants.service';
 import { smartVOCService, type SmartVOCResponse } from '../../../../services/smartVOC.service';
+import { findThemeMentions } from '../../../../utils/themeMentions';
 
 interface Comment {
   text: string;
@@ -67,16 +68,7 @@ export const VOCComments = ({
     if (!analysis?.themes.length || !comments.length) return new Map<number, Comment[]>();
     const map = new Map<number, Comment[]>();
     analysis.themes.forEach((theme, idx) => {
-      const words = theme.name
-        .toLowerCase()
-        .split(/[\s,/&+\-–—]+/)
-        .filter(w => w.length > 2);
-      if (words.length === 0) { map.set(idx, []); return; }
-      const matched = comments.filter(c => {
-        const lower = c.text.toLowerCase();
-        return words.some(w => lower.includes(w));
-      });
-      map.set(idx, matched);
+      map.set(idx, findThemeMentions(theme.supportingQuotes, comments));
     });
     return map;
   }, [analysis?.themes, comments]);

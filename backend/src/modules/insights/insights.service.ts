@@ -81,7 +81,8 @@ export const analyzeInsights = async (
     }
 
     // Prepare text sample (limit to avoid token overflow)
-    const sampleTexts = entries.slice(0, 100).map(e => e.text).join('\n');
+    const sample = entries.slice(0, 100).map(e => e.text);
+    const sampleTexts = sample.map((text, i) => `${i + 1}. ${text}`).join('\n');
     const moodDistribution = entries.reduce((acc, e) => {
         acc[e.mood] = (acc[e.mood] || 0) + 1;
         return acc;
@@ -94,7 +95,7 @@ export const analyzeInsights = async (
 Total entries: ${entries.length}
 Mood distribution: ${JSON.stringify(moodDistribution)}
 
-Text entries:
+Text entries (numbered):
 ${sampleTexts}
 
 Respond in the SAME LANGUAGE as the text entries (Spanish if Spanish, English if English).
@@ -107,7 +108,7 @@ In addition to the analysis above, return a JSON object with exactly this struct
     "actionables": ["prioritized actionable 1", "prioritized actionable 2", "prioritized actionable 3"]
   },
   "themes": [
-    { "name": "theme name", "count": 30, "description": "Two sentences minimum: first explain the theme and its behavioral/neurological significance, then link it to concrete business impact at the shelf/purchase level", "magnitude": 0.89, "sentimentScore": 0.75 }
+    { "name": "theme name", "entries": [1, 4, 7], "description": "Two sentences minimum: first explain the theme and its behavioral/neurological significance, then link it to concrete business impact at the shelf/purchase level", "magnitude": 0.89, "sentimentScore": 0.75 }
   ],
   "keywords": [
     { "word": "keyword", "count": approximate_count, "sentiment": "positive|negative|neutral" }
@@ -115,7 +116,7 @@ In addition to the analysis above, return a JSON object with exactly this struct
 }
 
 Rules:
-- 3-5 themes, sorted by relevance. magnitude is 0-1 (importance). sentimentScore is -1 to +1 (negative to positive). description: 2 sentences minimum — explain the theme significance then link to business impact. Do NOT include supportingQuotes (handled client-side).
+- 3-5 themes, sorted by relevance. magnitude is 0-1 (importance). sentimentScore is -1 to +1 (negative to positive). description: 2 sentences minimum — explain the theme significance then link to business impact. entries: the numbers of EVERY text entry that expresses this theme (an entry may belong to several themes).
 - 8-12 keywords, sorted by frequency
 - 3-5 actionables, specific, prioritized, and linked to business impact
 - Be critical and honest. Do not soften negative results.
@@ -136,7 +137,7 @@ Rules:
         });
 
         const text = response.choices[0]?.message?.content || '';
-        const parsed = JSON.parse(text) as InsightsAnalysis;
+        const parsed = attachThemeQuotes(JSON.parse(text) as LlmInsightsAnalysis, sample);
 
         console.log(`[Insights] Analysis complete: ${parsed.themes?.length || 0} themes, ${parsed.keywords?.length || 0} keywords`);
         return parsed;
@@ -145,6 +146,21 @@ Rules:
         return emptyAnalysis();
     }
 };
+
+type LlmInsightsAnalysis = Omit<InsightsAnalysis, 'themes'> & {
+    themes: Array<Omit<InsightsAnalysis['themes'][number], 'count' | 'supportingQuotes'> & { entries?: unknown }>;
+};
+
+export const attachThemeQuotes = (analysis: LlmInsightsAnalysis, sample: string[]): InsightsAnalysis => ({
+    ...analysis,
+    themes: (analysis.themes ?? []).map(({ entries, ...theme }) => {
+        const lineNumbers = Array.isArray(entries) ? entries : [];
+        const supportingQuotes = [...new Set(lineNumbers
+            .filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= sample.length)
+            .map(n => sample[n - 1]))];
+        return { ...theme, count: supportingQuotes.length, supportingQuotes };
+    }),
+});
 
 const emptyAnalysis = (): InsightsAnalysis => ({
     sentiment: { summary: '', description: '', actionables: [] },

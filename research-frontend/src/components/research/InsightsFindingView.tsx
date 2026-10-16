@@ -9,6 +9,7 @@ import { mediaService } from '../../services/media.service';
 import { parseDocument, detectCsvColumns, type CsvColumnInfo } from '../../utils/documentParser';
 import { CsvColumnSelector } from './CsvColumnSelector';
 import { cn } from '../../lib/utils';
+import { findThemeMentions } from '../../utils/themeMentions';
 
 interface InsightsAnalysis {
     sentiment: { summary: string; description: string; actionables: string[] };
@@ -733,24 +734,12 @@ export const InsightsFindingView = ({ research, fileId }: InsightsFindingViewPro
                                 {/* Themes tab */}
                                 {activeTab === 'themes' && (() => {
                                     const themes = analysis?.themes || [];
-                                    const normalizeTheme = (s: string) => {
-                                        const repaired = s
-                                            .replace(/Ã¡/g, 'á').replace(/Ã©/g, 'é').replace(/Ã­/g, 'í')
-                                            .replace(/Ã³/g, 'ó').replace(/Ãº/g, 'ú').replace(/Ã±/g, 'ñ')
-                                            .replace(/Ã¼/g, 'ü').replace(/Ã'/g, 'Ñ');
-                                        return repaired.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                                    };
                                     return (
                                         <div className="space-y-3">
                                             <h5 className="font-semibold text-sm text-gray-900">Themes</h5>
                                             {themes.length > 0 ? (
                                                 themes.map((theme, i) => {
-                                                    // Client-side matching: find all entries that relate to this theme
-                                                    const themeWords = normalizeTheme(theme.name).split(/\s+/).filter(w => w.length > 2);
-                                                    const matchingEntries = entries.filter(e => {
-                                                        const normalized = normalizeTheme(e.text);
-                                                        return themeWords.some(w => normalized.includes(w));
-                                                    });
+                                                    const matchingEntries = findThemeMentions(theme.supportingQuotes, entries);
                                                     const realCount = matchingEntries.length;
                                                     const isExpanded = expandedThemes.has(i);
                                                     return (
