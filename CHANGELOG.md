@@ -1,3 +1,11 @@
+## v0.99.12 — Eye Tracking: face distance in centimeters (2026-10-20)
+
+### feat(eye-tracking): face guide asks for a distance in cm
+- **Why.** The guide only said "Acércate / Aléjate un poco" from a hand-picked eye-span threshold; participants were never told how far to sit and the system never measured it.
+- **Change.** `estimateFaceDistanceCm`: iris diameter in pixels (landmarks 469–471, 474–476) vs. the human average 11.7 mm, with an assumed 60° field of view across the camera's long side. Range per device (`FACE_DISTANCE_RANGES_CM`): desktop 35–70 cm (target 50), tablet 25–55 (40), phone 25–35 (30), derived from geometry: screen edges within ~25° of eye rotation, ≥ ~4 px of iris travel across the screen at 1280 px, face inside the frame. Guide copy: "Ponte a unos 50 cm…", "Estás a unos 80 cm · acércate hasta unos 50 cm". The eye-span thresholds are gone.
+- **Data.** Each response stores `faceDistanceCm` (mean during calibration; null when the calibration was reused) to check the ranges against calibration error with real sessions. The ranges and the 60° FOV are estimates until then.
+- **Tests.** `facePosition.test.ts` rewritten (12); renderer saves `faceDistanceCm`. Participant 1111 → 1113, 0 failing.
+
 ## v0.99.11 — Eye Tracking: calibration graded on the trained model (2026-10-20)
 
 ### fix(eye-tracking): calibration error measured after training
