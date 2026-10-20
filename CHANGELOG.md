@@ -1,3 +1,10 @@
+## v0.99.11 — Eye Tracking: calibration graded on the trained model (2026-10-20)
+
+### fix(eye-tracking): calibration error measured after training
+- **Root cause.** With MediaPipe, the residual at each calibration dot was taken before the ridge model was trained, comparing the dot with the iris position in the camera frame. Every session scored ~640 px (MacBook test `kiosk-9`, 17-10: 642 px) and was graded "low" (limit 200 px), and the same residuals drove the IDW correction applied to the gaze during viewing. A reused calibration was labeled `blazegaze-0pt`.
+- **Fix.** After `trainRidge`, residuals come from the model's per-point predictions (`hybridResidualsFromTrainedPoints`) and `calibrationRmsePx` is the leave-one-point-out RMSE (`cvRmsePx`). Label = engine + points (`mediapipe-13pt`), also on reuse. Responses saved before this keep their old values.
+- **Tests.** Helper (1); renderer saves the trained model error and label (fails on the old code). Participant 1110 → 1111, 0 failing.
+
 ## v0.99.10 — Eye Tracking: calibration only, no validation step (2026-10-20)
 
 ### feat(eye-tracking): validation step removed
