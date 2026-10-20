@@ -9,7 +9,7 @@ export interface EyeLandmarkIndices {
     readonly outer: number;
 }
 
-export function frameDistance(a: Point, b: Point, frame: FrameSize): number {
+function frameDistance(a: Point, b: Point, frame: FrameSize): number {
     const longSide = Math.max(frame.width, frame.height);
     return Math.hypot((a.x - b.x) * frame.width / longSide, (a.y - b.y) * frame.height / longSide);
 }

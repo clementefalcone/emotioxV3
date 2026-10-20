@@ -61,6 +61,7 @@ import { computeSessionConfidence, computeSpatialCoverage } from '../../lib/eyeT
 
 import { ConsentPhase } from './eye-tracking/ConsentPhase';
 import { FacePositionPhase } from './eye-tracking/FacePositionPhase';
+import { FACE_DISTANCE_RANGES_CM, estimateFaceDistanceCm } from './eye-tracking/facePosition';
 import { PreparingPhase } from './eye-tracking/PreparingPhase';
 import { CalibrationPhase } from './eye-tracking/CalibrationPhase';
 import { ViewingPhase } from './eye-tracking/ViewingPhase';
@@ -117,6 +118,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const gazePosRef = useRef<[number, number]>([0, 0]);
     const [lowResWarning, setLowResWarning] = useState(false);
     const [calibrationInterruptions, setCalibrationInterruptions] = useState(0);
+    const calibrationDistancesCmRef = useRef<number[]>([]);
 
     // --- Gaze engines (both hooks always called — React rules — only active engine is started) ---
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -685,6 +687,9 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 gazePipeline: 'hybrid-zone-idt',
                 calibrationRmsePx: calibrationRmsePxRef.current,
                 calibrationInterruptions,
+                faceDistanceCm: calibrationDistancesCmRef.current.length > 0
+                    ? Math.round(calibrationDistancesCmRef.current.reduce((sum, d) => sum + d, 0) / calibrationDistancesCmRef.current.length)
+                    : null,
                 emotions: hasEmotionRecognition ? faceEmotions.getSamples() : undefined,
                 microExpressions: hasEmotionRecognition ? detectMicroExpressions(faceEmotions.getSamples()) : undefined,
                 viewportWidth: window.innerWidth,
@@ -836,6 +841,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const recordCalibrationPoint = (idx: number, avgX: number, avgY: number) => {
         const dot = getCalibrationDot(idx);
         if (!dot) return;
+        const distanceCm = estimateFaceDistanceCm(mpGaze.lastLandmarksRef.current, { width: videoRef.current?.videoWidth ?? 0, height: videoRef.current?.videoHeight ?? 0 });
+        if (distanceCm !== null) calibrationDistancesCmRef.current.push(distanceCm);
         calibrationResidualsRef.current.push({
             u: dot.ipx / 100,
             v: dot.ipy / 100,
@@ -968,6 +975,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 cameraRef={videoRef}
                 landmarksRef={mpGaze.lastLandmarksRef}
                 headPoseRef={mpGaze.headPoseRef}
+                distanceRange={FACE_DISTANCE_RANGES_CM[deviceType]}
                 onContinue={() => setPhase('preparing')}
             />
         );

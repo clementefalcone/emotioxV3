@@ -193,11 +193,11 @@
     "face": {
       "eyebrow": "Preparación",
       "title": "Posiciona tu rostro",
-      "description": "Coloca tu rostro dentro del círculo y mira al centro de la pantalla. Se pondrá verde cuando estés centrado/a.",
+      "description": "Ponte a unos {{target}} cm de la pantalla, coloca tu rostro dentro del círculo y mira al centro. Se pondrá verde cuando estés centrado/a.",
       "noFace": "Pon tu cara frente a la cámara",
       "center": "Mueve tu cara al centro del círculo",
-      "moveCloser": "Acércate un poco",
-      "moveBack": "Aléjate un poco",
+      "moveCloser": "Estás a unos {{current}} cm · acércate hasta unos {{target}} cm",
+      "moveBack": "Estás a unos {{current}} cm · aléjate hasta unos {{target}} cm",
       "lookStraight": "Mira la pantalla de frente",
       "ok": "Rostro centrado · puedes continuar",
       "continue": "Continuar"

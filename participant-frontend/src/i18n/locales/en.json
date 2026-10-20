@@ -193,11 +193,11 @@
     "face": {
       "eyebrow": "Getting ready",
       "title": "Position your face",
-      "description": "Place your face inside the circle and look at the middle of the screen. It will turn green when you are centered.",
+      "description": "Sit about {{target}} cm from the screen, place your face inside the circle and look at the middle. It will turn green when you are centered.",
       "noFace": "Put your face in front of the camera",
       "center": "Move your face to the middle of the circle",
-      "moveCloser": "Move a little closer",
-      "moveBack": "Move back a little",
+      "moveCloser": "You are about {{current}} cm away · come closer, to about {{target}} cm",
+      "moveBack": "You are about {{current}} cm away · move back, to about {{target}} cm",
       "lookStraight": "Look straight at the screen",
       "ok": "Face centered · you can continue",
       "continue": "Continue"

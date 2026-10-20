@@ -2,19 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StepProgressPill } from './StepProgressPill';
 import { TOTAL_STEPS } from './types';
-import { evaluateFacePosition, type FacePosition } from './facePosition';
+import { evaluateFacePosition, type DistanceRangeCm, type FacePosition } from './facePosition';
+
+const DISTANCE_DISPLAY_STEP_CM = 5;
 
 interface FacePositionPhaseProps {
     cameraRef: React.RefObject<HTMLVideoElement | null>;
     landmarksRef: React.RefObject<Array<{ x: number; y: number; z: number }> | null>;
     headPoseRef: React.RefObject<{ pitch: number; yaw: number }>;
+    distanceRange: DistanceRangeCm;
     onContinue: () => void;
 }
 
-export const FacePositionPhase: React.FC<FacePositionPhaseProps> = ({ cameraRef, landmarksRef, headPoseRef, onContinue }) => {
+export const FacePositionPhase: React.FC<FacePositionPhaseProps> = ({ cameraRef, landmarksRef, headPoseRef, distanceRange, onContinue }) => {
     const { t } = useTranslation();
     const previewRef = useRef<HTMLVideoElement>(null);
     const [position, setPosition] = useState<FacePosition>('noFace');
+    const [distanceCm, setDistanceCm] = useState<number | null>(null);
 
     useEffect(() => {
         if (previewRef.current) previewRef.current.srcObject = cameraRef.current?.srcObject ?? null;
@@ -25,19 +29,21 @@ export const FacePositionPhase: React.FC<FacePositionPhaseProps> = ({ cameraRef,
         const track = () => {
             const camera = cameraRef.current;
             const frame = { width: camera?.videoWidth ?? 0, height: camera?.videoHeight ?? 0 };
-            setPosition(evaluateFacePosition(landmarksRef.current, headPoseRef.current, frame));
+            const result = evaluateFacePosition({ landmarks: landmarksRef.current, pose: headPoseRef.current, frame, distanceRange });
+            setPosition(result.position);
+            setDistanceCm(result.distanceCm === null ? null : Math.round(result.distanceCm / DISTANCE_DISPLAY_STEP_CM) * DISTANCE_DISPLAY_STEP_CM);
             raf = requestAnimationFrame(track);
         };
         raf = requestAnimationFrame(track);
         return () => cancelAnimationFrame(raf);
-    }, [cameraRef, landmarksRef, headPoseRef]);
+    }, [cameraRef, landmarksRef, headPoseRef, distanceRange]);
 
     const isPositioned = position === 'ok';
     const instructions: Record<FacePosition, string> = {
         noFace: t('eyeTracking.face.noFace', 'Put your face in front of the camera'),
         center: t('eyeTracking.face.center', 'Move your face to the middle of the circle'),
-        moveCloser: t('eyeTracking.face.moveCloser', 'Move a little closer'),
-        moveBack: t('eyeTracking.face.moveBack', 'Move back a little'),
+        moveCloser: t('eyeTracking.face.moveCloser', 'You are about {{current}} cm away · come closer, to about {{target}} cm', { current: distanceCm, target: distanceRange.target }),
+        moveBack: t('eyeTracking.face.moveBack', 'You are about {{current}} cm away · move back, to about {{target}} cm', { current: distanceCm, target: distanceRange.target }),
         lookStraight: t('eyeTracking.face.lookStraight', 'Look straight at the screen'),
         ok: t('eyeTracking.face.ok', 'Face centered · you can continue'),
     };
@@ -54,7 +60,7 @@ export const FacePositionPhase: React.FC<FacePositionPhaseProps> = ({ cameraRef,
                     {t('eyeTracking.face.title', 'Position your face')}
                 </h2>
                 <p className="text-gray-600">
-                    {t('eyeTracking.face.description', 'Place your face inside the circle and look at the middle of the screen. It will turn green when you are centered.')}
+                    {t('eyeTracking.face.description', 'Sit about {{target}} cm from the screen, place your face inside the circle and look at the middle of the screen. It will turn green when you are centered.', { target: distanceRange.target })}
                 </p>
 
                 <div className={`relative w-64 h-64 rounded-full overflow-hidden border-4 bg-gray-800 transition-colors ${isPositioned ? 'border-green-500' : 'border-red-400'}`}>

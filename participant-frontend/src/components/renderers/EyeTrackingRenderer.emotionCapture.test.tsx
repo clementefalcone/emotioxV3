@@ -321,10 +321,19 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.gazePointCount).toBeGreaterThan(0);
     });
 
-    it('goes from the last calibration point straight to viewing and saves the trained model error', async () => {
+    it('goes from the last calibration point straight to viewing and saves the trained model error and face distance', async () => {
         vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
         const trainedPoint = { targetX: 40, targetY: 30, predX: 37, predY: 26 };
         mockMPGaze.predictorRef = { current: { cvRmsePx: 85, diagnostics: { perPoint: [trainedPoint, trainedPoint, trainedPoint] } } } as unknown as typeof mockMPGaze.predictorRef;
+        const irisWidth = 640 / Math.tan(Math.PI / 6) * 1.17 / 50 / 1280;
+        const faceAt50Cm = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5 }));
+        for (const [inner, outer] of [[469, 471], [474, 476]]) {
+            faceAt50Cm[inner] = { x: 0.5 - irisWidth / 2, y: 0.45 };
+            faceAt50Cm[outer] = { x: 0.5 + irisWidth / 2, y: 0.45 };
+        }
+        mockMPGaze.lastLandmarksRef = { current: faceAt50Cm } as unknown as typeof mockMPGaze.lastLandmarksRef;
+        vi.spyOn(HTMLVideoElement.prototype, 'videoWidth', 'get').mockReturnValue(1280);
+        vi.spyOn(HTMLVideoElement.prototype, 'videoHeight', 'get').mockReturnValue(720);
         rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
         mockMPGaze.gazeState = 'open';
         mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
@@ -345,7 +354,9 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved).not.toHaveProperty('validationRmsePx');
         expect(saved.calibrationRmsePx).toBe(85);
         expect(saved.calibrationQuality).toBe('mediapipe-3pt');
+        expect(saved.faceDistanceCm).toBe(50);
         mockMPGaze.predictorRef = { current: null };
+        mockMPGaze.lastLandmarksRef = { current: null };
     });
 
     it('leaves "Starting camera" for calibration while gaze updates re-render every 200ms', async () => {
