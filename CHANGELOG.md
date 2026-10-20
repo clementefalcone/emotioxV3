@@ -1,3 +1,13 @@
+## v0.99.10 — Eye Tracking: calibration only, no validation step (2026-10-20)
+
+### feat(eye-tracking): validation step removed
+- **Why.** On a MacBook the tester finished the 13 green points but never got past the yellow validation dots over the shelf: each dot needs the predicted gaze within 280 px for 800 ms, which webcam accuracy rarely reaches, so it ended in "Intentar de nuevo" again and again. The tester asked to keep only the first calibration.
+- **Change.** After the 13-point calibration trains the model, viewing starts. Progress pill 4 → 3 steps (Prepararse → Ajustar la mirada → Ver la imagen). Removed `ValidationPhase`, `HYBRID_VALIDATION_POINTS`, the RMSE thresholds, 7 unused translation keys, and `validationRmsePx` from the response (no reader).
+
+### fix(eye-tracking): progress ring centered on the calibration dot
+- **Root cause.** `DwellRing` was an SVG sized only by `inset`; Safari keeps an absolutely positioned SVG at its intrinsic size, so the ring drew off-center and looked miscalibrated. Explicit size + translate centers it.
+- **Tests.** Renderer: last calibration point goes straight to viewing and saves without `validationRmsePx`. Participant 1127 → 1110 (18 validation tests removed with the code, 1 added), 0 failing.
+
 ## v0.99.9 — Eye Tracking calibration works on phones (2026-10-20)
 
 ### fix(eye-tracking): eyes measured in camera pixels
