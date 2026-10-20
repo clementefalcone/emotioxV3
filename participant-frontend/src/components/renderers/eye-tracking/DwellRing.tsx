@@ -16,7 +16,7 @@ export const DwellRing: React.FC<DwellRingProps> = ({ startedAt, durationMs, col
         <svg
             key={startedAt}
             data-testid="dwell-ring"
-            className={`pointer-events-none absolute -inset-3 ${colorClassName}`}
+            className={`pointer-events-none absolute left-1/2 top-1/2 h-[160%] w-[160%] -translate-x-1/2 -translate-y-1/2 ${colorClassName}`}
             viewBox="0 0 36 36"
         >
             <circle
