@@ -93,33 +93,6 @@ export const HYBRID_IMAGE_CALIBRATION_POINTS: readonly [number, number][] = [
 ];
 
 /**
- * Single validation point after calibration — off-grid position to test accuracy.
- * @deprecated Use HYBRID_VALIDATION_POINTS (5-point) instead.
- */
-export const HYBRID_VALIDATION_POINT: readonly [number, number] = [62, 38];
-
-/**
- * 5 independent validation points — distinct from the 13 calibration points.
- * Spread across center, edges, and corners to measure accuracy per region.
- * None overlap with HYBRID_IMAGE_CALIBRATION_POINTS positions.
- */
-export const HYBRID_VALIDATION_POINTS: readonly [number, number][] = [
-    [25, 25],  // upper-left quadrant
-    [75, 25],  // upper-right quadrant
-    [50, 50],  // center (shared position but separate measurement)
-    [25, 75],  // lower-left quadrant
-    [75, 75],  // lower-right quadrant
-];
-
-/** RMSE threshold (viewport px) above which re-calibration is offered at validation point.
- *  Webcam gaze has ~60-120px natural error; 150px allows reasonable calibrations through
- *  while still catching truly broken ones. */
-export const HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX = 150;
-
-/** Hard reject threshold — after 2 recalibration attempts, if RMSE still above this, reject session. */
-export const HYBRID_REJECT_RMSE_THRESHOLD_PX = 200;
-
-/**
  * Maps a point given as % of image box to BlazeGaze normalized coords (-0.5..0.5, center = screen center).
  * @param imgRect - Image bounding rect in viewport pixels
  * @param pctX - Horizontal position within image (0–100)

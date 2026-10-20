@@ -8,7 +8,7 @@ export const CompletePhase: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
-            <StepProgressPill step={4} total={TOTAL_STEPS} percent={100} />
+            <StepProgressPill step={3} total={TOTAL_STEPS} percent={100} />
 
             <div className="mt-8 text-center space-y-4">
                 <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center mx-auto">

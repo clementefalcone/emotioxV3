@@ -8,9 +8,6 @@ import {
     HYBRID_ZONE_VOTE_HISTORY,
     HYBRID_ZONE_VOTE_LEAD_MIN,
     HYBRID_IMAGE_CALIBRATION_POINTS,
-    HYBRID_VALIDATION_POINTS,
-    HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX,
-    HYBRID_REJECT_RMSE_THRESHOLD_PX,
     hybridImagePercentToBlazeNorm,
     hybridStretchFromCenter01,
     hybridStretchFromCenter01MiddleSoft,
@@ -85,14 +82,6 @@ describe('constants', () => {
 
     it('calibration points has 13 entries', () => {
         expect(HYBRID_IMAGE_CALIBRATION_POINTS).toHaveLength(13);
-    });
-
-    it('validation points has 5 entries distinct from calibration', () => {
-        expect(HYBRID_VALIDATION_POINTS).toHaveLength(5);
-    });
-
-    it('RMSE thresholds are ordered (recalibration < reject)', () => {
-        expect(HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX).toBeLessThan(HYBRID_REJECT_RMSE_THRESHOLD_PX);
     });
 });
 

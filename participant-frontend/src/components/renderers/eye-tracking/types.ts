@@ -33,13 +33,13 @@ export interface ShelfConfig {
 
 /**
  * Phases:
- * consent → face → preparing → calibration → validating → viewing → complete
+ * consent → face → preparing → calibration → viewing → complete
  * If validation fails, loops back to calibration (re-calibrate).
  * face: live guide circle driven by MediaPipe landmarks; continues only when the face is centered.
  */
-export type ETPhase = 'consent' | 'face' | 'preparing' | 'calibration' | 'validating' | 'viewing' | 'complete';
+export type ETPhase = 'consent' | 'face' | 'preparing' | 'calibration' | 'viewing' | 'complete';
 
-export const TOTAL_STEPS = 4;
+export const TOTAL_STEPS = 3;
 
 /**
  * Gaze engine selection.

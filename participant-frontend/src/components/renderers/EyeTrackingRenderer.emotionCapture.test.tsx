@@ -11,9 +11,6 @@ vi.mock('../../stores/useParticipantStore', () => ({
     useParticipantStore: () => ({ saveResponse: mockSaveResponse }),
 }));
 
-vi.mock('../../hooks/usePreviewMode', () => ({
-    usePreviewMode: () => ({ isPreviewMode: false }),
-}));
 
 vi.mock('../../services/media.service', () => ({
     mediaService: { resolveUrl: (u: string) => u },
@@ -73,9 +70,6 @@ vi.mock('../../lib/eyeTracking', () => ({
     BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS: { video: true },
     HYBRID_CALIBRATION_FIELD_STRENGTH: 0.5,
     HYBRID_IMAGE_CALIBRATION_POINTS: [[10, 10], [50, 50], [90, 90]],
-    HYBRID_VALIDATION_POINTS: [[25, 25], [75, 75]],
-    HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX: 50,
-    HYBRID_REJECT_RMSE_THRESHOLD_PX: 100,
     HYBRID_AOI_GRID: [{ id: 'z1' }],
     hybridApplyCalibrationField: vi.fn((x: number, y: number) => ({ x, y })),
     hybridCalibrationRmsePx: vi.fn(() => 10),
@@ -147,14 +141,6 @@ vi.mock('./eye-tracking/PreparingPhase', () => ({
 vi.mock('./eye-tracking/CalibrationPhase', () => ({
     CalibrationPhase: ({ calibrationAreaRef, dwellStartedAt, interruptionCount }: { calibrationAreaRef: React.RefObject<HTMLDivElement>; dwellStartedAt: number | null; interruptionCount: number }) => (
         <div data-testid="calibration-phase" data-dwelling={String(dwellStartedAt !== null)} data-interruptions={interruptionCount} ref={calibrationAreaRef} />
-    ),
-}));
-vi.mock('./eye-tracking/ValidationPhase', () => ({
-    ValidationPhase: ({ imgRef, validationRmse, onValidationDwellComplete, onSkipValidation }: { imgRef: React.RefObject<HTMLImageElement>; validationRmse: number | null; onValidationDwellComplete: () => void; onSkipValidation: () => void }) => (
-        <>
-            <img data-testid="validation-phase" data-rmse={validationRmse ?? ''} ref={imgRef} onClick={onValidationDwellComplete} alt="" />
-            <button data-testid="validation-continue-anyway" onClick={onSkipValidation}>Continue anyway</button>
-        </>
     ),
 }));
 vi.mock('./eye-tracking/ViewingPhase', () => ({
@@ -334,53 +320,26 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.gazePointCount).toBeGreaterThan(0);
     });
 
-    it('tapping validation points measures the real gaze error instead of recording 0', async () => {
+    it('goes from the last calibration point straight to viewing and saves the response', async () => {
         vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
         rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
         mockMPGaze.gazeState = 'open';
-        mockMPGaze.gazePosRef = { current: { x: 2000, y: 2000 } } as unknown as typeof mockMPGaze.gazePosRef;
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
 
-        const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        const { getByTestId, queryByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
         await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
         fireEvent.click(getByTestId('face-continue'));
         await act(async () => { vi.advanceTimersByTime(2100); });
         for (let point = 0; point < 3; point++) {
             await act(async () => { vi.advanceTimersByTime(2500); });
         }
-        await act(async () => { vi.advanceTimersByTime(500); });
-        for (let point = 0; point < 2; point++) {
-            await act(async () => { fireEvent.click(getByTestId('validation-phase')); });
-        }
+        await act(async () => { vi.advanceTimersByTime(700); });
 
-        expect(Number(getByTestId('validation-phase').getAttribute('data-rmse'))).toBeGreaterThan(1000);
-        expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(3);
-    });
-
-    it('saves the measured validation error when the participant continues anyway', async () => {
-        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
-        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
-        mockMPGaze.gazeState = 'open';
-        mockMPGaze.gazePosRef = { current: { x: 2000, y: 2000 } } as unknown as typeof mockMPGaze.gazePosRef;
-
-        const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
-        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
-        fireEvent.click(getByTestId('face-continue'));
-        await act(async () => { vi.advanceTimersByTime(2100); });
-        for (let point = 0; point < 3; point++) {
-            await act(async () => { vi.advanceTimersByTime(2500); });
-        }
-        await act(async () => { vi.advanceTimersByTime(500); });
-        for (let point = 0; point < 2; point++) {
-            await act(async () => { fireEvent.click(getByTestId('validation-phase')); });
-        }
-        const measuredRmse = Number(getByTestId('validation-phase').getAttribute('data-rmse'));
-        fireEvent.click(getByTestId('validation-continue-anyway'));
-        await act(async () => { vi.advanceTimersByTime(500); });
+        expect(queryByTestId('viewing-phase')).not.toBeNull();
         await act(async () => { vi.advanceTimersByTime(5500); });
-
         const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
-        expect(measuredRmse).toBeGreaterThan(1000);
-        expect(saved.validationRmsePx).toBe(measuredRmse);
+        expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(3);
+        expect(saved).not.toHaveProperty('validationRmsePx');
     });
 
     it('leaves "Starting camera" for calibration while gaze updates re-render every 200ms', async () => {

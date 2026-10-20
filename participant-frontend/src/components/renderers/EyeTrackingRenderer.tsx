@@ -5,14 +5,10 @@ import { mediaService } from '../../services/media.service';
 import { useBlazeGaze } from '../../hooks/useBlazeGaze';
 import { useMediaPipeGaze } from '../../hooks/useMediaPipeGaze';
 import { useFaceApiEmotions } from '../../hooks/useFaceApiEmotions';
-import { usePreviewMode } from '../../hooks/usePreviewMode';
 import {
     BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS,
     HYBRID_CALIBRATION_FIELD_STRENGTH,
     HYBRID_IMAGE_CALIBRATION_POINTS,
-    HYBRID_VALIDATION_POINTS,
-    HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX,
-    // HYBRID_REJECT_RMSE_THRESHOLD_PX used in ValidationPhase component
     HYBRID_AOI_GRID,
     hybridApplyCalibrationField,
     hybridCalibrationRmsePx,
@@ -65,7 +61,6 @@ import { ConsentPhase } from './eye-tracking/ConsentPhase';
 import { FacePositionPhase } from './eye-tracking/FacePositionPhase';
 import { PreparingPhase } from './eye-tracking/PreparingPhase';
 import { CalibrationPhase } from './eye-tracking/CalibrationPhase';
-import { ValidationPhase } from './eye-tracking/ValidationPhase';
 import { ViewingPhase } from './eye-tracking/ViewingPhase';
 import { CompletePhase } from './eye-tracking/CompletePhase';
 
@@ -89,7 +84,6 @@ function fisherYatesShuffle<T>(arr: T[]): T[] {
 export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module, onComplete }) => {
     const { t } = useTranslation();
     const { saveResponse } = useParticipantStore();
-    const { isPreviewMode } = usePreviewMode();
 
     const deviceType = useMemo(() => getDeviceType(), []);
 
@@ -119,14 +113,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const calibrationResidualsRef = useRef<HybridCalibrationResidual[]>(cachedCalibration?.residuals ?? []);
     const calibrationRmsePxRef = useRef<number | null>(cachedCalibration?.rmsePx ?? null);
     const gazePosRef = useRef<[number, number]>([0, 0]);
-    /** Tracks how many times the participant has re-calibrated (validation failed). */
-    const recalibrationCountRef = useRef(0);
     const [lowResWarning, setLowResWarning] = useState(false);
-    /** Validation state for 5-point independent validation (Fase C). */
-    const [validationIndex, setValidationIndex] = useState(0);
-    const [validationPointErrors, setValidationPointErrors] = useState<number[]>([]);
-    /** Average RMSE across all 5 validation points (null until all measured). */
-    const [validationRmse, setValidationRmse] = useState<number | null>(null);
     const [calibrationInterruptions, setCalibrationInterruptions] = useState(0);
 
     // --- Gaze engines (both hooks always called — React rules — only active engine is started) ---
@@ -695,7 +682,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 fixationMethod: 'idt',
                 gazePipeline: 'hybrid-zone-idt',
                 calibrationRmsePx: calibrationRmsePxRef.current,
-                validationRmsePx: validationRmse,
                 calibrationInterruptions,
                 emotions: hasEmotionRecognition ? faceEmotions.getSamples() : undefined,
                 microExpressions: hasEmotionRecognition ? detectMicroExpressions(faceEmotions.getSamples()) : undefined,
@@ -871,11 +857,8 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
         const afterTrain = () => {
             calibrationRmsePxRef.current = hybridCalibrationRmsePx(calibrationResidualsRef.current);
-            if (!isPreviewMode) {
-                setTimeout(() => setPhase('validating'), 400);
-                return;
-            }
             rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
+            gaze.resetFrameStats();
             gazePointsRef.current = [];
             setTimeLeft(Math.ceil(viewingDuration / 1000));
             setTimeout(() => setPhase('viewing'), 600);
@@ -907,136 +890,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         holdPoint();
         return () => window.clearTimeout(calibrationTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recordCalibrationPoint reads refs only
-    }, [phase, calibrationIndex, viewingDuration, isPreviewMode]);
-
-    // --- 5-point validation with dwell detection (Fase C) ---
-    const VALIDATION_DWELL_MS = 800;
-    const VALIDATION_PROXIMITY_PX = 280;
-    const VALIDATION_GRACE_MS = 250;
-    const validationDwellStartRef = useRef<number | null>(null);
-    const validationDwellSamplesRef = useRef<{ x: number; y: number }[]>([]);
-    const validationRafRef = useRef(0);
-    const validationExitTimeRef = useRef<number | null>(null);
-
-    const getValidationDot = (idx: number) => {
-        const rect = getStimulusElement()?.getBoundingClientRect();
-        const point = HYBRID_VALIDATION_POINTS[idx];
-        if (!rect || rect.width <= 0 || !point) return null;
-        const [vpx, vpy] = point;
-        return { x: rect.left + (vpx / 100) * rect.width, y: rect.top + (vpy / 100) * rect.height };
-    };
-
-    const recordValidationPoint = (idx: number, avgX: number, avgY: number) => {
-        const dot = getValidationDot(idx);
-        if (!dot) return;
-        const errorPx = Math.round(Math.sqrt((dot.x - avgX) ** 2 + (dot.y - avgY) ** 2));
-        const newErrors = [...validationPointErrors, errorPx];
-        setValidationPointErrors(newErrors);
-
-        if (idx + 1 < HYBRID_VALIDATION_POINTS.length) {
-            setValidationIndex(idx + 1);
-            return;
-        }
-
-        const rmse = Math.round(Math.sqrt(newErrors.reduce((sum, e) => sum + e * e, 0) / newErrors.length));
-        setValidationRmse(rmse);
-        if (rmse > HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX) return;
-
-        rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
-        if (blaze) gaze.resetFrameStats();
-        gazePointsRef.current = [];
-        setTimeLeft(Math.ceil(viewingDuration / 1000));
-        setTimeout(() => setPhase('viewing'), 800);
-    };
-
-    // Dwell loop for validation points: measures gaze error at each dot
-    useEffect(() => {
-        if (phase !== 'validating') return;
-        if (validationRmse !== null) return;
-
-        validationDwellStartRef.current = null;
-        validationDwellSamplesRef.current = [];
-        validationExitTimeRef.current = null;
-        setDwellStartedAt(null);
-
-        const loop = () => {
-            const dot = getValidationDot(validationIndex);
-            if (!dot) { validationRafRef.current = requestAnimationFrame(loop); return; }
-
-            const [gx, gy] = gazePosRef.current;
-            const dist = Math.sqrt((gx - dot.x) ** 2 + (gy - dot.y) ** 2);
-            const now = performance.now();
-
-            if (dist <= VALIDATION_PROXIMITY_PX && gazeStateRef.current === 'open') {
-                validationExitTimeRef.current = null;
-
-                if (validationDwellStartRef.current === null) {
-                    validationDwellStartRef.current = now;
-                    validationDwellSamplesRef.current = [];
-                    setDwellStartedAt(now);
-                }
-                validationDwellSamplesRef.current.push({ x: gx, y: gy });
-
-                if (now - validationDwellStartRef.current >= VALIDATION_DWELL_MS) {
-                    const samples = validationDwellSamplesRef.current;
-                    const avgX = samples.reduce((sum, p) => sum + p.x, 0) / samples.length;
-                    const avgY = samples.reduce((sum, p) => sum + p.y, 0) / samples.length;
-                    validationDwellStartRef.current = null;
-                    validationDwellSamplesRef.current = [];
-                    setDwellStartedAt(null);
-                    recordValidationPoint(validationIndex, avgX, avgY);
-                    return;
-                }
-            } else if (validationDwellStartRef.current !== null) {
-                if (validationExitTimeRef.current === null) {
-                    validationExitTimeRef.current = now;
-                } else if (now - validationExitTimeRef.current > VALIDATION_GRACE_MS) {
-                    validationDwellStartRef.current = null;
-                    validationDwellSamplesRef.current = [];
-                    validationExitTimeRef.current = null;
-                    setDwellStartedAt(null);
-                }
-            }
-
-            validationRafRef.current = requestAnimationFrame(loop);
-        };
-
-        validationRafRef.current = requestAnimationFrame(loop);
-        return () => cancelAnimationFrame(validationRafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable RAF loop
-    }, [phase, validationIndex, validationRmse, viewingDuration, validationPointErrors]);
-
-    /** Tap/click on a validation point measures the current gaze error, same as a completed dwell. */
-    const handleValidationDwellComplete = () => {
-        if (phase !== 'validating' || validationRmse !== null || gazeStateRef.current !== 'open') return;
-        cancelAnimationFrame(validationRafRef.current);
-        setDwellStartedAt(null);
-        const [gx, gy] = gazePosRef.current;
-        recordValidationPoint(validationIndex, gx, gy);
-    };
-
-    /** Re-calibrate: reset residuals and go back to calibration phase.
-     *  Increments recalibrationCount so auto-retry offer stops after 2 attempts. */
-    const handleRecalibrate = useCallback(() => {
-        recalibrationCountRef.current += 1;
-        calibrationResidualsRef.current = [];
-        calibrationRmsePxRef.current = null;
-        setCalibrationIndex(0);
-        setValidationIndex(0);
-        setValidationPointErrors([]);
-        setValidationRmse(null);
-        setPhase('calibration');
-    }, []);
-
-    /** Skip validation and proceed to viewing (user chose to continue despite poor accuracy). */
-    const handleSkipValidation = useCallback(() => {
-        rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
-        if (blaze) gaze.resetFrameStats();
-        gazePointsRef.current = [];
-        setTimeLeft(Math.ceil(viewingDuration / 1000));
-        setTimeout(() => setPhase('viewing'), 400);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal
-    }, [blaze, viewingDuration]);
+    }, [phase, calibrationIndex, viewingDuration]);
 
     const handleConsentAccept = useCallback(async () => {
         const isCameraOn = await startCamera();
@@ -1131,24 +985,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     interruptionCount={calibrationInterruptions}
                 />
             </>
-        );
-    } else if (phase === 'validating') {
-        phaseContent = (
-            <ValidationPhase
-                validationIndex={validationIndex}
-                validationRmse={validationRmse}
-                dwellStartedAt={dwellStartedAt}
-                dwellDurationMs={VALIDATION_DWELL_MS}
-                recalibrationCount={recalibrationCountRef.current}
-                resolvedUrl={resolvedUrl}
-                imgRef={imgRef}
-                onValidationDwellComplete={handleValidationDwellComplete}
-                onRecalibrate={handleRecalibrate}
-                onSkipValidation={handleSkipValidation}
-                onRejectSession={handleRejectSession}
-                onImageLoad={handleImageLoad}
-                shelfConfig={shelfConfig}
-            />
         );
     } else if (phase === 'viewing') {
         phaseContent = (

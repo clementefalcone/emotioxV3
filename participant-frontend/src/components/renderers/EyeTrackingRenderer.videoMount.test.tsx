@@ -9,9 +9,6 @@ vi.mock('../../stores/useParticipantStore', () => ({
     useParticipantStore: () => ({ saveResponse: vi.fn() }),
 }));
 
-vi.mock('../../hooks/usePreviewMode', () => ({
-    usePreviewMode: () => ({ isPreviewMode: false }),
-}));
 
 vi.mock('../../services/media.service', () => ({
     mediaService: { resolveUrl: (u: string) => u },
@@ -36,8 +33,6 @@ vi.mock('../../lib/eyeTracking', () => ({
     BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS: { video: true },
     HYBRID_CALIBRATION_FIELD_STRENGTH: 0.5,
     HYBRID_IMAGE_CALIBRATION_POINTS: [],
-    HYBRID_VALIDATION_POINTS: [],
-    HYBRID_RECALIBRATION_RMSE_THRESHOLD_PX: 50,
     HYBRID_AOI_GRID: { cols: 3, rows: 3 },
     hybridApplyCalibrationField: vi.fn((p: unknown) => p),
     hybridCalibrationRmsePx: vi.fn(() => 0),
@@ -98,9 +93,6 @@ vi.mock('./eye-tracking/PreparingPhase', () => ({
 }));
 vi.mock('./eye-tracking/CalibrationPhase', () => ({
     CalibrationPhase: () => <div data-testid="calibration-phase" />,
-}));
-vi.mock('./eye-tracking/ValidationPhase', () => ({
-    ValidationPhase: () => <div data-testid="validation-phase" />,
 }));
 vi.mock('./eye-tracking/ViewingPhase', () => ({
     ViewingPhase: () => <div data-testid="viewing-phase" />,

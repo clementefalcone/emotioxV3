@@ -10,7 +10,6 @@ export const StepProgressPill: React.FC<{ step: number; total: number; percent: 
     const stepLabels = [
         t('eyeTracking.stepPrepare', 'Get ready'),
         t('eyeTracking.stepCalibrate', 'Adjust your gaze'),
-        t('eyeTracking.stepCheck', 'Check'),
         t('eyeTracking.stepView', 'Look at the image'),
     ];
     return (

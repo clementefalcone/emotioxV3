@@ -41,7 +41,7 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
             style={{ background: '#ffffff' }}
         >
             <div className="pointer-events-none absolute left-1/2 z-[70] -translate-x-1/2" style={{ top: 'max(16px, env(safe-area-inset-top, 16px))' }}>
-                <StepProgressPill step={4} total={TOTAL_STEPS} percent={viewingPercent} />
+                <StepProgressPill step={3} total={TOTAL_STEPS} percent={viewingPercent} />
             </div>
 
             {/* Timer */}
