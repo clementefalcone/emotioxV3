@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   hybridApplyCalibrationField,
   hybridCalibrationRmsePx,
+  hybridResidualsFromTrainedPoints,
   computeMicroRecalibResidual,
   computePointErrors,
   detectDeficientPoints,
@@ -475,5 +476,16 @@ describe('hybridCalibrationConfidenceWeightUv', () => {
     // w = 1/(1 + 14 * 0.08) = 1/(1+1.12) = 1/2.12
     const w = hybridCalibrationConfidenceWeightUv(0.5, 0.6, samples);
     expect(w).toBeCloseTo(1 / 2.12, 4);
+  });
+});
+
+describe('hybridResidualsFromTrainedPoints', () => {
+  it('places each point on the calibration area and stores target minus trained prediction', () => {
+    const residuals = hybridResidualsFromTrainedPoints(
+      [{ targetX: 500, targetY: 400, predX: 470, predY: 440 }],
+      rect,
+    );
+    expect(residuals).toEqual([{ u: 0.5, v: 0.5, dx: 30, dy: -40 }]);
+    expect(hybridCalibrationRmsePx(residuals)).toBe(50);
   });
 });

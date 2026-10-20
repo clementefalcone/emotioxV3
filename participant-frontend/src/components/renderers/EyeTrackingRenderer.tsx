@@ -12,6 +12,7 @@ import {
     HYBRID_AOI_GRID,
     hybridApplyCalibrationField,
     hybridCalibrationRmsePx,
+    hybridResidualsFromTrainedPoints,
     hybridImagePercentToBlazeNorm,
     hybridPointToSoftZoneWeights,
     hybridCalibrationConfidenceWeightUv,
@@ -28,6 +29,7 @@ import {
     isBlazeGazeCaptureResolutionLow,
 } from '../../lib/eyeTracking';
 import type { HybridCalibrationResidual } from '../../lib/eyeTracking';
+import type { RidgeRegression } from '../../lib/eyeTracking/ridgeRegression';
 import { recallCalibration, rememberCalibration } from './eye-tracking/calibrationCache';
 
 // V2 zone pipeline
@@ -661,7 +663,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const finalFixations: Fixation[] = effectiveRect.width > 0 && effectiveRect.height > 0
                 ? mapFixationsToImageCoords(viewportFixations, effectiveRect, natW, natH)
                 : viewportFixations;
-            const calibrationQuality = `blazegaze-${gaze.calibrationCount}pt`;
+            const calibrationQuality = `${useMP ? 'mediapipe' : 'blazegaze'}-${calibrationResidualsRef.current.length}pt`;
 
             // --- Build response payload ---
             // V1 payload (backward compat, always included)
@@ -856,7 +858,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }
 
         const afterTrain = () => {
-            calibrationRmsePxRef.current = hybridCalibrationRmsePx(calibrationResidualsRef.current);
+            const predictor = mpGaze.predictorRef.current;
+            const trainedPoints = (predictor.diagnostics as RidgeRegression['diagnostics'])?.perPoint;
+            const calibrationRect = calibrationAreaRef.current?.getBoundingClientRect();
+            if (useMP && trainedPoints && calibrationRect) {
+                calibrationResidualsRef.current = hybridResidualsFromTrainedPoints(trainedPoints, calibrationRect);
+            }
+            calibrationRmsePxRef.current = (useMP ? predictor.cvRmsePx : null) ?? hybridCalibrationRmsePx(calibrationResidualsRef.current);
             rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
             gaze.resetFrameStats();
             gazePointsRef.current = [];

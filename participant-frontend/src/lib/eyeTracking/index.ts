@@ -42,6 +42,7 @@ export {
     HYBRID_CALIB_CONFIDENCE_K,
     hybridApplyCalibrationField,
     hybridCalibrationRmsePx,
+    hybridResidualsFromTrainedPoints,
     hybridCalibrationConfidenceWeightUv,
     MICRO_RECALIB_INTERVAL_MS,
     MICRO_RECALIB_SAMPLE_DURATION_MS,

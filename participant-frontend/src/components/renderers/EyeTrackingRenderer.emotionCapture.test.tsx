@@ -72,6 +72,7 @@ vi.mock('../../lib/eyeTracking', () => ({
     HYBRID_IMAGE_CALIBRATION_POINTS: [[10, 10], [50, 50], [90, 90]],
     HYBRID_AOI_GRID: [{ id: 'z1' }],
     hybridApplyCalibrationField: vi.fn((x: number, y: number) => ({ x, y })),
+    hybridResidualsFromTrainedPoints: (points: unknown[]) => points.map(() => ({ u: 0.5, v: 0.5, dx: 3, dy: 4 })),
     hybridCalibrationRmsePx: vi.fn(() => 10),
     hybridImagePercentToBlazeNorm: vi.fn(() => [0, 0]),
     hybridPointToSoftZoneWeights: vi.fn(() => ({ z1: 1 })),
@@ -320,8 +321,10 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.gazePointCount).toBeGreaterThan(0);
     });
 
-    it('goes from the last calibration point straight to viewing and saves the response', async () => {
+    it('goes from the last calibration point straight to viewing and saves the trained model error', async () => {
         vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        const trainedPoint = { targetX: 40, targetY: 30, predX: 37, predY: 26 };
+        mockMPGaze.predictorRef = { current: { cvRmsePx: 85, diagnostics: { perPoint: [trainedPoint, trainedPoint, trainedPoint] } } } as unknown as typeof mockMPGaze.predictorRef;
         rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
         mockMPGaze.gazeState = 'open';
         mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
@@ -340,6 +343,9 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
         expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(3);
         expect(saved).not.toHaveProperty('validationRmsePx');
+        expect(saved.calibrationRmsePx).toBe(85);
+        expect(saved.calibrationQuality).toBe('mediapipe-3pt');
+        mockMPGaze.predictorRef = { current: null };
     });
 
     it('leaves "Starting camera" for calibration while gaze updates re-render every 200ms', async () => {

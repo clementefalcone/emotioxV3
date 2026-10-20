@@ -82,6 +82,25 @@ export function hybridCalibrationRmsePx(samples: readonly HybridCalibrationResid
     return Math.sqrt(sumSq / samples.length);
 }
 
+interface TrainedCalibrationPoint {
+    readonly targetX: number;
+    readonly targetY: number;
+    readonly predX: number;
+    readonly predY: number;
+}
+
+export function hybridResidualsFromTrainedPoints(
+    points: readonly TrainedCalibrationPoint[],
+    rect: DOMRect,
+): HybridCalibrationResidual[] {
+    return points.map(point => ({
+        u: (point.targetX - rect.left) / rect.width,
+        v: (point.targetY - rect.top) / rect.height,
+        dx: point.targetX - point.predX,
+        dy: point.targetY - point.predY,
+    }));
+}
+
 // ── Micro-recalibration (drift correction during viewing) ───────────────
 
 /** Interval between micro-recalibration probes (ms). */
