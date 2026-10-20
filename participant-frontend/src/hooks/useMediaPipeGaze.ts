@@ -11,6 +11,7 @@ import {
   compensateHeadPose,
 } from '../lib/eyeTracking/headPose';
 import { DEFAULT_RIDGE_LAMBDA, LANDMARK_INDICES } from '../lib/eyeTracking/constants';
+import { eyeAspectRatio } from '../lib/eyeTracking/frameGeometry';
 import { RidgeGazePredictor, type GazePredictor } from '../lib/eyeTracking/gazePredictor';
 
 // ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ const DEFAULT_D_CUTOFF = 1.0;
 const STATE_THROTTLE_MS = 200;
 
 /** Minimum eye-open ratio to consider gaze valid (EAR threshold). */
-const EAR_OPEN_THRESHOLD = 0.18;
+const EAR_OPEN_THRESHOLD = 0.1;
 
 // EAR landmark indices from MediaPipe 478
 const LEFT_EYE_EAR = { top: 159, bottom: 145, inner: 133, outer: 33 } as const;
@@ -59,25 +60,6 @@ export interface MediaPipeGazeFrameStats {
   validGazeFrames: number;
   captureWidthPx: number | null;
   captureHeightPx: number | null;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Eye Aspect Ratio — ratio of vertical to horizontal eye opening. */
-function computeEAR(
-  landmarks: { x: number; y: number }[],
-  eye: { readonly top: number; readonly bottom: number; readonly inner: number; readonly outer: number },
-): number {
-  const top = landmarks[eye.top];
-  const bot = landmarks[eye.bottom];
-  const inn = landmarks[eye.inner];
-  const out = landmarks[eye.outer];
-  if (!top || !bot || !inn || !out) return 0;
-  const vDist = Math.abs(top.y - bot.y);
-  const hDist = Math.abs(inn.x - out.x);
-  return hDist > 1e-6 ? vDist / hDist : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,8 +225,9 @@ export function useMediaPipeGaze(
       }
 
       // Blink detection via EAR
-      const earL = computeEAR(landmarks, LEFT_EYE_EAR);
-      const earR = computeEAR(landmarks, RIGHT_EYE_EAR);
+      const frame = { width: w, height: h };
+      const earL = eyeAspectRatio(landmarks, LEFT_EYE_EAR, frame);
+      const earR = eyeAspectRatio(landmarks, RIGHT_EYE_EAR, frame);
       const avgEar = (earL + earR) / 2;
       earRef.current = avgEar;
       const eyesOpen = avgEar >= EAR_OPEN_THRESHOLD;

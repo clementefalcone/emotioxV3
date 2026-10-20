@@ -23,12 +23,14 @@ export const FacePositionPhase: React.FC<FacePositionPhaseProps> = ({ cameraRef,
     useEffect(() => {
         let raf = 0;
         const track = () => {
-            setPosition(evaluateFacePosition(landmarksRef.current, headPoseRef.current));
+            const camera = cameraRef.current;
+            const frame = { width: camera?.videoWidth ?? 0, height: camera?.videoHeight ?? 0 };
+            setPosition(evaluateFacePosition(landmarksRef.current, headPoseRef.current, frame));
             raf = requestAnimationFrame(track);
         };
         raf = requestAnimationFrame(track);
         return () => cancelAnimationFrame(raf);
-    }, [landmarksRef, headPoseRef]);
+    }, [cameraRef, landmarksRef, headPoseRef]);
 
     const isPositioned = position === 'ok';
     const instructions: Record<FacePosition, string> = {

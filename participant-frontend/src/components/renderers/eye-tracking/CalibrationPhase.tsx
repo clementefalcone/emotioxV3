@@ -53,7 +53,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
                 style={{ transform: 'scaleX(-1)' }}
             />
 
-            <div className="relative flex flex-col items-center gap-2 px-6 text-center" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
+            <div className="relative flex flex-col items-center gap-2 px-6 pb-3 text-center bg-white/90 backdrop-blur-sm shadow-sm" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
                 <StepProgressPill step={2} total={TOTAL_STEPS} percent={calibrationPercent} />
                 <h2 className="text-lg font-bold text-gray-900 mt-2">
                     {t('eyeTracking.dwellInstruction', 'Look at the dot without moving your head. It will move on by itself.')}
@@ -72,7 +72,7 @@ export const CalibrationPhase: React.FC<CalibrationPhaseProps> = ({
                         <span className={`w-2 h-2 rounded-full ${isFaceInZone ? 'bg-green-500' : 'bg-red-500'}`} />
                         {isFaceInZone
                             ? t('eyeTracking.calib.inZone', 'In zone')
-                            : t('eyeTracking.calib.outOfZone', 'Out of zone · look at the screen')}
+                            : t('eyeTracking.calib.outOfZone', 'We cannot see your eyes · open them and look at the dot')}
                     </span>
                 </div>
             </div>
