@@ -1,3 +1,11 @@
+## v0.99.9 — Eye Tracking calibration works on phones (2026-10-20)
+
+### fix(eye-tracking): eyes measured in camera pixels
+- **Root cause.** A tester on a phone stayed on "Punto 1 de 13" with "Fuera de zona" while the face was centered (interruptions 0 → 12). "In zone" means MediaPipe sees open eyes; the eye ratio divided a height normalized by the frame height by a width normalized by the frame width. On a portrait phone frame (720×1280) an open eye scored ×0.56 and fell below the 0.18 threshold; on a 16:9 webcam it scored ×1.78, so desktop never failed. The face guide's eye distance had the same skew, asking to move back or closer for no reason.
+- **Fix.** `frameGeometry.ts` (`frameDistance`, `eyeAspectRatio`) measures in pixel proportions; `useMediaPipeGaze` and `evaluateFacePosition` use it. Open threshold 0.18 → 0.1, its equivalent on a 16:9 webcam, so desktop behavior is unchanged.
+- **Readability.** Calibration header gets a white backdrop over the camera feed. "Fuera de zona · mira la pantalla" → "No vemos tus ojos · ábrelos y mira el punto" (EN too).
+- **Tests.** `frameGeometry.test.ts` (4), `facePosition.test.ts` +2 (portrait camera, no frame size; both fail on the old code). Participant 1121 → 1127, 0 failing.
+
 ## v0.99.8 — History chart: every month since the first project (2026-10-16)
 
 ### fix(history): continuous month axis with a range slider
