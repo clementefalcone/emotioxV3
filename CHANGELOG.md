@@ -1,3 +1,12 @@
+## v0.99.14 — Eye Tracking calibration: every frame of each dot (2026-10-21)
+
+### fix(eye-tracking): calibration samples per frame, ridge λ 10 → 1
+- **Root cause.** The ridge model received one feature snapshot per calibration dot: 13 samples for 256 random Fourier features. Leave-one-point-out error was 491 px on the 21-10 session (1470 px wide screen) and the heatmap gaze piled up in one corner.
+- **Reproduction.** The MacBook tester video (17-10) replayed through MediaPipe FaceLandmarker in headless Chromium, the green dot located per frame, and the participant's `extractGazeFeatures` + `RidgeRegression`: one sample per dot = 559 px.
+- **Fix.** `useMediaPipeGaze.collectCalibrationSamples(target)` adds a sample on every tracked frame while set; the renderer sets it 500 ms after each dot appears and clears it when the dot closes. `DEFAULT_RIDGE_LAMBDA` 10 → 1. Replay: per-frame samples 238 px, plus λ = 1 → 172 px (λ = 100: 440 px).
+- **Not changed.** MediaPipe's facial matrix is column-major and `parseFacialTransformationMatrix` reads translation from indices 3/7/11 (always 0); reading 12/13/14 gave no gain on the replay, so it stays for a separate decision.
+- **Tests.** `useMediaPipeGaze.test.ts`: one sample per tracked frame only while a target is set. Renderer tests follow the new sampling. Participant 1120 → 1121, 0 failing.
+
 ## v0.99.13 — Action Units measured against each participant's neutral face (2026-10-21)
 
 ### fix(emotions): AUs no longer stuck at 0/1
