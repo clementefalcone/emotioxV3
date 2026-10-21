@@ -89,9 +89,9 @@ export const GAZE_FEATURE_DIMENSION = 20;
 /**
  * Ridge regularization strength. With z-score normalized features (unit variance),
  * higher λ = smoother weights = less jitter, at cost of slightly higher bias.
- * λ=10 balances RMSE vs jitter for 27-dim normalized feature space.
+ * λ=1 gave the lowest leave-one-point-out error on a replayed 13-point session (172 px vs 238 px at λ=10).
  */
-export const DEFAULT_RIDGE_LAMBDA = 10;
+export const DEFAULT_RIDGE_LAMBDA = 1;
 
 /** MediaPipe Face Landmarker landmark indices used for gaze features */
 export const LANDMARK_INDICES = {
