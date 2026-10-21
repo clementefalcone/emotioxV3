@@ -166,7 +166,7 @@ export const route = async (event: APIGatewayProxyEvent): Promise<APIGatewayProx
         if (path.startsWith('/public/analytics')) {
             const rewritten = { ...normalizedEvent, path: path.replace('/public/analytics', '/analytics') };
             const { handleAnalyticsRoutes } = await import('./modules/analytics/analytics.controller');
-            return await handleAnalyticsRoutes(rewritten);
+            return await handleAnalyticsRoutes(rewritten, true);
         }
 
         if (path.startsWith('/public/responses')) {

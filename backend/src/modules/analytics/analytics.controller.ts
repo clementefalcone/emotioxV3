@@ -4,7 +4,7 @@ import { isAuthError, requireAuth } from '../../utils/auth';
 import * as analyticsService from './index';
 import { getRequestOrigin } from '../../utils/request';
 import pool from '../../config/database';
-import { buildUserOwnership, canAccessResearch, researchNotFound } from '../research/research-access';
+import { buildUserOwnership, canAccessResearch, hasPublicResults, researchNotFound, researchResultsNotPublic } from '../research/research-access';
 
 const collectSmartVOCResults = async (researchFilter: string, params: string[]) => {
     const researches = await pool.query(
@@ -32,14 +32,20 @@ const collectSmartVOCResults = async (researchFilter: string, params: string[]) 
 
 const RESEARCH_SCOPED_PATH = /^\/analytics\/(?:research|benchmark)\/([^\/]+)/;
 
-export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPublicRequest = false): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path, queryStringParameters: queryParams } = event;
     const origin = getRequestOrigin(event);
     try {
-        const decoded = await requireAuth(event);
-
         const scopedResearch = path.match(RESEARCH_SCOPED_PATH);
-        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (isPublicRequest && (httpMethod !== 'GET' || !scopedResearch)) {
+            return error(`Public analytics only serves GET of study results, got ${httpMethod} ${path}`, 404, undefined, origin);
+        }
+        if (isPublicRequest && scopedResearch && !(await hasPublicResults(scopedResearch[1]))) {
+            return researchResultsNotPublic(scopedResearch[1], path, origin);
+        }
+
+        const decoded = isPublicRequest ? null : await requireAuth(event);
+        if (decoded && scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 
@@ -243,7 +249,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promis
         }
 
         const enterpriseSmartVocMatch = path.match(/^\/analytics\/enterprise\/([^\/]+)\/smartvoc$/);
-        if (enterpriseSmartVocMatch && httpMethod === 'GET') {
+        if (decoded && enterpriseSmartVocMatch && httpMethod === 'GET') {
             const ownership = await buildUserOwnership(decoded.sub);
             const results = await collectSmartVOCResults(
                 `r.enterprise_id = ? AND ${ownership.clause}`,
@@ -252,7 +258,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent): Promis
             return success({ results }, 200, undefined, origin);
         }
 
-        if (path === '/analytics/smartvoc/consolidated' && httpMethod === 'GET') {
+        if (decoded && path === '/analytics/smartvoc/consolidated' && httpMethod === 'GET') {
             const ownership = await buildUserOwnership(decoded.sub);
             const results = await collectSmartVOCResults(ownership.clause, ownership.params);
             return success({ results }, 200, undefined, origin);

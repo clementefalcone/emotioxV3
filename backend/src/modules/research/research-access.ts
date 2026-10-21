@@ -3,6 +3,7 @@ import pool from '../../config/database';
 import { error } from '../../utils/response';
 import * as authService from '../auth/auth.service';
 import { buildOwnershipClause } from './research.helpers';
+import { parseJsonRecord } from '../public/public.types';
 
 const RESEARCH_OWNED_TABLES = {
     module: 'modules',
@@ -25,7 +26,18 @@ export const canAccessResearch = async (researchId: string, userSub: string): Pr
     return result.rows.length > 0;
 };
 
-export const findResearchIdOf = async (resource: ResearchOwnedResource, id: string): Promise<string | null> => {
+export const hasPublicResults = async (researchId: string): Promise<boolean> => {
+    const result = await pool.query('SELECT config FROM researches WHERE id = ? AND deleted_at IS NULL', [researchId]);
+    const row = result.rows[0];
+    return row !== undefined && parseJsonRecord(row.config).publicResults === true;
+};
+
+export const researchResultsNotPublic = (researchId: string, path: string, origin: string | null): APIGatewayProxyResult => {
+    console.warn(JSON.stringify({ event: 'public_results_denied', researchId, path }));
+    return error(`Research ${researchId} results are not public`, 404, undefined, origin);
+};
+
+export const findResearchIdOf =async (resource: ResearchOwnedResource, id: string): Promise<string | null> => {
     const result = await pool.query(`SELECT research_id FROM ${RESEARCH_OWNED_TABLES[resource]} WHERE id = ?`, [id]);
     return (result.rows[0]?.research_id as string | undefined) ?? null;
 };

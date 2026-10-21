@@ -14,6 +14,7 @@ import { handleAnalyticsRoutes } from '../analytics.controller';
 import pool from '../../../config/database';
 import { getMe } from '../../auth/auth.service';
 import { getSmartVOCResults } from '../index';
+import { requireAuth } from '../../../utils/auth';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
 const mockGetMe = getMe as ReturnType<typeof vi.fn>;
@@ -91,5 +92,44 @@ describe('research-scoped analytics access', () => {
         const res = await request('/analytics/benchmark/foreign-2');
 
         expect(res.statusCode).toBe(404);
+    });
+});
+
+const requestPublic = (path: string, httpMethod = 'GET') =>
+    handleAnalyticsRoutes({ httpMethod, path, headers: {} } as unknown as APIGatewayProxyEvent, true);
+
+describe('public analytics of a study', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    it('returns the results without a session when the study has public results on', async () => {
+        mockQuery.mockResolvedValueOnce({ rows: [{ config: JSON.stringify({ publicResults: true }) }] });
+
+        const res = await requestPublic('/analytics/research/pub-1/smartvoc');
+
+        expect(res.statusCode).toBe(200);
+        expect(requireAuth).not.toHaveBeenCalled();
+        expect(mockGetSmartVOC).toHaveBeenCalledWith('pub-1');
+    });
+
+    it('answers 404 when the study has public results off', async () => {
+        mockQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
+
+        const res = await requestPublic('/analytics/research/priv-1/smartvoc');
+
+        expect(res.statusCode).toBe(404);
+        expect(res.body).toContain('Research priv-1 results are not public');
+        expect(mockGetSmartVOC).not.toHaveBeenCalled();
+    });
+
+    it('refuses writes and routes outside a single study', async () => {
+        const post = await requestPublic('/analytics/research/pub-1/executive-summary', 'POST');
+        const enterprise = await requestPublic('/analytics/enterprise/ent-1/smartvoc');
+
+        expect(post.statusCode).toBe(404);
+        expect(enterprise.statusCode).toBe(404);
+        expect(mockQuery).not.toHaveBeenCalled();
     });
 });

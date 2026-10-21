@@ -139,6 +139,8 @@ export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<A
         if (resultsMetaMatch && httpMethod === 'GET') {
             const researchId = resultsMetaMatch[1];
             try {
+                const { hasPublicResults, researchResultsNotPublic } = await import('../research/research-access');
+                if (!(await hasPublicResults(researchId))) return researchResultsNotPublic(researchId, path, origin);
                 const pool = (await import('../../config/database')).default;
                 const result = await pool.query(
                     `SELECT r.id, r.name, r.status, rt.name AS research_type_name, r.created_at

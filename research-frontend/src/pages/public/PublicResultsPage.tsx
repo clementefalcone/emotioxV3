@@ -54,7 +54,7 @@ export const PublicResultsPage = () => {
             try {
                 const baseUrl = configService.getBaseUrl();
                 const res = await fetch(`${baseUrl}/public/research/${id}/results-meta`);
-                if (!res.ok) throw new Error(res.status === 404 ? 'Research not found' : 'Failed to load results');
+                if (!res.ok) throw new Error(res.status === 404 ? 'These results are not public or no longer exist' : 'Failed to load results');
                 const data = await res.json();
                 setResearch(data.research);
             } catch (err) {
