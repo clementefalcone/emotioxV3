@@ -826,8 +826,10 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     }, []);
 
     const CALIBRATION_POINT_MS = 2500;
+    const CALIBRATION_SETTLE_MS = 500;
     const CALIBRATE_CALLS_PER_POINT = 3;
     const calibrationTimerRef = useRef(0);
+    const calibrationSettleTimerRef = useRef(0);
     const [dwellStartedAt, setDwellStartedAt] = useState<number | null>(null);
 
     const getCalibrationDot = (idx: number) => {
@@ -850,9 +852,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             dy: dot.y - avgY,
         });
 
-        if (useMP) {
-            gaze.calibrate(dot.x, dot.y);
-        } else {
+        if (!useMP) {
             const [normX, normY] = hybridImagePercentToBlazeNorm(dot.rect, dot.ipx, dot.ipy, window.innerWidth, window.innerHeight);
             for (let c = 0; c < CALIBRATE_CALLS_PER_POINT; c++) {
                 gaze.calibrate(normX, normY);
@@ -890,6 +890,11 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
         const holdPoint = () => {
             setDwellStartedAt(performance.now());
+            mpGaze.collectCalibrationSamples(null);
+            calibrationSettleTimerRef.current = window.setTimeout(() => {
+                const dot = getCalibrationDot(calibrationIndex);
+                if (useMP && dot) mpGaze.collectCalibrationSamples([dot.x, dot.y]);
+            }, CALIBRATION_SETTLE_MS);
             calibrationTimerRef.current = window.setTimeout(() => {
                 if (gazeStateRef.current !== 'open' || !getCalibrationDot(calibrationIndex)) {
                     if (gazeStateRef.current !== 'open') setCalibrationInterruptions(count => count + 1);
@@ -897,13 +902,18 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     return;
                 }
                 setDwellStartedAt(null);
+                mpGaze.collectCalibrationSamples(null);
                 const [gx, gy] = gazePosRef.current;
                 recordCalibrationPoint(calibrationIndex, gx, gy);
             }, CALIBRATION_POINT_MS);
         };
 
         holdPoint();
-        return () => window.clearTimeout(calibrationTimerRef.current);
+        return () => {
+            window.clearTimeout(calibrationTimerRef.current);
+            window.clearTimeout(calibrationSettleTimerRef.current);
+            mpGaze.collectCalibrationSamples(null);
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recordCalibrationPoint reads refs only
     }, [phase, calibrationIndex, viewingDuration]);
 

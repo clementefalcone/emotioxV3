@@ -108,6 +108,7 @@ export function useMediaPipeGaze(
 
   // ponytail: store last features for calibrate() — avoids re-running detection
   const lastFeaturesRef = useRef<number[] | null>(null);
+  const calibrationTargetRef = useRef<[number, number] | null>(null);
 
   /** Live EAR (Eye Aspect Ratio), avg of both eyes. Updated every valid frame. */
   const earRef = useRef(0.28);
@@ -156,6 +157,10 @@ export function useMediaPipeGaze(
     if (!features) return;
     predictorRef.current.addCalibrationSample({ features }, [screenX, screenY]);
     setCalibrationCount(prev => prev + 1);
+  }, []);
+
+  const collectCalibrationSamples = useCallback((target: [number, number] | null): void => {
+    calibrationTargetRef.current = target;
   }, []);
 
   /** Train predictor after all calibration samples are collected. */
@@ -254,6 +259,7 @@ export function useMediaPipeGaze(
 
       lastFeaturesRef.current = features;
       frameStatsRef.current.validGazeFrames += 1;
+      if (calibrationTargetRef.current) predictorRef.current.addCalibrationSample({ features }, calibrationTargetRef.current);
 
       // Extract head pose angles for uncertainty estimation (always, independent of compensation)
       if (facialMatrix) {
@@ -376,6 +382,7 @@ export function useMediaPipeGaze(
     stop,
     /** Store a calibration sample: features → screen target. */
     calibrate,
+    collectCalibrationSamples,
     /** Train ridge regression after all calibration points collected. */
     trainRidge,
     /** Current feature vector (for diagnostics). */

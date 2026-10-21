@@ -41,6 +41,7 @@ const mockMPGaze = {
     lastLandmarksRef: { current: null },
     predictorRef: { current: null },
     calibrate: vi.fn(),
+    collectCalibrationSamples: vi.fn(),
     resetFrameStats: vi.fn(),
     getFrameStats: () => ({ validGazeFrames: 0, noValidGazeFrames: 0, captureWidthPx: null, captureHeightPx: null }),
 };
@@ -349,7 +350,7 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(queryByTestId('viewing-phase')).not.toBeNull();
         await act(async () => { vi.advanceTimersByTime(5500); });
         const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
-        expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(3);
+        expect(mockMPGaze.collectCalibrationSamples.mock.calls.filter(([target]) => target !== null)).toHaveLength(3);
         expect(saved).not.toHaveProperty('validationRmsePx');
         expect(saved.calibrationRmsePx).toBe(85);
         expect(saved.calibrationQuality).toBe('mediapipe-3pt');
@@ -400,10 +401,11 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(getByTestId('calibration-phase').getAttribute('data-dwelling')).toBe('true');
 
         await rerenderEvery200ms(2400);
-        expect(mockMPGaze.calibrate).not.toHaveBeenCalled();
+        expect(mockMPGaze.collectCalibrationSamples).toHaveBeenLastCalledWith([expect.any(Number), expect.any(Number)]);
 
         await rerenderEvery200ms(200);
-        expect(mockMPGaze.calibrate).toHaveBeenCalledTimes(1);
+        expect(mockMPGaze.collectCalibrationSamples).toHaveBeenLastCalledWith(null);
+        expect(mockMPGaze.collectCalibrationSamples.mock.calls.filter(([target]) => target !== null)).toHaveLength(1);
     });
 
     it('keeps the calibration point and counts an interruption each time the face is not detected', async () => {
@@ -412,7 +414,6 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
 
         await rerenderEvery200ms(5200);
 
-        expect(mockMPGaze.calibrate).not.toHaveBeenCalled();
         expect(getByTestId('calibration-phase').getAttribute('data-interruptions')).toBe('2');
     });
 

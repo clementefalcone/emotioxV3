@@ -19,7 +19,7 @@ vi.mock('../../hooks/useBlazeGaze', () => ({
     useBlazeGaze: () => mockBlazeGaze,
 }));
 
-const mockMPGaze = { start: vi.fn(), stop: vi.fn(), gazePosRef: { current: [0, 0] } };
+const mockMPGaze = { start: vi.fn(), stop: vi.fn(), collectCalibrationSamples: vi.fn(), gazePosRef: { current: [0, 0] } };
 vi.mock('../../hooks/useMediaPipeGaze', () => ({
     useMediaPipeGaze: () => mockMPGaze,
 }));
