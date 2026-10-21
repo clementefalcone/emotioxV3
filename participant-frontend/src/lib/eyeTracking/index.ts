@@ -112,7 +112,7 @@ export type { GazeSample, DetectedFixation } from './fixationDetector';
 
 export {
   extractActionUnits,
-  extractActionUnitsFrom68,
+  createActionUnitEstimator,
   classifyEmotion,
   extractEmotionFromFrame,
   aggregateEmotionTimeline,

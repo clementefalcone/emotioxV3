@@ -111,48 +111,50 @@ describe('generateTrackingSnippet — JS validity', () => {
 
 describe('generateTrackingSnippet — action units from face-api 68 landmarks', () => {
     const js = generateTrackingSnippet(defaultConfig);
-    const source = js.slice(js.indexOf('var FACE_68='), js.indexOf('// Last known cursor position'));
-    const { extractActionUnits68, toEmotionSample } = new Function(
-        `var EXPRESSION_MAP={happy:"joy",sad:"sadness",angry:"anger",surprised:"surprise",disgusted:"disgust",fearful:"fear",neutral:"neutral"};${source}return {extractActionUnits68:extractActionUnits68,toEmotionSample:toEmotionSample};`,
+    const source = js.slice(js.indexOf('var AU_BASELINE_SAMPLES='), js.indexOf('// Last known cursor position'));
+    const { createActionUnitEstimator, toEmotionSample } = new Function(
+        `var EXPRESSION_MAP={happy:"joy",sad:"sadness",angry:"anger",surprised:"surprise",disgusted:"disgust",fearful:"fear",neutral:"neutral"};${source}return {createActionUnitEstimator:createActionUnitEstimator,toEmotionSample:toEmotionSample};`,
     )() as {
-        extractActionUnits68: (points: Array<{ x: number; y: number }>) => Record<string, number> | null;
+        createActionUnitEstimator: () => (points: Array<{ x: number; y: number }>) => Record<string, number> | null;
         toEmotionSample: (detection: unknown, timestamp: number) => { timestamp: number; emotion: string; confidence: number; expressions: Record<string, number>; actionUnits: Record<string, number> };
     };
 
-    const face = (overrides: Record<number, { x: number; y: number }> = {}) => {
-        const points = Array.from({ length: 68 }, () => ({ x: 100, y: 100 }));
-        const base: Record<number, { x: number; y: number }> = {
-            17: { x: 60, y: 60 }, 19: { x: 75, y: 55 }, 21: { x: 90, y: 60 },
-            22: { x: 110, y: 60 }, 24: { x: 125, y: 55 }, 26: { x: 140, y: 60 },
-            37: { x: 80, y: 75 }, 39: { x: 90, y: 80 }, 41: { x: 80, y: 85 },
-            42: { x: 110, y: 80 }, 43: { x: 120, y: 75 }, 47: { x: 120, y: 85 },
-            33: { x: 100, y: 110 }, 48: { x: 94.5, y: 130 }, 54: { x: 105.5, y: 130 },
-            51: { x: 100, y: 129.7 }, 57: { x: 100, y: 130.3 }, 8: { x: 100, y: 160 },
-        };
-        for (const [index, point] of Object.entries({ ...base, ...overrides })) points[Number(index)] = point;
+    const neutralFace: Record<number, [number, number]> = {
+        17: [52, 80], 26: [148, 80], 21: [88, 85], 22: [112, 85],
+        36: [55, 100], 39: [85, 100], 42: [115, 100], 45: [145, 100],
+        37: [65, 97.3], 38: [75, 97.3], 41: [65, 102.7], 40: [75, 102.7],
+        43: [125, 97.3], 44: [135, 97.3], 47: [125, 102.7], 46: [135, 102.7],
+        33: [100, 125], 48: [81, 150], 54: [119, 150], 62: [100, 150], 66: [100, 150.6], 8: [100, 173],
+    };
+    const face = (moves: Record<number, [number, number]> = {}) => {
+        const points = Array.from({ length: 68 }, () => ({ x: 100, y: 120 }));
+        for (const [index, [x, y]] of Object.entries(neutralFace)) points[Number(index)] = { x, y };
+        for (const [index, [dx, dy]] of Object.entries(moves)) {
+            points[Number(index)] = { x: points[Number(index)].x + dx, y: points[Number(index)].y + dy };
+        }
         return points;
     };
+    const afterNeutralBaseline = () => {
+        const estimate = createActionUnitEstimator();
+        for (let frame = 0; frame < 10; frame++) estimate(face());
+        return estimate;
+    };
 
-    it('returns the nine action units of the Eye Tracking module, all within 0-1', () => {
-        const units = extractActionUnits68(face());
+    it('reads a resting face as no activation on the nine Eye Tracking units', () => {
+        const units = afterNeutralBaseline()(face());
         expect(Object.keys(units ?? {})).toEqual(['AU1', 'AU2', 'AU4', 'AU6', 'AU12', 'AU15', 'AU20', 'AU25', 'AU26']);
-        for (const value of Object.values(units ?? {})) {
-            expect(value).toBeGreaterThanOrEqual(0);
-            expect(value).toBeLessThanOrEqual(1);
-        }
+        for (const value of Object.values(units ?? {})) expect(value).toBe(0);
     });
 
-    it('raises smile and lip-stretch units for a wide mouth and lips-part for an open mouth', () => {
-        const neutral = extractActionUnits68(face())!;
-        const smile = extractActionUnits68(face({ 48: { x: 82, y: 128 }, 54: { x: 118, y: 128 } }))!;
-        const open = extractActionUnits68(face({ 51: { x: 100, y: 125 }, 57: { x: 100, y: 135 } }))!;
-        expect(smile.AU12).toBeGreaterThan(neutral.AU12);
-        expect(smile.AU20).toBeGreaterThan(neutral.AU20);
-        expect(open.AU25).toBeGreaterThan(neutral.AU25);
+    it('activates smile, lip corner depressor and lips part against the baseline', () => {
+        const estimate = afterNeutralBaseline();
+        expect(estimate(face({ 48: [-3, -4.5], 54: [3, -4.5] }))!.AU12).toBeGreaterThan(0.9);
+        expect(estimate(face({ 48: [0, 3], 54: [0, 3] }))!.AU15).toBeGreaterThan(0.9);
+        expect(estimate(face({ 66: [0, 4.5] }))!.AU25).toBeGreaterThan(0.9);
     });
 
     it('returns null when face-api gives fewer than 68 points', () => {
-        expect(extractActionUnits68(face().slice(0, 67))).toBeNull();
+        expect(createActionUnitEstimator()(face().slice(0, 67))).toBeNull();
     });
 
     it('labels the sample with the top face-api expression and its action units', () => {

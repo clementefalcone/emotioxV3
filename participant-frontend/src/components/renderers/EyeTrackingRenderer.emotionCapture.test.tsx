@@ -88,7 +88,6 @@ vi.mock('../../lib/eyeTracking', () => ({
     computeMicroRecalibResidual: vi.fn(),
     detectMicroExpressions: vi.fn(() => []),
     isBlazeGazeCaptureResolutionLow: vi.fn(() => false),
-    extractActionUnitsFrom68: vi.fn(() => ({})),
 }));
 
 vi.mock('../../lib/eyeTracking/zoneRegistry', () => ({

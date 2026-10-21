@@ -430,95 +430,85 @@ export function downsampleEmotionTimeline(
 // face-api.js 68-landmark AU extraction
 // ---------------------------------------------------------------------------
 
-/**
- * face-api.js 68-landmark indices mapped to FACS-relevant facial points.
- * Reference: https://github.com/justadudewhohacks/face-api.js#68-point-face-landmark-positions
- */
-const FACE_API_68 = {
-  leftInnerBrow: 21,
-  leftMidBrow: 19,
-  leftOuterBrow: 17,
-  rightInnerBrow: 22,
-  rightMidBrow: 24,
-  rightOuterBrow: 26,
-
-  leftEyeInner: 39,
-  leftEyeTop: 37,     // upper lid (avg with 38)
-  leftEyeBottom: 41,   // lower lid (avg with 40)
-  rightEyeInner: 42,
-  rightEyeTop: 43,     // upper lid (avg with 44)
-  rightEyeBottom: 47,  // lower lid (avg with 46)
-
-  noseBottom: 33,
-
-  mouthLeft: 48,
-  mouthRight: 54,
-  mouthUpperLipTop: 51,
-  mouthLowerLipBottom: 57,
-  mouthCenterLower: 57,
-
-  chinBottom: 8,
-} as const;
-
-/** Point type compatible with face-api landmark positions */
 interface Point2D {
   x: number;
   y: number;
 }
 
-/**
- * Extract FACS Action Units from face-api.js 68-point landmarks.
- * Same AU computations as the MediaPipe version but with face-api indices.
- *
- * @param points - Array of 68 {x, y} positions from face-api.js FaceLandmarks68
- */
-export function extractActionUnitsFrom68(points: Point2D[]): ActionUnits | null {
+interface FaceMeasures {
+  innerBrowHeight: number;
+  outerBrowHeight: number;
+  browGap: number;
+  eyeOpening: number;
+  mouthWidth: number;
+  cornerLift: number;
+  lipGap: number;
+  jawDrop: number;
+}
+
+interface ActionUnitRule {
+  measure: keyof FaceMeasures;
+  direction: 1 | -1;
+  fullScale: number;
+}
+
+const ACTION_UNIT_BASELINE_SAMPLES = 10;
+
+const ACTION_UNIT_RULES: Record<keyof ActionUnits, ActionUnitRule> = {
+  AU1: { measure: 'innerBrowHeight', direction: 1, fullScale: 0.15 },
+  AU2: { measure: 'outerBrowHeight', direction: 1, fullScale: 0.15 },
+  AU4: { measure: 'browGap', direction: -1, fullScale: 0.10 },
+  AU6: { measure: 'eyeOpening', direction: -1, fullScale: 0.06 },
+  AU12: { measure: 'cornerLift', direction: 1, fullScale: 0.15 },
+  AU15: { measure: 'cornerLift', direction: -1, fullScale: 0.10 },
+  AU20: { measure: 'mouthWidth', direction: 1, fullScale: 0.25 },
+  AU25: { measure: 'lipGap', direction: 1, fullScale: 0.15 },
+  AU26: { measure: 'jawDrop', direction: 1, fullScale: 0.30 },
+};
+
+function measureFace68(points: Point2D[]): FaceMeasures | null {
   if (!points || points.length < 68) return null;
+  const distance = (a: number, b: number) => Math.hypot(points[a].x - points[b].x, points[a].y - points[b].y);
+  const reference = distance(39, 42);
+  if (reference <= 0) return null;
+  const meanY = (...indices: number[]) => indices.reduce((sum, index) => sum + points[index].y, 0) / indices.length;
+  return {
+    innerBrowHeight: (distance(21, 39) + distance(22, 42)) / 2 / reference,
+    outerBrowHeight: (distance(17, 36) + distance(26, 45)) / 2 / reference,
+    browGap: distance(21, 22) / reference,
+    eyeOpening: (distance(37, 41) + distance(38, 40) + distance(43, 47) + distance(44, 46)) / 4 / reference,
+    mouthWidth: distance(48, 54) / reference,
+    cornerLift: (meanY(62, 66) - meanY(48, 54)) / reference,
+    lipGap: distance(62, 66) / reference,
+    jawDrop: distance(33, 8) / reference,
+  };
+}
 
-  const d2 = (a: Point2D, b: Point2D) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+function medianMeasures(samples: readonly FaceMeasures[]): FaceMeasures {
+  const median = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+  const keys = Object.keys(samples[0]) as (keyof FaceMeasures)[];
+  return Object.fromEntries(keys.map(key => [key, median(samples.map(sample => sample[key]))])) as unknown as FaceMeasures;
+}
 
-  // Reference distance: inner eye corners
-  const rd = d2(points[FACE_API_68.leftEyeInner], points[FACE_API_68.rightEyeInner]) || 1e-5;
-
-  // AU1: Inner brow raiser
-  const leftBrowEyeL = d2(points[FACE_API_68.leftInnerBrow], points[FACE_API_68.leftEyeTop]) / rd;
-  const rightBrowEyeL = d2(points[FACE_API_68.rightInnerBrow], points[FACE_API_68.rightEyeTop]) / rd;
-  const au1 = clamp(((leftBrowEyeL + rightBrowEyeL) / 2 - 0.35) / 0.15);
-
-  // AU2: Outer brow raiser
-  const leftBrowEyeR = d2(points[FACE_API_68.leftOuterBrow], points[FACE_API_68.leftEyeTop]) / rd;
-  const rightBrowEyeR = d2(points[FACE_API_68.rightOuterBrow], points[FACE_API_68.rightEyeTop]) / rd;
-  const au2 = clamp(((leftBrowEyeR + rightBrowEyeR) / 2 - 0.35) / 0.15);
-
-  // AU4: Brow lowerer (inter-brow convergence)
-  const browConv = d2(points[FACE_API_68.leftMidBrow], points[FACE_API_68.rightMidBrow]) / rd;
-  const au4 = clamp((0.75 - browConv) / 0.15);
-
-  // AU6: Cheek raiser (eye aperture decrease)
-  const eyeHL = d2(points[FACE_API_68.leftEyeTop], points[FACE_API_68.leftEyeBottom]) / rd;
-  const eyeHR = d2(points[FACE_API_68.rightEyeTop], points[FACE_API_68.rightEyeBottom]) / rd;
-  const au6 = clamp((0.12 - (eyeHL + eyeHR) / 2) / 0.06);
-
-  // AU12: Lip corner puller (smile)
-  const mouthW = d2(points[FACE_API_68.mouthLeft], points[FACE_API_68.mouthRight]) / rd;
-  const au12 = clamp((mouthW - 0.50) / 0.20);
-
-  // AU15: Lip corner depressor
-  const mouthChinD = d2(points[FACE_API_68.mouthCenterLower], points[FACE_API_68.chinBottom]) / rd;
-  const au15 = clamp((mouthChinD - 0.55) / 0.15);
-
-  // AU20: Lip stretcher
-  const au20 = clamp((mouthW - 0.50) / 0.25);
-
-  // AU25: Lips part (mouth vertical opening)
-  const mouthH = d2(points[FACE_API_68.mouthUpperLipTop], points[FACE_API_68.mouthLowerLipBottom]) / rd;
-  const au25 = clamp((mouthH - 0.03) / 0.08);
-
-  // AU26: Jaw drop
-  const noseChinD = d2(points[FACE_API_68.noseBottom], points[FACE_API_68.chinBottom]) / rd;
-  const au26 = clamp((noseChinD - 0.90) / 0.20);
-
-  return { AU1: au1, AU2: au2, AU4: au4, AU6: au6, AU12: au12, AU15: au15, AU20: au20, AU25: au25, AU26: au26 };
+export function createActionUnitEstimator(): (points: Point2D[]) => ActionUnits | null {
+  const baselineSamples: FaceMeasures[] = [];
+  return points => {
+    const measures = measureFace68(points);
+    if (!measures) return null;
+    if (baselineSamples.length < ACTION_UNIT_BASELINE_SAMPLES) baselineSamples.push(measures);
+    const baseline = medianMeasures(baselineSamples);
+    const units = Object.fromEntries(
+      Object.entries(ACTION_UNIT_RULES).map(([unit, rule]) => [
+        unit,
+        clamp(rule.direction * (measures[rule.measure] - baseline[rule.measure]) / rule.fullScale),
+      ]),
+    ) as unknown as ActionUnits;
+    return { ...units, AU20: units.AU20 * (1 - units.AU12) };
+  };
 }
 
 // ---------------------------------------------------------------------------

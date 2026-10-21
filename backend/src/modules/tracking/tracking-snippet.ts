@@ -1021,26 +1021,46 @@ function calibrateGaze(recalibrations){
 }
 
 // FACS Action Units from face-api 68 landmarks (same formulas as the Eye Tracking module)
-var FACE_68={leftInnerBrow:21,leftMidBrow:19,leftOuterBrow:17,rightInnerBrow:22,rightMidBrow:24,rightOuterBrow:26,leftEyeInner:39,leftEyeTop:37,leftEyeBottom:41,rightEyeInner:42,rightEyeTop:43,rightEyeBottom:47,noseBottom:33,mouthLeft:48,mouthRight:54,mouthUpperLipTop:51,mouthLowerLipBottom:57,chinBottom:8};
-function extractActionUnits68(points){
+var AU_BASELINE_SAMPLES=10;
+var AU_RULES={AU1:["innerBrowHeight",1,0.15],AU2:["outerBrowHeight",1,0.15],AU4:["browGap",-1,0.10],AU6:["eyeOpening",-1,0.06],AU12:["cornerLift",1,0.15],AU15:["cornerLift",-1,0.10],AU20:["mouthWidth",1,0.25],AU25:["lipGap",1,0.15],AU26:["jawDrop",1,0.30]};
+function measureFace68(points){
     if(!points||points.length<68)return null;
-    var p=function(name){return points[FACE_68[name]];};
-    var dist=function(a,b){return Math.sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y));};
-    var clamp=function(v){return Math.max(0,Math.min(1,v));};
-    var rd=dist(p("leftEyeInner"),p("rightEyeInner"))||1e-5;
-    var mouthWidth=dist(p("mouthLeft"),p("mouthRight"))/rd;
+    var dist=function(a,b){return Math.sqrt((points[a].x-points[b].x)*(points[a].x-points[b].x)+(points[a].y-points[b].y)*(points[a].y-points[b].y));};
+    var ref=dist(39,42);
+    if(ref<=0)return null;
     return{
-        AU1:clamp(((dist(p("leftInnerBrow"),p("leftEyeTop"))+dist(p("rightInnerBrow"),p("rightEyeTop")))/2/rd-0.35)/0.15),
-        AU2:clamp(((dist(p("leftOuterBrow"),p("leftEyeTop"))+dist(p("rightOuterBrow"),p("rightEyeTop")))/2/rd-0.35)/0.15),
-        AU4:clamp((0.75-dist(p("leftMidBrow"),p("rightMidBrow"))/rd)/0.15),
-        AU6:clamp((0.12-(dist(p("leftEyeTop"),p("leftEyeBottom"))+dist(p("rightEyeTop"),p("rightEyeBottom")))/2/rd)/0.06),
-        AU12:clamp((mouthWidth-0.50)/0.20),
-        AU15:clamp((dist(p("mouthLowerLipBottom"),p("chinBottom"))/rd-0.55)/0.15),
-        AU20:clamp((mouthWidth-0.50)/0.25),
-        AU25:clamp((dist(p("mouthUpperLipTop"),p("mouthLowerLipBottom"))/rd-0.03)/0.08),
-        AU26:clamp((dist(p("noseBottom"),p("chinBottom"))/rd-0.90)/0.20)
+        innerBrowHeight:(dist(21,39)+dist(22,42))/2/ref,
+        outerBrowHeight:(dist(17,36)+dist(26,45))/2/ref,
+        browGap:dist(21,22)/ref,
+        eyeOpening:(dist(37,41)+dist(38,40)+dist(43,47)+dist(44,46))/4/ref,
+        mouthWidth:dist(48,54)/ref,
+        cornerLift:((points[62].y+points[66].y)/2-(points[48].y+points[54].y)/2)/ref,
+        lipGap:dist(62,66)/ref,
+        jawDrop:dist(33,8)/ref
     };
 }
+function medianOf(values){
+    var sorted=values.slice().sort(function(a,b){return a-b;});
+    var mid=Math.floor(sorted.length/2);
+    return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+function createActionUnitEstimator(){
+    var baselineSamples=[];
+    return function(points){
+        var measures=measureFace68(points);
+        if(!measures)return null;
+        if(baselineSamples.length<AU_BASELINE_SAMPLES)baselineSamples.push(measures);
+        var units={};
+        for(var unit in AU_RULES){
+            var rule=AU_RULES[unit];
+            var baseline=medianOf(baselineSamples.map(function(sample){return sample[rule[0]];}));
+            units[unit]=Math.max(0,Math.min(1,rule[1]*(measures[rule[0]]-baseline)/rule[2]));
+        }
+        units.AU20=units.AU20*(1-units.AU12);
+        return units;
+    };
+}
+var estimateActionUnits=createActionUnitEstimator();
 function roundTo3(value){return Math.round(value*1000)/1000;}
 function toEmotionSample(detection,timestamp){
     var best="neutral",bestScore=0,expressions={};
@@ -1049,7 +1069,7 @@ function toEmotionSample(detection,timestamp){
         expressions[EXPRESSION_MAP[key]]=roundTo3(detection.expressions[key]);
         if(detection.expressions[key]>bestScore){bestScore=detection.expressions[key];best=EXPRESSION_MAP[key];}
     }
-    var units=extractActionUnits68(detection.landmarks.positions)||{AU1:0,AU2:0,AU4:0,AU6:0,AU12:0,AU15:0,AU20:0,AU25:0,AU26:0};
+    var units=estimateActionUnits(detection.landmarks.positions)||{AU1:0,AU2:0,AU4:0,AU6:0,AU12:0,AU15:0,AU20:0,AU25:0,AU26:0};
     var actionUnits={};
     for(var unit in units)actionUnits[unit]=roundTo3(units[unit]);
     return{timestamp:timestamp,emotion:best,confidence:roundTo3(bestScore),expressions:expressions,actionUnits:actionUnits};
@@ -1123,6 +1143,7 @@ function startSampling(){
 
 function beginCapture(){
     isCaptureStarted=true;
+    estimateActionUnits=createActionUnitEstimator();
     startSampling();
     if(C.emotions&&C.emoVideo&&emoStream)startEmoRecording(emoStream);
 }

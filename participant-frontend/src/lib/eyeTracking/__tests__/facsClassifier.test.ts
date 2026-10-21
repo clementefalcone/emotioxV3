@@ -3,7 +3,7 @@ import {
   classifyEmotion,
   aggregateEmotionTimeline,
   downsampleEmotionTimeline,
-  extractActionUnitsFrom68,
+  createActionUnitEstimator,
   extractActionUnits,
   extractEmotionFromFrame,
 } from '../facsClassifier';
@@ -55,20 +55,6 @@ function makeLandmarks(
     landmarks[Number(idx)] = { x: coords.x, y: coords.y, z: coords.z ?? 0, visibility: 1 };
   }
   return landmarks;
-}
-
-/**
- * Generate a 68-length face-api.js landmark array.
- * All points default to (0.5, 0.5). Override via `overrides`.
- */
-function make68Points(
-  overrides: Record<number, { x: number; y: number }> = {},
-): { x: number; y: number }[] {
-  const points = Array.from({ length: 68 }, () => ({ x: 0.5, y: 0.5 }));
-  for (const [idx, coords] of Object.entries(overrides)) {
-    points[Number(idx)] = { x: coords.x, y: coords.y };
-  }
-  return points;
 }
 
 // ---------------------------------------------------------------------------
@@ -292,57 +278,69 @@ describe('downsampleEmotionTimeline', () => {
 });
 
 // ---------------------------------------------------------------------------
-// extractActionUnitsFrom68 (face-api.js)
+// createActionUnitEstimator (face-api.js 68 landmarks)
 // ---------------------------------------------------------------------------
 
-describe('extractActionUnitsFrom68', () => {
-  it('null input returns null', () => {
-    expect(extractActionUnitsFrom68(null as unknown as { x: number; y: number }[])).toBeNull();
+type Face68 = { x: number; y: number }[];
+
+const NEUTRAL_FACE: Record<number, [number, number]> = {
+  17: [52, 80], 26: [148, 80], 21: [88, 85], 22: [112, 85],
+  36: [55, 100], 39: [85, 100], 42: [115, 100], 45: [145, 100],
+  37: [65, 97.3], 38: [75, 97.3], 41: [65, 102.7], 40: [75, 102.7],
+  43: [125, 97.3], 44: [135, 97.3], 47: [125, 102.7], 46: [135, 102.7],
+  33: [100, 125], 48: [81, 150], 54: [119, 150], 62: [100, 150], 66: [100, 150.6], 8: [100, 173],
+};
+
+function makeFace(moves: Record<number, [number, number]> = {}): Face68 {
+  const points = Array.from({ length: 68 }, () => ({ x: 100, y: 120 }));
+  for (const [index, [x, y]] of Object.entries(NEUTRAL_FACE)) points[Number(index)] = { x, y };
+  for (const [index, [dx, dy]] of Object.entries(moves)) {
+    points[Number(index)] = { x: points[Number(index)].x + dx, y: points[Number(index)].y + dy };
+  }
+  return points;
+}
+
+function estimatorAfterNeutralBaseline() {
+  const estimate = createActionUnitEstimator();
+  for (let frame = 0; frame < 10; frame++) estimate(makeFace({ 48: [0, (frame % 3) * 0.1] }));
+  return estimate;
+}
+
+describe('createActionUnitEstimator', () => {
+  it('returns null for fewer than 68 points', () => {
+    expect(createActionUnitEstimator()(makeFace().slice(0, 67))).toBeNull();
   });
 
-  it('too short array returns null', () => {
-    const short = Array.from({ length: 30 }, () => ({ x: 0, y: 0 }));
-    expect(extractActionUnitsFrom68(short)).toBeNull();
+  it('reads a resting face with real proportions as no activation', () => {
+    const units = estimatorAfterNeutralBaseline()(makeFace())!;
+    for (const value of Object.values(units)) expect(value).toBeLessThan(0.05);
   });
 
-  it('empty array returns null', () => {
-    expect(extractActionUnitsFrom68([])).toBeNull();
+  it.each<[string, Record<number, [number, number]>, keyof ActionUnits]>([
+    ['raised inner brows', { 21: [0, -4.5], 22: [0, -4.5] }, 'AU1'],
+    ['raised outer brows', { 17: [0, -4.5], 26: [0, -4.5] }, 'AU2'],
+    ['brows pulled together', { 21: [3, 0], 22: [-3, 0] }, 'AU4'],
+    ['narrowed eyes', { 37: [0, 1], 38: [0, 1], 43: [0, 1], 44: [0, 1], 41: [0, -0.8], 40: [0, -0.8], 47: [0, -0.8], 46: [0, -0.8] }, 'AU6'],
+    ['lip corners pulled up', { 48: [-3, -4.5], 54: [3, -4.5] }, 'AU12'],
+    ['lip corners pulled down', { 48: [0, 3], 54: [0, 3] }, 'AU15'],
+    ['lips stretched sideways', { 48: [-4, 0], 54: [4, 0] }, 'AU20'],
+    ['lips parted', { 66: [0, 4.5] }, 'AU25'],
+    ['jaw dropped', { 66: [0, 9], 8: [0, 9] }, 'AU26'],
+  ])('%s activates %s', (_, moves, unit) => {
+    expect(estimatorAfterNeutralBaseline()(makeFace(moves))![unit]).toBeGreaterThan(0.9);
   });
 
-  it('valid 68 points returns ActionUnits with all fields in [0, 1]', () => {
-    // Set eye inner corners apart for a meaningful refDist
-    const points = make68Points({
-      39: { x: 0.35, y: 0.4 }, // leftEyeInner
-      42: { x: 0.65, y: 0.4 }, // rightEyeInner
-    });
-    const result = extractActionUnitsFrom68(points);
-    expect(result).not.toBeNull();
-    const auKeys: (keyof ActionUnits)[] = ['AU1', 'AU2', 'AU4', 'AU6', 'AU12', 'AU15', 'AU20', 'AU25', 'AU26'];
-    for (const key of auKeys) {
-      expect(result![key]).toBeGreaterThanOrEqual(0);
-      expect(result![key]).toBeLessThanOrEqual(1);
-    }
+  it('keeps a smile apart from the opposite and from a plain stretch', () => {
+    const smile = estimatorAfterNeutralBaseline()(makeFace({ 48: [-3, -4.5], 54: [3, -4.5] }))!;
+    expect(smile.AU15).toBe(0);
+    expect(smile.AU20).toBeLessThan(0.05);
   });
 
-  it('exactly 68 points is accepted', () => {
-    const points = make68Points({
-      39: { x: 0.3, y: 0.4 },
-      42: { x: 0.7, y: 0.4 },
-    });
-    expect(points).toHaveLength(68);
-    expect(extractActionUnitsFrom68(points)).not.toBeNull();
-  });
-
-  it('more than 68 points is accepted', () => {
-    const points = [
-      ...make68Points({ 39: { x: 0.3, y: 0.4 }, 42: { x: 0.7, y: 0.4 } }),
-      { x: 0.5, y: 0.5 }, // extra point
-    ];
-    expect(points).toHaveLength(69);
-    expect(extractActionUnitsFrom68(points)).not.toBeNull();
+  it('starts a fresh baseline for each estimator', () => {
+    const smiling = makeFace({ 48: [-3, -4.5], 54: [3, -4.5] });
+    expect(createActionUnitEstimator()(smiling)!.AU12).toBe(0);
   });
 });
-
 // ---------------------------------------------------------------------------
 // extractActionUnits (MediaPipe 468)
 // ---------------------------------------------------------------------------
