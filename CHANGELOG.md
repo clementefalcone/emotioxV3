@@ -1,3 +1,12 @@
+## v0.99.15 — Public results link works without signing in (2026-10-21)
+
+### fix(results): opt-in public results per study
+- **Root cause.** `/research/results/:id` loaded its tabs from `/public/analytics/...`, but the router passed those requests to the regular analytics controller, which starts with `requireAuth`. Anonymous viewers got `401 No token provided` on every panel; since `cbfc4f3` (Oct 4) a signed-in viewer also had to own or collaborate on the study. Reproduced on production with study `dd5420e1` (screener, cognitive-tasks, implicit-association, demographics: 401).
+- **Fix.** New study flag `researches.config.publicResults` (off by default). `handleAnalyticsRoutes(event, isPublicRequest)`: public requests skip the session only for `GET` on a single study's results, and only when the flag is on; anything else answers 404 (`public_results_denied` log). `/public/research/:id/results-meta` follows the same flag.
+- **UI.** Results "Share" turns the flag on and copies the link (`ShareResultsButton`). When public, the button reads "Copy public link" with a lock button to make the results private again. The public page says "These results are not public or no longer exist" on 404.
+- **Not public.** The completion filter (`/research/:id/participants/status`) still needs a session; on the public page it stays empty.
+- **Tests.** Backend analytics controller +3 (public on, public off, writes/enterprise refused). Research-frontend `ShareResultsButton` (2). Backend 667 → 670, research-frontend 677 → 679, 0 failing.
+
 ## v0.99.14 — Eye Tracking calibration: every frame of each dot (2026-10-21)
 
 ### fix(eye-tracking): calibration samples per frame, ridge λ 10 → 1
