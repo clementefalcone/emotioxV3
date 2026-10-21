@@ -1,3 +1,12 @@
+## v0.99.13 — Action Units measured against each participant's neutral face (2026-10-21)
+
+### fix(emotions): AUs no longer stuck at 0/1
+- **Root cause.** All 193 samples of the 21-10 test had identical AUs (AU1, AU2, AU12, AU15, AU20, AU25, AU26 = 1; AU4, AU6 = 0). `extractActionUnitsFrom68` divided by the inner eye corner distance but its thresholds fit a reference ~3× larger. Measured with face-api on 62 real neutral frames (Mac + phone videos): mouth width 1.23–1.31 vs a 0.50–0.70 ramp, nose–chin 1.56–1.70 vs 0.90–1.10, etc. AU25 measured lip thickness, AU15 lip-to-chin distance, AU12 and AU20 the same width.
+- **Fix.** `createActionUnitEstimator`: baseline = median of the participant's first 10 detections; each AU = change from it over a full-activation scale (`ACTION_UNIT_RULES`). Measures: brow heights over the eye corners, inner brow gap (AU4), eyelid opening (AU6), corner lift vs. lip center (AU12 up / AU15 down), width without lift (AU20), inner lip gap (AU25), nose–chin (AU26). Baseline resets per session. Same ES5 port in the Website Tracking snippet (max difference 5.6e-15 on the real frames).
+- **Check.** Real neutral frames: AU medians 0–0.15 (were 0/1).
+- **Provisional.** Full-activation scales are literature estimates; calibrate with an expressive recording. Samples saved before this keep the saturated values.
+- **Tests.** Participant: estimator (13) with a face built from the measured neutral proportions. Backend snippet: 4 rewritten. Participant 1113 → 1120, backend 667 → 667, 0 failing.
+
 ## v0.99.12 — Eye Tracking: face distance in centimeters (2026-10-20)
 
 ### feat(eye-tracking): face guide asks for a distance in cm
