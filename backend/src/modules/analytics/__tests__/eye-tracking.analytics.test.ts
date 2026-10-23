@@ -74,7 +74,9 @@ function buildRow(pid: string, opts: {
   viewportHeight?: number;
   fixationUnit?: string;
   shelfColumnOrder?: unknown;
+  gazeTimelineUnit?: string | null;
 } = {}) {
+  const gazeTimelineUnit = opts.gazeTimelineUnit === undefined ? 'stimulus-percent' : opts.gazeTimelineUnit;
   return {
     participant_id: pid,
     value: JSON.stringify({
@@ -88,6 +90,7 @@ function buildRow(pid: string, opts: {
       ...(opts.v3 ? { v3: opts.v3 } : {}),
       ...(opts.stimulusType ? { stimulusType: opts.stimulusType } : {}),
       ...(opts.gazeTimeline ? { gazeTimeline: opts.gazeTimeline } : {}),
+      ...(opts.gazeTimeline && gazeTimelineUnit ? { gazeTimelineUnit } : {}),
       ...(opts.videoEnded !== undefined ? { videoEnded: opts.videoEnded } : {}),
       ...(opts.viewportWidth !== undefined ? { viewportWidth: opts.viewportWidth } : {}),
       ...(opts.viewportHeight !== undefined ? { viewportHeight: opts.viewportHeight } : {}),
@@ -1231,6 +1234,20 @@ describe('getEyeTrackingResults', () => {
       expect(vq.videoDurationS).toBe(2.0);
       // 500ms bins for 2s video = 4 bins. Occupied: 0, 1, 2, 4 => bins 0,1,2,4 = 4 unique out of 4
       expect(vq.gazeCoverage).toBeGreaterThan(0);
+    });
+
+    it('leaves out gaze timelines saved in screen pixels, which cannot be placed on the video', async () => {
+      const row = buildRow('p1', {
+        stimulusType: 'video',
+        gazeTimeline: [{ x: 640, y: 360, t: 0, videoTime: 0.5 }],
+        gazeTimelineUnit: null,
+      });
+      setupStandardMocks({ responses: [[row]] });
+
+      const result = await getEyeTrackingResults('research-1');
+
+      expect(result.stimuli[0].stimulusType).toBe('video');
+      expect(result.stimuli[0].gazeTimeline).toBeUndefined();
     });
 
     it('does not set videoQuality for image stimuli', async () => {

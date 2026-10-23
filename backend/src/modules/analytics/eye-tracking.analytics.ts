@@ -790,7 +790,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
           videoTotal++;
           if (parsed.videoEnded === true) videoCompleted++;
         }
-        if (parsed?.gazeTimeline && Array.isArray(parsed.gazeTimeline)) {
+        if (parsed?.gazeTimelineUnit === 'stimulus-percent' && Array.isArray(parsed.gazeTimeline)) {
           for (const pt of parsed.gazeTimeline) {
             gazeTimeline.push({ ...pt, participantId: row.participant_id });
           }
