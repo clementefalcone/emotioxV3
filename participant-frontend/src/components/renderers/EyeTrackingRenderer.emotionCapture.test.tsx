@@ -145,8 +145,10 @@ vi.mock('./eye-tracking/CalibrationPhase', () => ({
     ),
 }));
 vi.mock('./eye-tracking/ViewingPhase', () => ({
-    ViewingPhase: ({ imgRef, stimulusVideoRef, isVideo }: { imgRef: React.RefObject<HTMLImageElement>; stimulusVideoRef: React.RefObject<HTMLVideoElement>; isVideo: boolean }) =>
-        isVideo ? <video data-testid="viewing-phase" ref={stimulusVideoRef} /> : <img data-testid="viewing-phase" ref={imgRef} alt="" />,
+    ViewingPhase: ({ imgRef, stimulusVideoRef, isVideo, shelfConfig }: { imgRef: React.RefObject<HTMLImageElement>; stimulusVideoRef: React.RefObject<HTMLVideoElement>; isVideo: boolean; shelfConfig: { columns: string[] } | null }) =>
+        isVideo
+            ? <video data-testid="viewing-phase" ref={stimulusVideoRef} />
+            : <img data-testid="viewing-phase" data-shelf-columns={shelfConfig?.columns.join(',')} ref={imgRef} alt="" />,
 }));
 vi.mock('./eye-tracking/CompletePhase', () => ({
     CompletePhase: () => <div data-testid="complete-phase" />,
@@ -515,6 +517,30 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.stimulusType).toBe('shelf');
         expect(saved.shelfRepetitions).toBe(2);
         expect([...saved.shelfColumnOrder].sort()).toEqual([0, 1, 2, 3, 4]);
+    });
+
+    it('keeps the shuffled shelf in place for the whole viewing, even when the module is passed again', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+        const shelfModule = makeModule('false');
+        shelfModule.structure.components = [
+            { id: 'stimuli', type: 'file-upload', value: JSON.stringify([{ s3Key: 'a.jpg' }, { s3Key: 'b.jpg' }, { s3Key: 'c.jpg' }, { s3Key: 'd.jpg' }, { s3Key: 'e.jpg' }]) },
+            { id: 'emotion-recognition', type: 'toggle', value: 'false' },
+            { id: 'priming-time', type: 'text', value: '15' },
+            { id: 'shelf-items', type: 'select', value: '5' },
+            { id: 'randomize-stimuli', type: 'checkbox', value: 'true' },
+        ];
+
+        const { getByTestId, rerender } = render(<EyeTrackingRenderer module={shelfModule} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        const shownAtStart = getByTestId('viewing-phase').getAttribute('data-shelf-columns');
+
+        rerender(<EyeTrackingRenderer module={{ ...shelfModule, structure: { components: [...shelfModule.structure.components] } }} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(13000); });
+
+        expect(shownAtStart).toBeTruthy();
+        expect(getByTestId('viewing-phase').getAttribute('data-shelf-columns')).toBe(shownAtStart);
     });
 
     it('saves no emotion data when emotion recognition is off', async () => {
