@@ -5,7 +5,28 @@
 
 ---
 
-## Última actualización: 2026-07-27 (sesión 50)
+## Última actualización: 2026-10-23 (sesión 51)
+
+---
+
+## Sesión 51: 23 de octubre de 2026 — Eye Tracking Shelf y unidad de la mirada (v0.99.16)
+
+**Origen:** "Eye Tracking modo shelf está cortando las imágenes". La revisión llevó a un error mayor: cada lado usaba una unidad distinta para la posición de la mirada.
+
+### Qué se hizo
+- Shelf sin recorte (`object-contain`, celdas con la proporción del primer producto, góndola completa en pantalla) y sin reordenamiento en teléfono.
+- Una regla única de columnas (`shelfLayout`) en builder, participante, backend y resultados. Barajado una vez por participante, orden guardado en `shelfColumnOrder`.
+- Fijaciones y mirada en video guardadas en porcentaje del estímulo (`fixationUnit` / `gazeTimelineUnit: 'stimulus-percent'`).
+- Detalle en CHANGELOG v0.99.16. Desplegado en orden: backend → participant → research.
+
+### Decisiones
+- **Orden de despliegue obligatorio:** backend antes que participant. Participant nuevo con backend viejo divide porcentajes por la pantalla.
+- **Datos viejos no se migran:** las 17 respuestas Shelf previas son de prueba; no guardaron orden ni tamaño de la góndola, no son recuperables.
+- **Teléfono:** misma góndola que escritorio, más chica, en vez de guardar el layout por respuesta.
+
+### Pendientes
+- Verificar con una sesión real con cámara (Shelf y video) que las respuestas nuevas guardan `fixationUnit`, `shelfColumnOrder` y `gazeTimelineUnit`.
+- Estudio archivado `0f300142`: 9 productos en 3 columnas, 6 nunca se mostraron.
 
 ---
 
