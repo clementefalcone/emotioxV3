@@ -72,6 +72,10 @@ import { CompletePhase } from './eye-tracking/CompletePhase';
 // Helpers
 // ---------------------------------------------------------------------------
 
+function toStimulusPercent(offsetPx: number, sizePx: number): number {
+    return sizePx > 0 ? Math.round((offsetPx / sizePx) * 10000) / 100 : 0;
+}
+
 function fisherYatesShuffle<T>(arr: T[]): T[] {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -686,8 +690,12 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 ...(isVideo && { videoEnded: videoEndedRef.current }),
                 ...(isShelf && { displayMode, shelfCount, shelfItems, shelfRepetitions, shelfColumnOrder, stimulusCount: resolvedShelfUrls.length }),
                 gazeTimeline: isVideo ? gazePointsRef.current.map(p => ({
-                    x: p.x, y: p.y, t: p.t, videoTime: p.videoTime,
+                    x: toStimulusPercent(p.x - effectiveRect.left, effectiveRect.width),
+                    y: toStimulusPercent(p.y - effectiveRect.top, effectiveRect.height),
+                    t: p.t,
+                    videoTime: p.videoTime,
                 })) : undefined,
+                ...(isVideo && { gazeTimelineUnit: 'stimulus-percent' }),
             };
 
             // V2 zone-event response (when enabled, alongside V1 for backward compat)

@@ -145,7 +145,8 @@ vi.mock('./eye-tracking/CalibrationPhase', () => ({
     ),
 }));
 vi.mock('./eye-tracking/ViewingPhase', () => ({
-    ViewingPhase: ({ imgRef }: { imgRef: React.RefObject<HTMLImageElement> }) => <img data-testid="viewing-phase" ref={imgRef} alt="" />,
+    ViewingPhase: ({ imgRef, stimulusVideoRef, isVideo }: { imgRef: React.RefObject<HTMLImageElement>; stimulusVideoRef: React.RefObject<HTMLVideoElement>; isVideo: boolean }) =>
+        isVideo ? <video data-testid="viewing-phase" ref={stimulusVideoRef} /> : <img data-testid="viewing-phase" ref={imgRef} alt="" />,
 }));
 vi.mock('./eye-tracking/CompletePhase', () => ({
     CompletePhase: () => <div data-testid="complete-phase" />,
@@ -472,6 +473,24 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
         expect(saved.fixationUnit).toBe('stimulus-percent');
         expect(saved.fixations[0]).toMatchObject({ x: 30, y: 27 });
+    });
+
+    it('saves the video gaze timeline as a percentage of the video', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+        const videoModule = makeModule('false');
+        videoModule.structure.components[0] = { id: 'stimuli', type: 'file-upload', value: JSON.stringify([{ s3Key: 'clip.mp4' }]) };
+
+        render(<EyeTrackingRenderer module={videoModule} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.stimulusType).toBe('video');
+        expect(saved.gazeTimelineUnit).toBe('stimulus-percent');
+        expect(saved.gazeTimeline.length).toBeGreaterThan(0);
+        expect(saved.gazeTimeline[0]).toMatchObject({ x: 30, y: 26.67 });
     });
 
     it('saves the shelf column order shown to the participant', async () => {
