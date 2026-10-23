@@ -456,6 +456,48 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.fixations[0].timestamp).toBeLessThan(1000);
     });
 
+    it('saves fixations as a percentage of the stimulus', async () => {
+        const actual = await vi.importActual<typeof import('../../lib/eyeTracking')>('../../lib/eyeTracking');
+        vi.mocked(detectFixationsIDT).mockImplementation(((points: { x: number; y: number; t: number }[]) =>
+            points.length ? [{ x: points[0].x, y: points[0].y, duration: 200, timestamp: points[0].t, pointCount: 2 }] : []) as unknown as typeof detectFixationsIDT);
+        vi.mocked(mapFixationsToImageCoords).mockImplementation(actual.mapFixationsToImageCoords);
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.fixationUnit).toBe('stimulus-percent');
+        expect(saved.fixations[0]).toMatchObject({ x: 30, y: 27 });
+    });
+
+    it('saves the shelf column order shown to the participant', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+        const shelfModule = makeModule('false');
+        shelfModule.structure.components = [
+            { id: 'stimuli', type: 'file-upload', value: JSON.stringify([{ s3Key: 'a.jpg' }, { s3Key: 'b.jpg' }, { s3Key: 'c.jpg' }]) },
+            { id: 'emotion-recognition', type: 'toggle', value: 'false' },
+            { id: 'priming-time', type: 'text', value: '5' },
+            { id: 'shelf-items', type: 'select', value: '5' },
+            { id: 'shelf-repetitions', type: 'select', value: '2' },
+            { id: 'randomize-stimuli', type: 'checkbox', value: 'true' },
+        ];
+
+        render(<EyeTrackingRenderer module={shelfModule} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.stimulusType).toBe('shelf');
+        expect(saved.shelfRepetitions).toBe(2);
+        expect([...saved.shelfColumnOrder].sort()).toEqual([0, 1, 2, 3, 4]);
+    });
+
     it('saves no emotion data when emotion recognition is off', async () => {
         vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
         mockMPGaze.gazeState = 'open';

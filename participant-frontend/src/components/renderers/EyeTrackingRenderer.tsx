@@ -65,6 +65,7 @@ import { FACE_DISTANCE_RANGES_CM, estimateFaceDistanceCm } from './eye-tracking/
 import { PreparingPhase } from './eye-tracking/PreparingPhase';
 import { CalibrationPhase } from './eye-tracking/CalibrationPhase';
 import { ViewingPhase } from './eye-tracking/ViewingPhase';
+import { buildShelfColumns, orderShelfColumns } from './eye-tracking/shelfLayout';
 import { CompletePhase } from './eye-tracking/CompletePhase';
 
 // ---------------------------------------------------------------------------
@@ -90,8 +91,12 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     const deviceType = useMemo(() => getDeviceType(), []);
 
-    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, shelfRotationInterval, hasEmotionRecognition, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
+    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
     const isShelf = displayMode === 'shelf';
+    const shelfColumnOrder = useMemo(() => {
+        const positions = Array.from({ length: shelfItems }, (_, column) => column);
+        return randomizeStimuli ? fisherYatesShuffle(positions) : positions;
+    }, [shelfItems, randomizeStimuli]);
 
     // Skip intro/setup/calibration if a recent ET calibration exists (consecutive ET modules)
     const cachedCalibration = useMemo(() => recallCalibration(module.id), [module.id]);
@@ -106,7 +111,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const shelfContainerRef = useRef<HTMLDivElement>(null);
     const calibrationAreaRef = useRef<HTMLDivElement>(null);
     const savedRef = useRef(false);
-    const naturalSizeRef = useRef<{ w: number; h: number } | null>(null);
     const completeTimerRef = useRef<number | null>(null);
     /** Snapshot of image bounding rect captured during viewing phase (before complete hides the image). */
     const viewingRectRef = useRef<DOMRect | null>(null);
@@ -258,18 +262,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         const resolveAll = async () => {
             const resolved = await Promise.all(urlsToResolve.map(resolveOne));
             if (cancelled) return;
-            if (isShelf) {
-                const final = randomizeStimuli ? fisherYatesShuffle(resolved) : resolved;
-                setResolvedShelfUrls(final);
-                setResolvedUrl(final[0] || '');
-            } else {
-                setResolvedUrl(resolved[0] || '');
-            }
+            if (isShelf) setResolvedShelfUrls(resolved);
+            setResolvedUrl(resolved[0] || '');
         };
 
         resolveAll();
         return () => { cancelled = true; };
-    }, [stimulusUrl, stimulusUrls, isShelf, randomizeStimuli]);
+    }, [stimulusUrl, stimulusUrls, isShelf]);
 
     /** Keep latest smoothed gaze for hybrid calibration samples (desktop).
      *  Reads from gaze.gazePosRef (updated every frame, no re-render). */
@@ -631,16 +630,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             const stimEl = getStimulusElement();
             const liveRect = stimEl?.getBoundingClientRect();
             const rect = (liveRect && liveRect.width > 0) ? liveRect : viewingRectRef.current;
-            const natW = isShelf
-                ? (naturalSizeRef.current?.w || rect?.width || 1)
-                : isVideo
-                    ? (stimulusVideoRef.current?.videoWidth || 1)
-                    : (naturalSizeRef.current?.w || imgRef.current?.naturalWidth || 1);
-            const natH = isShelf
-                ? (naturalSizeRef.current?.h || rect?.height || 1)
-                : isVideo
-                    ? (stimulusVideoRef.current?.videoHeight || 1)
-                    : (naturalSizeRef.current?.h || imgRef.current?.naturalHeight || 1);
 
             const residuals = calibrationResidualsRef.current;
             const effectiveRect = rect ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
@@ -662,9 +651,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
             // I-DT fixations for backward compatibility
             const viewportFixations = detectFixationsIDT(gazePointsRef.current);
-            const finalFixations: Fixation[] = effectiveRect.width > 0 && effectiveRect.height > 0
-                ? mapFixationsToImageCoords(viewportFixations, effectiveRect, natW, natH)
-                : viewportFixations;
+            const finalFixations: Fixation[] = mapFixationsToImageCoords(viewportFixations, effectiveRect, 100, 100);
             const calibrationQuality = `${useMP ? 'mediapipe' : 'blazegaze'}-${calibrationResidualsRef.current.length}pt`;
 
             // --- Build response payload ---
@@ -683,6 +670,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 deviceType,
                 gazePointCount: gazePointsRef.current.length,
                 fixationCount: finalFixations.length,
+                fixationUnit: 'stimulus-percent',
                 fixationMethod: 'idt',
                 gazePipeline: 'hybrid-zone-idt',
                 calibrationRmsePx: calibrationRmsePxRef.current,
@@ -696,7 +684,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 viewportHeight: window.innerHeight,
                 stimulusType: isShelf ? 'shelf' : isVideo ? 'video' : 'image',
                 ...(isVideo && { videoEnded: videoEndedRef.current }),
-                ...(isShelf && { displayMode, shelfCount, shelfItems, stimulusCount: resolvedShelfUrls.length }),
+                ...(isShelf && { displayMode, shelfCount, shelfItems, shelfRepetitions, shelfColumnOrder, stimulusCount: resolvedShelfUrls.length }),
                 gazeTimeline: isVideo ? gazePointsRef.current.map(p => ({
                     x: p.x, y: p.y, t: p.t, videoTime: p.videoTime,
                 })) : undefined,
@@ -787,24 +775,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             }, 1200);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getStimulusElement/fixations.length read refs; additional props are stable at phase=complete
-    }, [phase, module.id, saveResponse, onComplete, blaze, stopCamera, deviceType, displayMode, faceEmotions, hasEmotionRecognition, isShelf, isVideo, resolvedShelfUrls.length, shelfCount, shelfItems]);
-
-    const handleImageLoad = useCallback(() => {
-        if (imgRef.current) {
-            const size = {
-                w: imgRef.current.naturalWidth,
-                h: imgRef.current.naturalHeight,
-            };
-            naturalSizeRef.current = size;
-        }
-    }, []);
-
-    const handleVideoLoadedMetadata = useCallback(() => {
-        if (stimulusVideoRef.current) {
-            const v = stimulusVideoRef.current;
-            naturalSizeRef.current = { w: v.videoWidth, h: v.videoHeight };
-        }
-    }, []);
+    }, [phase, module.id, saveResponse, onComplete, blaze, stopCamera, deviceType, displayMode, faceEmotions, hasEmotionRecognition, isShelf, isVideo, resolvedShelfUrls.length, shelfCount, shelfItems, shelfRepetitions, shelfColumnOrder]);
 
     const handleVideoEnded = useCallback(() => {
         videoEndedRef.current = true;
@@ -816,14 +787,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         if (isVideo) return stimulusVideoRef.current;
         return imgRef.current;
     }, [isShelf, isVideo]);
-
-    const handleShelfAllLoaded = useCallback(() => {
-        if (shelfContainerRef.current) {
-            const rect = shelfContainerRef.current.getBoundingClientRect();
-            const size = { w: Math.round(rect.width), h: Math.round(rect.height) };
-            naturalSizeRef.current = size;
-        }
-    }, []);
 
     const CALIBRATION_POINT_MS = 2500;
     const CALIBRATION_SETTLE_MS = 500;
@@ -964,7 +927,11 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     // -----------------------------------------------------------------------
 
     const shelfConfig = isShelf && resolvedShelfUrls.length > 0
-        ? { shelfCount, shelfItems, repetitions: shelfRepetitions, urls: resolvedShelfUrls, containerRef: shelfContainerRef, onAllLoaded: handleShelfAllLoaded, rotationInterval: randomizeStimuli ? shelfRotationInterval : 0 }
+        ? {
+            shelfCount,
+            columns: orderShelfColumns(buildShelfColumns(resolvedShelfUrls, shelfItems, shelfRepetitions), shelfColumnOrder),
+            containerRef: shelfContainerRef,
+        }
         : null;
 
     let phaseContent: React.ReactNode = null;
@@ -1024,8 +991,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 imgRef={imgRef}
                 stimulusVideoRef={stimulusVideoRef}
                 containerRef={containerRef}
-                onImageLoad={handleImageLoad}
-                onVideoLoadedMetadata={handleVideoLoadedMetadata}
                 onVideoEnded={handleVideoEnded}
                 shelfConfig={shelfConfig}
             />

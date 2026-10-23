@@ -23,12 +23,8 @@ export interface Fixation {
 
 export interface ShelfConfig {
     shelfCount: number;
-    shelfItems: number;
-    repetitions?: number;
-    urls: string[];
+    columns: string[];
     containerRef: React.RefObject<HTMLDivElement | null>;
-    onAllLoaded: () => void;
-    rotationInterval?: number;
 }
 
 /**
@@ -157,9 +153,6 @@ export const extractConfig = (module: ModuleConfig) => {
     const shelfRepetitionsComp = components.find(c => c.id === 'shelf-repetitions');
     const shelfRepetitions = shelfRepetitionsComp ? parseInt(getComponentText(shelfRepetitionsComp), 10) || 1 : 1;
 
-    const rotationComp = components.find(c => c.id === 'shelf-rotation-interval');
-    const shelfRotationInterval = rotationComp ? Math.max(5, parseInt(getComponentText(rotationComp), 10) || 8) : 8;
-
     // Feature toggles
     const emotionRecognition = components.find(c => c.id === 'emotion-recognition');
     const hasEmotionRecognition = emotionRecognition ? getComponentText(emotionRecognition) === 'true' : true;
@@ -183,5 +176,5 @@ export const extractConfig = (module: ModuleConfig) => {
         }
     }
 
-    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, shelfRotationInterval, hasEmotionRecognition, hasAttentionMeasurement, isVideo, hasUploadError };
+    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasAttentionMeasurement, isVideo, hasUploadError };
 };

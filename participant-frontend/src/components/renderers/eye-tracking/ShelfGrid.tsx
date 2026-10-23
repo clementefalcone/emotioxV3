@@ -1,109 +1,63 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
-
-function fisherYatesShuffle<T>(arr: T[]): T[] {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-}
+import React, { useCallback, useState } from 'react';
 
 export interface ShelfGridProps {
-    urls: string[];
+    columns: string[];
     shelfCount: number;
-    shelfItems: number;
-    repetitions?: number;
     blur?: boolean;
     opacity?: number;
     className?: string;
     style?: React.CSSProperties;
-    onAllLoaded?: () => void;
     containerRef?: React.RefObject<HTMLDivElement | null>;
-    rotationInterval?: number;
 }
 
 export const ShelfGrid: React.FC<ShelfGridProps> = ({
-    urls,
+    columns,
     shelfCount,
-    shelfItems,
-    repetitions = 1,
     blur = false,
     opacity,
     className = '',
     style,
-    onAllLoaded,
     containerRef,
-    rotationInterval = 0,
 }) => {
-    const expandedUrls = React.useMemo(() => {
-        if (repetitions <= 1) return urls;
-        const result: string[] = [];
-        for (const url of urls) {
-            for (let i = 0; i < repetitions; i++) result.push(url);
-        }
-        return result;
-    }, [urls, repetitions]);
-
-    const [displayUrls, setDisplayUrls] = useState(expandedUrls);
-
-    useEffect(() => {
-        setDisplayUrls(expandedUrls);
-    }, [expandedUrls]);
-
-    useEffect(() => {
-        if (rotationInterval < 5 || displayUrls.length < 2) return;
-        const timer = setInterval(() => {
-            setDisplayUrls(prev => fisherYatesShuffle(prev));
-        }, rotationInterval * 1000);
-        return () => clearInterval(timer);
-    }, [rotationInterval, displayUrls.length]);
-
-    const effectiveCols = shelfItems;
-
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const maxCols = isMobile ? Math.min(effectiveCols, 4) : effectiveCols;
-    const effectiveRows = isMobile && effectiveCols > maxCols
-        ? Math.ceil((effectiveCols * shelfCount) / maxCols)
-        : shelfCount;
+    const [cellAspect, setCellAspect] = useState(1);
+    const gridAspect = (columns.length * cellAspect) / shelfCount;
 
-    const totalCells = effectiveRows * maxCols;
-    const loadedRef = useRef(0);
-
-    const handleImageLoad = useCallback(() => {
-        loadedRef.current += 1;
-        if (loadedRef.current >= totalCells) {
-            onAllLoaded?.();
+    const handleFirstImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
+        const image = event.currentTarget;
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+            setCellAspect(image.naturalWidth / image.naturalHeight);
         }
-    }, [totalCells, onAllLoaded]);
+    }, []);
 
-    if (displayUrls.length === 0) return null;
+    if (columns.length === 0) return null;
 
     return (
         <div
             ref={containerRef}
-            className={`max-w-[85vw] max-h-[75vh] mx-auto select-none overflow-hidden ${className}`}
+            className={`mx-auto select-none ${className}`}
             style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(${maxCols}, 1fr)`,
-                gridTemplateRows: `repeat(${effectiveRows}, 1fr)`,
+                gridTemplateColumns: `repeat(${columns.length}, 1fr)`,
+                gridTemplateRows: `repeat(${shelfCount}, 1fr)`,
+                width: `min(85vw, calc(75vh * ${gridAspect}))`,
+                aspectRatio: `${gridAspect}`,
                 gap: isMobile ? 1 : 2,
                 ...(blur ? { filter: 'blur(12px)' } : {}),
                 ...(opacity != null ? { opacity } : {}),
                 ...style,
             }}
         >
-            {Array.from({ length: totalCells }, (_, i) => {
-                const url = displayUrls[i % displayUrls.length];
+            {Array.from({ length: shelfCount * columns.length }, (_, i) => {
+                const url = columns[i % columns.length];
                 return (
                     <img
-                        key={`${i}-${url}`}
+                        key={i}
                         src={url}
                         alt={`Shelf item ${i + 1}`}
-                        className="w-full h-full object-cover"
-                        style={{ minWidth: isMobile ? 60 : 80, minHeight: isMobile ? 60 : 80 }}
+                        className="w-full h-full min-w-0 min-h-0 object-contain"
                         draggable={false}
-                        onLoad={handleImageLoad}
+                        onLoad={i === 0 ? handleFirstImageLoad : undefined}
                     />
                 );
             })}

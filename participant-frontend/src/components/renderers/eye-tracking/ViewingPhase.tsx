@@ -13,8 +13,6 @@ interface ViewingPhaseProps {
     imgRef: React.RefObject<HTMLImageElement | null>;
     stimulusVideoRef: React.RefObject<HTMLVideoElement | null>;
     containerRef: React.RefObject<HTMLDivElement | null>;
-    onImageLoad: () => void;
-    onVideoLoadedMetadata: () => void;
     onVideoEnded?: () => void;
     shelfConfig: ShelfConfig | null;
 }
@@ -28,8 +26,6 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
     imgRef,
     stimulusVideoRef,
     containerRef,
-    onImageLoad,
-    onVideoLoadedMetadata,
     onVideoEnded,
     shelfConfig,
 }) => {
@@ -62,13 +58,9 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
             >
                 {shelfConfig ? (
                     <ShelfGrid
-                        urls={shelfConfig.urls}
+                        columns={shelfConfig.columns}
                         shelfCount={shelfConfig.shelfCount}
-                        shelfItems={shelfConfig.shelfItems}
-                        repetitions={shelfConfig.repetitions}
                         containerRef={shelfConfig.containerRef}
-                        onAllLoaded={shelfConfig.onAllLoaded}
-                        rotationInterval={shelfConfig.rotationInterval}
                     />
                 ) : isVideo ? (
                     <video
@@ -78,7 +70,6 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
                         muted
                         playsInline
                         preload="auto"
-                        onLoadedMetadata={onVideoLoadedMetadata}
                         onEnded={onVideoEnded}
                     />
                 ) : (
@@ -88,7 +79,6 @@ export const ViewingPhase: React.FC<ViewingPhaseProps> = ({
                         alt="Stimulus"
                         className="max-w-[100vw] max-h-[100vh] object-contain"
                         draggable={false}
-                        onLoad={onImageLoad}
                     />
                 )}
                 {/* Micro-recalibration dot (nearly invisible, drift correction) */}
