@@ -406,6 +406,7 @@ export const CognitiveTaskModuleCard = forwardRef<CognitiveTaskModuleCardRef, Co
                         primingTimeS={parseInt(componentValues['priming-time'] || '10', 10) || 10}
                         shelfCount={parseInt(componentValues['shelf-count'] || '2', 10)}
                         itemsPerShelf={parseInt(componentValues['shelf-items'] || '5', 10)}
+                        shelfRepetitions={parseInt(componentValues['shelf-repetitions'] || '1', 10)}
                         taskInstructions={componentValues['task-instructions'] || ''}
                         emotionRecognition={componentValues['emotion-recognition'] === 'true'}
                         attentionPrediction={componentValues['attention-prediction'] === 'true'}

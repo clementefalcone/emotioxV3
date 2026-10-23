@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, Eye, Clock, Grid3X3, Crosshair, Play, RotateCcw } from 'lucide-react';
 import { resolveMediaUrl } from '../../services/media.service';
+import { buildShelfColumns } from '../../utils/shelfLayout';
 
 interface StimulusItem {
   url?: string;
@@ -33,6 +34,7 @@ interface EyeTrackingPreviewModalProps {
   primingTimeS: number;
   shelfCount: number;
   itemsPerShelf: number;
+  shelfRepetitions: number;
   taskInstructions: string;
   emotionRecognition: boolean;
   attentionPrediction: boolean;
@@ -49,6 +51,7 @@ export const EyeTrackingPreviewModal = ({
   primingTimeS,
   shelfCount,
   itemsPerShelf,
+  shelfRepetitions,
   taskInstructions,
   emotionRecognition,
   attentionPrediction,
@@ -63,6 +66,7 @@ export const EyeTrackingPreviewModal = ({
 
   const isVideo = resolvedUrls.length === 1 && /\.(mp4|webm|ogg)$/i.test(resolvedUrls[0]);
   const isShelf = displayMode === 'shelf' && resolvedUrls.length > 1;
+  const shelfColumnUrls = buildShelfColumns(resolvedUrls, itemsPerShelf, shelfRepetitions);
 
   const reset = useCallback(() => {
     setPhase('intro');
@@ -192,7 +196,7 @@ export const EyeTrackingPreviewModal = ({
                   >
                     {Array.from({ length: shelfCount * itemsPerShelf }, (_, i) => {
                       const col = i % itemsPerShelf;
-                      const url = col < resolvedUrls.length ? resolvedUrls[col] : undefined;
+                      const url = shelfColumnUrls[col];
                       return (
                         <div key={i} className="aspect-square rounded border border-gray-200 bg-white overflow-hidden flex items-center justify-center">
                           {url ? (

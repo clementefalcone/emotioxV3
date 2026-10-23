@@ -17,6 +17,7 @@ import { ScanpathOverlay } from './ScanpathOverlay';
 import { VideoGazePlayer } from './VideoGazePlayer';
 import { PredictionPanel } from './PredictionPanel';
 import { HeatmapSettingsModal, DEFAULT_HEATMAP_SETTINGS } from './HeatmapSettingsModal';
+import { buildShelfColumns } from '../../../utils/shelfLayout';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; onRefresh: () => void }) => {
@@ -155,17 +156,17 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
       if (!ctx) return;
       ctx.fillStyle = '#f3f4f6';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const totalCells = rows * cols;
-      for (let i = 0; i < totalCells; i++) {
-        const img = validImages[i % validImages.length];
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH);
-      }
+      const columnImages = buildShelfColumns(images, cols, stimulus.shelfRepetitions ?? 1);
+      columnImages.forEach((img, col) => {
+        if (img.naturalWidth === 0) return;
+        for (let row = 0; row < rows; row++) {
+          ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH);
+        }
+      });
       setShelfCompositeUrl(canvas.toDataURL('image/jpeg', 0.85));
     });
     return () => { cancelled = true; };
-  }, [isShelf, resolvedShelfUrls, stimulus.shelfItems, stimulus.shelfCount]);
+  }, [isShelf, resolvedShelfUrls, stimulus.shelfItems, stimulus.shelfCount, stimulus.shelfRepetitions]);
 
   const effectiveStimulusUrl = isShelf && shelfCompositeUrl ? shelfCompositeUrl : stimulus.stimulusUrl;
 
@@ -513,7 +514,10 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             fixations={stimulus.fixations.filter(f => !excludedParticipants.has(f.participantId))}
           />
         ) : viewMode === 'comparison' && stimulus.aois.length > 0 ? (
-          <ShelfComparison aois={stimulus.aois} shelfUrls={resolvedShelfUrls} />
+          <ShelfComparison
+            aois={stimulus.aois}
+            shelfColumnUrls={buildShelfColumns(resolvedShelfUrls, stimulus.shelfItems ?? 5, stimulus.shelfRepetitions ?? 1)}
+          />
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
           <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} />
         ) : viewMode === 'emotions' ? (
@@ -751,16 +755,21 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
   );
 }
 
-function ShelfComparison({ aois, shelfUrls }: { aois: EyeTrackingAOI[]; shelfUrls: string[] }) {
+export function ShelfComparison({ aois, shelfColumnUrls }: { aois: EyeTrackingAOI[]; shelfColumnUrls: string[] }) {
   const sorted = [...aois].sort((a, b) => b.dwellTimePercent - a.dwellTimePercent);
   const maxDwell = Math.max(...sorted.map(a => a.dwellTimePercent), 1);
+  const columnWidth = 100 / Math.max(shelfColumnUrls.length, 1);
+  const findColumnUrl = (aoi: EyeTrackingAOI) => {
+    const column = Math.floor((aoi.x + aoi.width / 2) / columnWidth);
+    return shelfColumnUrls[Math.min(Math.max(column, 0), shelfColumnUrls.length - 1)];
+  };
 
   return (
     <div>
       <h4 className="text-sm font-semibold text-gray-700 mb-3">Comparativa por producto</h4>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {sorted.map((aoi, idx) => {
-          const imgUrl = shelfUrls[idx % shelfUrls.length];
+          const imgUrl = findColumnUrl(aoi);
           const isWinner = idx === 0 && aoi.dwellTimePercent > 0;
           return (
             <div key={aoi.id} className={`rounded-lg border p-3 ${isWinner ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white'}`}>

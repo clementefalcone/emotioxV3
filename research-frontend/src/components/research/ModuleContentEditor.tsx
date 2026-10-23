@@ -11,6 +11,7 @@ import { CustomSelect } from '../ui/CustomSelect';
 import { AOIDrawer, type AOI } from './AOIDrawer';
 import { resolveMediaUrl, analyzeStimulusComplexity, type StimulusComplexityResult } from '../../services/media.service';
 import { IATFlowchart } from './IATFlowchart';
+import { buildShelfAois, buildShelfColumns } from '../../utils/shelfLayout';
 
 interface ModuleContentEditorProps {
     components: ComponentConfig[];
@@ -465,33 +466,22 @@ export const ModuleContentEditor = ({
 
         const shelfCount = parseInt(componentValues['shelf-count'] || '2', 10);
         const itemsPerShelf = parseInt(componentValues['shelf-items'] || '5', 10);
+        const shelfRepetitions = parseInt(componentValues['shelf-repetitions'] || '1', 10);
+        const shelfColumnUrls = buildShelfColumns(allStimulusUrls, itemsPerShelf, shelfRepetitions);
 
         // Auto-detect shelf mode: >1 image = shelf
         const isShelfMode = allStimulusUrls.length > 1;
 
-        // Helper: regenerate shelf AOIs — one AOI per column (full height)
-        const regenerateShelfAois = (_sc: number, si: number, stimuliValue?: string) => {
+        const regenerateShelfAois = (shelfItems: number, repetitions: number, stimuliValue?: string) => {
             const raw = stimuliValue ?? stimuliRaw;
             try {
                 const items = JSON.parse(raw);
                 if (!Array.isArray(items)) return;
                 const validItems = items.filter((i: { url?: string; s3Key?: string }) => i.url || i.s3Key);
                 if (validItems.length <= 1) return;
-                const colCount = Math.min(validItems.length, si);
-                const cellW = 100 / si;
-                const autoAois = Array.from({ length: colCount }, (_, col) => {
-                    const item = validItems[col];
-                    const fileName = item?.name || item?.s3Key?.split('/').pop() || `Image ${col + 1}`;
-                    return {
-                        id: `shelf-aoi-${col}`,
-                        label: fileName,
-                        x: col * cellW,
-                        y: 0,
-                        width: cellW,
-                        height: 100,
-                    };
-                });
-                onValueChange('aois', JSON.stringify(autoAois));
+                const productLabels = validItems.map((item: { name?: string; s3Key?: string }, index: number) =>
+                    item.name || item.s3Key?.split('/').pop() || `Image ${index + 1}`);
+                onValueChange('aois', JSON.stringify(buildShelfAois(productLabels, shelfItems, repetitions)));
             } catch { /* ignore */ }
         };
 
@@ -544,7 +534,7 @@ export const ModuleContentEditor = ({
                                             onValueChange('display-mode', newMode);
                                         }
                                         if (count > 1) {
-                                            regenerateShelfAois(shelfCount, itemsPerShelf, value);
+                                            regenerateShelfAois(itemsPerShelf, shelfRepetitions, value);
                                         }
                                     } catch { /* not valid JSON yet */ }
                                 }}
@@ -563,20 +553,6 @@ export const ModuleContentEditor = ({
                                 />
                                 <span className="font-medium">Randomize options (images)</span>
                             </label>
-                            {componentValues['randomize-stimuli'] === 'true' && (
-                                <CustomSelect
-                                    label="Rotation interval"
-                                    value={componentValues['shelf-rotation-interval'] || '8'}
-                                    onChange={(val) => onValueChange('shelf-rotation-interval', val)}
-                                    options={[
-                                        { value: '5', label: '5 seconds' },
-                                        { value: '8', label: '8 seconds (default)' },
-                                        { value: '10', label: '10 seconds' },
-                                        { value: '15', label: '15 seconds' },
-                                        { value: '20', label: '20 seconds' },
-                                    ]}
-                                />
-                            )}
                         </div>
                         )}
                     </div>
@@ -661,11 +637,8 @@ export const ModuleContentEditor = ({
                                         }}
                                     >
                                         {Array.from({ length: shelfCount * itemsPerShelf }, (_, i) => {
-                                            // Column-based: each URL fills an entire column
                                             const col = i % itemsPerShelf;
-                                            const url = col < allStimulusUrls.length
-                                                ? allStimulusUrls[col]
-                                                : undefined;
+                                            const url = shelfColumnUrls[col];
                                             return (
                                                 <div
                                                     key={i}
@@ -702,10 +675,7 @@ export const ModuleContentEditor = ({
                                     <CustomSelect
                                         label="Filas"
                                         value={componentValues['shelf-count'] || '2'}
-                                        onChange={(val) => {
-                                            onValueChange('shelf-count', val);
-                                            regenerateShelfAois(parseInt(val, 10), itemsPerShelf);
-                                        }}
+                                        onChange={(val) => onValueChange('shelf-count', val)}
                                         options={[1, 2, 3, 4, 5].map(n => ({ value: String(n), label: String(n) }))}
                                     />
                                 </div>
@@ -715,7 +685,7 @@ export const ModuleContentEditor = ({
                                         value={componentValues['shelf-items'] || '5'}
                                         onChange={(val) => {
                                             onValueChange('shelf-items', val);
-                                            regenerateShelfAois(shelfCount, parseInt(val, 10));
+                                            regenerateShelfAois(parseInt(val, 10), shelfRepetitions);
                                         }}
                                         options={[3, 4, 5, 6, 7, 8, 10].map(n => ({ value: String(n), label: String(n) }))}
                                     />
@@ -724,7 +694,10 @@ export const ModuleContentEditor = ({
                                     <CustomSelect
                                         label="Repeticiones"
                                         value={componentValues['shelf-repetitions'] || '1'}
-                                        onChange={(val) => onValueChange('shelf-repetitions', val)}
+                                        onChange={(val) => {
+                                            onValueChange('shelf-repetitions', val);
+                                            regenerateShelfAois(itemsPerShelf, parseInt(val, 10));
+                                        }}
                                         options={[1, 2, 3, 4, 5, 6].map(n => ({ value: String(n), label: `${n}x` }))}
                                     />
                                 </div>
