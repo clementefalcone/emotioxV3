@@ -3,6 +3,10 @@
 ## Al iniciar conversacion
 - Leer `BITACORA.md` y `CHANGELOG.md` para entender el estado actual y cambios recientes
 - Comunicarse en espanol
+- Empieza cada respuesta con mi nombre: Clemente
+
+## Antes de cerrar la sesion
+- Escribir `HANDOFF.md` con el estado actual del proyecto: que esta hecho, que falta, ficheros clave y preguntas abiertas
 
 ## Project Overview
 EmotioX V3 — plataforma SaaS de investigacion UX. Permite a investigadores crear estudios con stages: SmartVOC (NPS, CSAT, CES, CV, NEV, VOC), Cognitive Tasks (Ranking, Single/Multiple Choice, Short/Long Text, Linear Scale, Navigation Flow, Preference Test), Screener, Implicit Association (Attribute Testing, Comparing Attribute, Objects Comparing), Eye Tracking. Configurar demografia, cuotas, y analizar resultados en tiempo real. Los participantes responden encuestas via URL/QR.
