@@ -72,6 +72,8 @@ function buildRow(pid: string, opts: {
   videoEnded?: boolean;
   viewportWidth?: number;
   viewportHeight?: number;
+  fixationUnit?: string;
+  shelfColumnOrder?: unknown;
 } = {}) {
   return {
     participant_id: pid,
@@ -89,6 +91,8 @@ function buildRow(pid: string, opts: {
       ...(opts.videoEnded !== undefined ? { videoEnded: opts.videoEnded } : {}),
       ...(opts.viewportWidth !== undefined ? { viewportWidth: opts.viewportWidth } : {}),
       ...(opts.viewportHeight !== undefined ? { viewportHeight: opts.viewportHeight } : {}),
+      ...(opts.fixationUnit !== undefined ? { fixationUnit: opts.fixationUnit } : {}),
+      ...(opts.shelfColumnOrder !== undefined ? { shelfColumnOrder: opts.shelfColumnOrder } : {}),
     }),
     created_at: new Date(),
   };
@@ -1338,6 +1342,7 @@ describe('getEyeTrackingResults', () => {
     expect(s.modality).toBe('shelf');
     expect(s.shelfCount).toBeDefined();
     expect(s.shelfItems).toBeDefined();
+    expect(s.shelfRepetitions).toBe(1);
   });
 });
 
@@ -1515,6 +1520,48 @@ describe('fixation coordinate normalization', () => {
 
     expect(fixation.x).toBeCloseTo(50, 1);
     expect(fixation.y).toBeCloseTo(50, 1);
+  });
+
+  it('keeps fixations saved as a percentage of the stimulus, whatever the viewport', async () => {
+    const row = buildRow('p1', {
+      fixations: [{ x: 30, y: 27, duration: 400, timestamp: 0 }],
+      viewportWidth: 1680,
+      viewportHeight: 960,
+      fixationUnit: 'stimulus-percent',
+    });
+    setupSingleModuleQueries([row]);
+
+    const fixation = (await getEyeTrackingResults('r-1')).stimuli[0].fixations[0];
+
+    expect(fixation.x).toBe(30);
+    expect(fixation.y).toBe(27);
+  });
+
+  it('moves a shelf fixation back to the column the product has in the configured shelf', async () => {
+    const row = buildRow('p1', {
+      fixations: [{ x: 10, y: 40, duration: 400, timestamp: 0 }],
+      fixationUnit: 'stimulus-percent',
+      shelfColumnOrder: [2, 0, 1],
+    });
+    setupSingleModuleQueries([row]);
+
+    const fixation = (await getEyeTrackingResults('r-1')).stimuli[0].fixations[0];
+
+    expect(fixation.x).toBeCloseTo(76.67, 1);
+    expect(fixation.y).toBe(40);
+  });
+
+  it('ignores a shelf column order that is not a permutation of the columns', async () => {
+    const row = buildRow('p1', {
+      fixations: [{ x: 10, y: 40, duration: 400, timestamp: 0 }],
+      fixationUnit: 'stimulus-percent',
+      shelfColumnOrder: [0, 0, 'x'],
+    });
+    setupSingleModuleQueries([row]);
+
+    const fixation = (await getEyeTrackingResults('r-1')).stimuli[0].fixations[0];
+
+    expect(fixation.x).toBe(10);
   });
 });
 

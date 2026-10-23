@@ -19,6 +19,7 @@ interface EyeTrackingStimulus {
   modality: 'stand_alone' | 'shelf';
   shelfCount?: number;
   shelfItems?: number;
+  shelfRepetitions?: number;
   taskDescription: string;
   totalResponses: number;
   uniqueParticipants: number;
@@ -251,11 +252,14 @@ const extractEyeTrackingConfig = (config: any) => {
   const shelfItemsComp = components.find((c: any) => c.id === 'shelf-items');
   const shelfItems = shelfItemsComp?.value ? parseInt(String(shelfItemsComp.value), 10) || 5 : 5;
 
+  const shelfRepetitionsComp = components.find((c: any) => c.id === 'shelf-repetitions');
+  const shelfRepetitions = shelfRepetitionsComp?.value ? parseInt(String(shelfRepetitionsComp.value), 10) || 1 : 1;
+
   // Feature toggles
   const emotionComp = components.find((c: any) => c.id === 'emotion-recognition');
   const hasEmotionRecognition = emotionComp ? String(emotionComp.value) === 'true' : true;
 
-  return { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems };
+  return { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems, shelfRepetitions };
 };
 
 /**
@@ -322,6 +326,18 @@ function classifyQuality(
   return 'good';
 }
 
+function isShelfColumnOrder(value: unknown): value is number[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  const sorted = [...value].sort((a, b) => a - b);
+  return sorted.every((column, position) => column === position);
+}
+
+export function placeInShelfColumn(xPercent: number, columnOrder: readonly number[]): number {
+  const columnWidth = 100 / columnOrder.length;
+  const position = Math.min(Math.max(Math.floor(xPercent / columnWidth), 0), columnOrder.length - 1);
+  return xPercent + (columnOrder[position] - position) * columnWidth;
+}
+
 const computeEyeTrackingMetrics = (
   responses: any[],
   configAois: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>,
@@ -347,12 +363,14 @@ const computeEyeTrackingMetrics = (
       const pid = row.participant_id;
       const vpW: number | undefined = parsed?.viewportWidth;
       const vpH: number | undefined = parsed?.viewportHeight;
+      const isStimulusPercent = parsed?.fixationUnit === 'stimulus-percent';
+      const shelfColumnOrder = isShelfColumnOrder(parsed?.shelfColumnOrder) ? parsed.shelfColumnOrder : null;
 
       // Detect if fixations are in viewport pixels (legacy: no viewportWidth saved)
       // Heuristic: if max coord > 100, they're viewport pixels, not percentages
       let maxCoord = 0;
       for (const f of fixations) maxCoord = Math.max(maxCoord, f.x, f.y);
-      const needsNormalization = vpW && vpH ? true : maxCoord > 100;
+      const needsNormalization = !isStimulusPercent && (vpW && vpH ? true : maxCoord > 100);
       const scaleX = vpW ? vpW : (needsNormalization ? maxCoord * 1.05 : 1);
       const scaleY = vpH ? vpH : (needsNormalization ? maxCoord * 1.05 : 1);
 
@@ -360,7 +378,8 @@ const computeEyeTrackingMetrics = (
       for (const f of fixations) {
         const nx = needsNormalization ? (f.x / scaleX) * 100 : f.x;
         const ny = needsNormalization ? (f.y / scaleY) * 100 : f.y;
-        allFixationsRaw.push({ x: nx, y: ny, duration: f.duration, participantId: pid, timestamp: f.timestamp ?? 0 });
+        const x = shelfColumnOrder ? placeInShelfColumn(nx, shelfColumnOrder) : nx;
+        allFixationsRaw.push({ x, y: ny, duration: f.duration, participantId: pid, timestamp: f.timestamp ?? 0 });
         totalDwell += f.duration;
       }
 
@@ -738,7 +757,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
       config = typeof mod.config === 'string' ? JSON.parse(mod.config) : mod.config;
     } catch { /* ignore */ }
 
-    const { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems } = extractEyeTrackingConfig(config);
+    const { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems, shelfRepetitions } = extractEyeTrackingConfig(config);
 
     // 3. Get responses for this module (component_id = 'eye-tracking-data')
     const responsesQuery = `
@@ -804,7 +823,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
       moduleName: mod.name,
       stimulusUrl,
       modality,
-      ...(modality === 'shelf' && { shelfCount, shelfItems, shelfUrls }),
+      ...(modality === 'shelf' && { shelfCount, shelfItems, shelfRepetitions, shelfUrls }),
       taskDescription,
       totalResponses: responsesResult.rows.length,
       ...metrics,
