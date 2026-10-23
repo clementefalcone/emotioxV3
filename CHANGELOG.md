@@ -1,3 +1,18 @@
+## v0.99.16 — Eye Tracking: gaze in stimulus percent, one shelf layout (2026-10-23)
+
+### fix(eye-tracking): fixations and video gaze saved in stimulus percent
+- **Root cause.** The participant saved fixations in stimulus pixels (image natural size, or the shelf's on-screen size) and the backend divided them by the participant's viewport. On production, study `f65a36d3` `kiosk-3` (402 px wide phone) had a fixation at x = 453, read as 113%; on a 1680 px screen the shelf (≤ 85vw) was squeezed into the left 85%. Video gaze timelines were saved in screen pixels and the results player subtracted the researcher's own video rect, so they only matched when both screens showed the video identically.
+- **Fix.** Fixations are saved as percent of the stimulus with `fixationUnit: 'stimulus-percent'`, video timelines with `gazeTimelineUnit: 'stimulus-percent'`. The backend uses marked fixations as-is (older ones keep the previous conversion) and returns only marked video timelines; the player draws them directly. `naturalSizeRef` and the image/video load handlers that only fed it are removed.
+
+### fix(eye-tracking): shelf images cropped and products misplaced
+- **Cropping.** `ShelfGrid` used `object-cover` in equal `1fr` cells (since v0.96.7) and clipped the grid at 75vh with `overflow-hidden`. Cells now take the first product's aspect, images use `object-contain`, and the whole shelf is sized to fit 85vw × 75vh.
+- **Phone reflow.** Phones with more than 4 products per shelf showed 4 columns and more rows, while results rebuild the configured grid: with 6 × 2, gaze on product 5 was counted as product 1. Removed; phones show the configured shelf, smaller.
+- **One column rule.** Builder preview, auto AOIs, participant grid and results composite each placed products differently (repetitions ignored, spare columns empty or cycled per cell). `shelfLayout` (participant and research) now defines it once: a column shows one product on every shelf, repetitions sit in adjacent columns, products cycle when columns outnumber them. Auto AOIs cover every column and are regenerated when repetitions change.
+- **Randomize.** The shelf was reshuffled every N seconds while gaze assumed fixed positions. Columns are now shuffled once per participant; the order is saved as `shelfColumnOrder` and the backend moves each fixation back to its product's column (`placeInShelfColumn`; a non-permutation is ignored). The rotation interval selector is removed.
+- **Comparison.** The shelf comparison chose each card's image by its rank, so the winning product always showed the first image; it now uses the AOI's column.
+- **Not migrated.** The 17 shelf responses saved before this release (test data, studies `f65a36d3`, `4a47c0f2`, `edee0a59`) have no column order and keep pixel units; older video timelines are no longer shown. Archived `0f300142` has 9 products in 3 columns and 1 hand-drawn AOI, left as is.
+- **Tests.** Participant 1121 → 1127, backend 670 → 674, research-frontend 679 → 684, 0 failing.
+
 ## v0.99.15 — Public results link works without signing in (2026-10-21)
 
 ### fix(results): opt-in public results per study
