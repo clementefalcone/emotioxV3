@@ -46,7 +46,7 @@ export const VideoGazePlayer = ({
   }, [filteredTimeline]);
 
   /** Find gaze points within a time window around current video time */
-  const findVisiblePoints = useCallback((vt: number, rect: DOMRect) => {
+  const findVisiblePoints = useCallback((vt: number) => {
     // ponytail: wider window for heatmap (1s accumulation), narrow for dots (250ms)
     const windowS = overlayMode === 'heatmap' ? 0.5 : 0.25;
     const timeline = sortedTimeline.current;
@@ -64,8 +64,7 @@ export const VideoGazePlayer = ({
     for (let i = lo; i < timeline.length; i++) {
       const pvt = timeline[i].videoTime ?? 0;
       if (pvt > vt + windowS) break;
-      const x = ((timeline[i].x - rect.left) / rect.width) * 100;
-      const y = ((timeline[i].y - rect.top) / rect.height) * 100;
+      const { x, y } = timeline[i];
       if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
         visible.push({ x, y });
       }
@@ -125,7 +124,7 @@ export const VideoGazePlayer = ({
         return;
       }
 
-      const visible = findVisiblePoints(vt, rect);
+      const visible = findVisiblePoints(vt);
 
       if (overlayMode === 'dots') {
         setCurrentGazePoints(visible);
