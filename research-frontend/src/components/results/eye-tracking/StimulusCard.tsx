@@ -18,6 +18,7 @@ import { VideoGazePlayer } from './VideoGazePlayer';
 import { PredictionPanel } from './PredictionPanel';
 import { HeatmapSettingsModal, DEFAULT_HEATMAP_SETTINGS } from './HeatmapSettingsModal';
 import { buildShelfColumns } from '../../../utils/shelfLayout';
+import { AllExcludedNotice } from './AllExcludedNotice';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; onRefresh: () => void }) => {
@@ -297,6 +298,13 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             </div>
           )}
         </div>
+      )}
+
+      {stimulus.participants.length > 0 && excludedParticipants.size === stimulus.participants.length && (
+        <AllExcludedNotice
+          participantCount={stimulus.participants.length}
+          onIncludeAll={() => setExcludedParticipants(new Set())}
+        />
       )}
 
       {/* Video quality metrics */}
