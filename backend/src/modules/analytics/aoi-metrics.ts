@@ -32,12 +32,12 @@ const EMOTION_WINDOW_MS = 100;
 
 export const softAoiWeight = (fx: number, fy: number, aoi: AoiRect): number => {
   if (fx >= aoi.x && fx <= aoi.x + aoi.width && fy >= aoi.y && fy <= aoi.y + aoi.height) return 1.0;
-  const distX = Math.max(0, Math.abs(fx - (aoi.x + aoi.width / 2)) - aoi.width / 2);
-  const distY = Math.max(0, Math.abs(fy - (aoi.y + aoi.height / 2)) - aoi.height / 2);
-  const edgeDist = Math.sqrt(distX * distX + distY * distY);
-  const sigma = Math.max(aoi.width, aoi.height) * 0.35;
-  if (sigma <= 0) return 0;
-  return Math.exp(-(edgeDist * edgeDist) / (2 * sigma * sigma));
+  const sigmaX = aoi.width * 0.35;
+  const sigmaY = aoi.height * 0.35;
+  if (sigmaX <= 0 || sigmaY <= 0) return 0;
+  const distX = Math.max(0, Math.abs(fx - (aoi.x + aoi.width / 2)) - aoi.width / 2) / sigmaX;
+  const distY = Math.max(0, Math.abs(fy - (aoi.y + aoi.height / 2)) - aoi.height / 2) / sigmaY;
+  return Math.exp(-(distX * distX + distY * distY) / 2);
 };
 
 const earliestByParticipant = (fixations: AoiFixation[]): Map<string, number> => {
