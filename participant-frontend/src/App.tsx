@@ -9,6 +9,7 @@ const EyeTrackingHybridPage = lazy(() => import('./pages/EyeTrackingHybridPage')
 const EyeTrackingV2TestPage = lazy(() => import('./pages/EyeTrackingV2TestPage').then(m => ({ default: m.EyeTrackingV2TestPage })));
 const GazeComparePage = lazy(() => import('./pages/GazeComparePage').then(m => ({ default: m.GazeComparePage })));
 const GazeCapturePage = lazy(() => import('./pages/GazeCapturePage').then(m => ({ default: m.GazeCapturePage })));
+const ExpressionCapturePage = lazy(() => import('./pages/ExpressionCapturePage').then(m => ({ default: m.ExpressionCapturePage })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -68,6 +69,14 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoader />}>
         <GazeCapturePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/test/expression-capture',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <ExpressionCapturePage />
       </Suspense>
     ),
   },
