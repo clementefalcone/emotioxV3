@@ -19,9 +19,10 @@ import { PredictionPanel } from './PredictionPanel';
 import { HeatmapSettingsModal, DEFAULT_HEATMAP_SETTINGS } from './HeatmapSettingsModal';
 import { buildShelfColumns } from '../../../utils/shelfLayout';
 import { AllExcludedNotice } from './AllExcludedNotice';
+import { useScopedEyeTrackingStimulus } from './useScopedEyeTrackingStimulus';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 
-export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; onRefresh: () => void }) => {
+export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
   const stimulus = { ...rawStimulus, stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl) };
   const isShelf = stimulus.modality === 'shelf' && stimulus.shelfUrls && stimulus.shelfUrls.length > 0;
   const resolvedShelfUrls = useMemo(
@@ -46,6 +47,15 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
     return new Set(stimulus.participants.filter(p => p.qualityGrade === 'low').map(p => p.participantId));
   });
   const [stimulusSize, setStimulusSize] = useState<{ width: number; height: number } | null>(null);
+  const scopedStimulus = useScopedEyeTrackingStimulus({
+    researchId,
+    stageId,
+    moduleId: stimulus.moduleId,
+    includedParticipantIds: stimulus.participants.map(p => p.participantId).filter(id => !excludedParticipants.has(id)),
+  });
+  const shownStimulus = scopedStimulus
+    ? { ...stimulus, aois: scopedStimulus.aois, avgDwellTime: scopedStimulus.avgDwellTime, avgFixationCount: scopedStimulus.avgFixationCount }
+    : stimulus;
 
   useEffect(() => {
     if (!stimulus.stimulusUrl || isVideo) return;
@@ -203,12 +213,12 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
         <MetricBadge
           icon={<Clock className="h-4 w-4" />}
           label="Tiempo promedio"
-          value={stimulus.avgDwellTime > 0 ? `${(stimulus.avgDwellTime / 1000).toFixed(1)}s` : '—'}
+          value={shownStimulus.avgDwellTime > 0 ? `${(shownStimulus.avgDwellTime / 1000).toFixed(1)}s` : '—'}
         />
         <MetricBadge
           icon={<Crosshair className="h-4 w-4" />}
           label="Fijaciones promedio"
-          value={stimulus.avgFixationCount || '—'}
+          value={shownStimulus.avgFixationCount || '—'}
         />
       </div>
 
@@ -377,7 +387,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
               label="Emotions"
             />
           )}
-          {isShelf && stimulus.aois.length > 0 && (
+          {isShelf && shownStimulus.aois.length > 0 && (
             <ViewModeTab
               active={viewMode === 'comparison'}
               onClick={() => setViewMode('comparison')}
@@ -407,7 +417,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
               title="Draw and view AOI metrics"
             >
               <PenTool className="h-3.5 w-3.5" />
-              AOI{stimulus.aois.length > 0 ? ` (${stimulus.aois.length})` : ''}
+              AOI{shownStimulus.aois.length > 0 ? ` (${shownStimulus.aois.length})` : ''}
             </button>
           )}
           {stimulus.stimulusUrl && (
@@ -521,9 +531,9 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
             imageUrl={effectiveStimulusUrl}
             fixations={stimulus.fixations.filter(f => !excludedParticipants.has(f.participantId))}
           />
-        ) : viewMode === 'comparison' && stimulus.aois.length > 0 ? (
+        ) : viewMode === 'comparison' && shownStimulus.aois.length > 0 ? (
           <ShelfComparison
-            aois={stimulus.aois}
+            aois={shownStimulus.aois}
             shelfColumnUrls={buildShelfColumns(resolvedShelfUrls, stimulus.shelfItems ?? 5, stimulus.shelfRepetitions ?? 1)}
           />
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
@@ -561,9 +571,9 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
                   alt={stimulus.moduleName}
                   className="w-full h-full object-contain block"
                 />
-                {stimulus.aois.length > 0 && (
+                {shownStimulus.aois.length > 0 && (
                   <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    {stimulus.aois.map((aoi) => (
+                    {shownStimulus.aois.map((aoi) => (
                       <g key={aoi.id}>
                         <rect x={aoi.x} y={aoi.y} width={aoi.width} height={aoi.height} fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1.5 1" />
                         <text x={aoi.x + 0.5} y={aoi.y + 2.5} fontSize="2.2" fill="#3b82f6" fontWeight="600">{aoi.label}</text>
@@ -573,9 +583,9 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
                 )}
               </div>
             )}
-            {stimulus.aois.length > 0 && viewMode === 'heatmap' && (
+            {shownStimulus.aois.length > 0 && viewMode === 'heatmap' && (
               <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-                {stimulus.aois.map((aoi) => (
+                {shownStimulus.aois.map((aoi) => (
                   <g key={aoi.id}>
                     <rect x={aoi.x} y={aoi.y} width={aoi.width} height={aoi.height} fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1.5 1" />
                     <text x={aoi.x + 0.5} y={aoi.y + 2.5} fontSize="2.2" fill="#3b82f6" fontWeight="600">{aoi.label}</text>
@@ -654,7 +664,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, onRefresh }: {
       {/* AOI draw + metrics modal */}
       {showAoiModal && (
         <AoiModal
-          stimulus={stimulus}
+          stimulus={shownStimulus}
           displayImageUrl={effectiveStimulusUrl}
           onClose={() => setShowAoiModal(false)}
           onSave={onRefresh}

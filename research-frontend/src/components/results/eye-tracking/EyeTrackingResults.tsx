@@ -100,7 +100,7 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
             ) : (
               <div className="space-y-8">
                 {filteredStimuli.map(stimulus => (
-                  <StimulusCard key={stimulus.moduleId} stimulus={stimulus} researchId={researchId} onRefresh={refreshData} />
+                  <StimulusCard key={stimulus.moduleId} stimulus={stimulus} researchId={researchId} stageId={stageId} onRefresh={refreshData} />
                 ))}
               </div>
             )}

@@ -576,8 +576,16 @@ export interface EyeTrackingResults {
     stimuli: EyeTrackingStimulus[];
 }
 
-export const getEyeTrackingResults = async (researchId: string, stageId?: string): Promise<EyeTrackingResults> => {
-    const qs = stageId ? `?stageId=${stageId}` : '';
+export const getEyeTrackingResults = async (
+    researchId: string,
+    stageId?: string,
+    scope: { moduleId?: string; participantIds?: readonly string[] } = {},
+): Promise<EyeTrackingResults> => {
+    const params = new URLSearchParams();
+    if (stageId) params.set('stageId', stageId);
+    if (scope.moduleId) params.set('moduleId', scope.moduleId);
+    if (scope.participantIds) params.set('participants', scope.participantIds.join(','));
+    const qs = params.size > 0 ? `?${params.toString()}` : '';
     const response = await apiClient.get<{ results: EyeTrackingResults }>(
         `/analytics/research/${researchId}/eye-tracking${qs}`
     );
