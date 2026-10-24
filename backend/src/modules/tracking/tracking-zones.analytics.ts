@@ -105,6 +105,7 @@ export async function getTrackingZoneData(researchId: string): Promise<{ zones: 
                 ...computeAoiMetrics({
                     fixations,
                     rectFor: (fixation) => (fixation as ZoneFixation).zones[zone.id],
+                    allRectsFor: (fixation) => Object.values((fixation as ZoneFixation).zones),
                     emotionsByParticipant: new Map(pageSessions.map((session) => [session.sessionId, session.emotions])),
                 }),
             };

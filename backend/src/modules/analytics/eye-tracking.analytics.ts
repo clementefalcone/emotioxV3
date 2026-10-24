@@ -444,7 +444,7 @@ const computeEyeTrackingMetrics = (
 
   const aois = configAois.map(aoi => ({
     ...aoi,
-    ...computeAoiMetrics({ fixations: allFixations, rectFor: () => aoi, emotionsByParticipant }),
+    ...computeAoiMetrics({ fixations: allFixations, rectFor: () => aoi, allRectsFor: () => configAois, emotionsByParticipant }),
   }));
 
   const uniqueParticipants = new Set(allFixations.map(f => f.participantId));

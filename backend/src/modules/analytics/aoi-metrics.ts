@@ -77,19 +77,30 @@ const emotionsDuringFixations = (
   return { dominantEmotion, emotionDistribution };
 };
 
-export const computeAoiMetrics = ({ fixations, rectFor, emotionsByParticipant }: {
+const sharedWeight = (fixation: AoiFixation, rect: AoiRect, allRects: readonly AoiRect[]): number => {
+  const weightFor = (candidate: AoiRect) => {
+    const weight = softAoiWeight(fixation.x, fixation.y, candidate);
+    return weight >= SOFT_AOI_MIN_WEIGHT ? weight : 0;
+  };
+  const totalWeight = allRects.reduce((sum, candidate) => sum + weightFor(candidate), 0);
+  return weightFor(rect) / Math.max(1, totalWeight);
+};
+
+export const computeAoiMetrics = ({ fixations, rectFor, allRectsFor, emotionsByParticipant }: {
   fixations: AoiFixation[];
   rectFor: (fixation: AoiFixation) => AoiRect | undefined;
+  allRectsFor: (fixation: AoiFixation) => readonly AoiRect[];
   emotionsByParticipant: Map<string, EmotionSample[]>;
 }): AoiMetrics => {
   const totalDwellTime = fixations.reduce((sum, fixation) => sum + fixation.duration, 0);
   const totalParticipants = new Set(fixations.map((fixation) => fixation.participantId)).size;
-  const weighted = fixations.flatMap((fixation) => {
+  const candidates = fixations.flatMap((fixation) => {
     const rect = rectFor(fixation);
-    const weight = rect ? softAoiWeight(fixation.x, fixation.y, rect) : 0;
-    return weight >= SOFT_AOI_MIN_WEIGHT ? [{ fixation, weight }] : [];
+    const proximity = rect ? softAoiWeight(fixation.x, fixation.y, rect) : 0;
+    return rect && proximity >= SOFT_AOI_MIN_WEIGHT ? [{ fixation, rect, proximity }] : [];
   });
-  const noticed = weighted.filter(({ weight }) => weight >= NOTICED_WEIGHT).map(({ fixation }) => fixation);
+  const weighted = candidates.map(({ fixation, rect }) => ({ fixation, weight: sharedWeight(fixation, rect, allRectsFor(fixation)) }));
+  const noticed = candidates.filter(({ proximity }) => proximity >= NOTICED_WEIGHT).map(({ fixation }) => fixation);
   const noticedParticipants = new Set(noticed.map((fixation) => fixation.participantId));
 
   const startByParticipant = earliestByParticipant(fixations);
