@@ -16,7 +16,8 @@ Actualizado: 2026-10-24 · Versión: v0.99.17 · Producción = `main` (backend, 
 3. **Fase 2 (20 personas):** cambiar la captura para procesar en el navegador y guardar solo cambios respecto a la cara neutra (no video); revisión legal del consentimiento.
 4. **Prueba real con cámara** (Shelf y video) con el link del estudio, no vista previa: confirmar que la respuesta trae `fixationUnit`, `shelfColumnOrder`, `gazeTimelineUnit`, y que la góndola no cambia al final en teléfono.
 5. **Calificación de calibración:** el umbral de 200 px excluye a todos (error real 214–649 px). Pendiente calificar por tamaño de AOI.
-6. **Correo a DISFA** preguntando por uso comercial.
+
+**Decisión (2026-10-24):** no usar tecnología ni datos que requieran licencia de terceros (DISFA, AM-FED+, SEWA, AffectNet, etc.). La referencia para calibrar emociones son grabaciones propias con consentimiento.
 
 ## Ficheros clave
 

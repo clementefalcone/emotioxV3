@@ -21,11 +21,11 @@
 ### Decisiones
 - La emoción no se "lee" de la cara: el objetivo es medir bien movimientos faciales y triangular con mirada, respuestas y conducta. LLM solo como capa de interpretación sobre datos agregados, nunca sobre imágenes.
 - No reemplazar face-api por blendshapes hasta medir con la grabación etiquetada.
+- No usar tecnología ni datos que requieran licencia de terceros (DISFA, AM-FED+, SEWA, AffectNet…). La referencia son grabaciones propias con consentimiento.
 - El umbral de calidad de 200 px se mantiene; queda pendiente calificar por tamaño de AOI en vez de píxeles.
 
 ### Pendientes
 - Grabación propia con `/test/expression-capture` → correr `/test/expression-eval`.
-- Correo a DISFA sobre uso comercial.
 - Fase 2: la página de captura debe procesar en el navegador y guardar solo cambios, no video, antes de usarla con terceros.
 - Confirmar en un teléfono, con una respuesta guardada, que la góndola ya no cambia al final.
 
