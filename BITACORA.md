@@ -5,7 +5,29 @@
 
 ---
 
-## Última actualización: 2026-10-23 (sesión 51)
+## Última actualización: 2026-10-24 (sesión 51, día 2)
+
+---
+
+## Sesión 51, día 2: 24 de octubre de 2026 — AOIs honestas y evaluación forense de emociones (v0.99.17)
+
+### Qué se hizo
+- "Todos en 0" en resultados: los 5 participantes de `edee0a59` superan 200 px de error de calibración y quedaban excluidos sin aviso. Aviso + botón "Incluir todos".
+- AOIs y promedios ahora se calculan en el backend con el grupo que ve el investigador (filtros + casillas).
+- Margen de AOI por eje y reparto de cada fijación entre AOIs cercanas: Shelf de 413% a ~100%.
+- Herramientas de evaluación de emociones: `/test/expression-capture` y `/test/expression-eval`. Borrador de consentimiento para la fase 2.
+- Investigado y descartado por ahora: pupilometría con webcam (el efecto es ~0,2–1 px, menor que el ruido; la luz lo tapa). Bases públicas de expresiones: AM-FED+ y SEWA prohíben uso comercial; DISFA no está claro.
+
+### Decisiones
+- La emoción no se "lee" de la cara: el objetivo es medir bien movimientos faciales y triangular con mirada, respuestas y conducta. LLM solo como capa de interpretación sobre datos agregados, nunca sobre imágenes.
+- No reemplazar face-api por blendshapes hasta medir con la grabación etiquetada.
+- El umbral de calidad de 200 px se mantiene; queda pendiente calificar por tamaño de AOI en vez de píxeles.
+
+### Pendientes
+- Grabación propia con `/test/expression-capture` → correr `/test/expression-eval`.
+- Correo a DISFA sobre uso comercial.
+- Fase 2: la página de captura debe procesar en el navegador y guardar solo cambios, no video, antes de usarla con terceros.
+- Confirmar en un teléfono, con una respuesta guardada, que la góndola ya no cambia al final.
 
 ---
 
