@@ -38,13 +38,20 @@ export interface UseFaceApiEmotionsOptions {
 
 let modelsLoaded = false;
 
-async function ensureModelsLoaded(): Promise<void> {
+export async function ensureModelsLoaded(): Promise<void> {
   if (modelsLoaded) return;
   const modelPath = `${window.location.origin}${import.meta.env.BASE_URL}models`;
   await faceapi.nets.tinyFaceDetector.loadFromUri(modelPath);
   await faceapi.nets.faceLandmark68Net.loadFromUri(modelPath);
   await faceapi.nets.faceExpressionNet.loadFromUri(modelPath);
   modelsLoaded = true;
+}
+
+export function detectFaceWithExpressions(video: HTMLVideoElement) {
+  return faceapi
+    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.25 }))
+    .withFaceLandmarks()
+    .withFaceExpressions();
 }
 
 export function useFaceApiEmotions({
@@ -87,10 +94,7 @@ export function useFaceApiEmotions({
     isDetectingRef.current = true;
 
     try {
-      const detection = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.25 }))
-        .withFaceLandmarks()
-        .withFaceExpressions();
+      const detection = await detectFaceWithExpressions(video);
 
       if (!detection) return null;
 

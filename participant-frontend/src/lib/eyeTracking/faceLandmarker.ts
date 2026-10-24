@@ -5,13 +5,13 @@ import { FACE_LANDMARKER_MODEL_URL, getVisionTasksWasmBaseUrl } from './constant
  * Loads WASM and creates a single-face Video-mode Face Landmarker.
  * Caller must call `close()` when done.
  */
-export async function createFaceLandmarker(): Promise<FaceLandmarker> {
+export async function createFaceLandmarker(outputFaceBlendshapes = false): Promise<FaceLandmarker> {
   const vision = await FilesetResolver.forVisionTasks(getVisionTasksWasmBaseUrl());
   return FaceLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL },
     runningMode: 'VIDEO',
     numFaces: 1,
-    outputFaceBlendshapes: false,
+    outputFaceBlendshapes,
     outputFacialTransformationMatrixes: true,
   });
 }
