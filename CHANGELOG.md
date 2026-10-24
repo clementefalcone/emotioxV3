@@ -1,3 +1,25 @@
+## v0.99.17 — Eye Tracking: AOIs follow filters and share gaze; expression evaluation tools (2026-10-24)
+
+### fix(results): say when all participants are excluded
+- **Why.** Every participant of `edee0a59` has a calibration error above 200 px (214–649 px since v0.99.11 measures the trained model's leave-one-out error), so all were graded low and excluded by default; visualizations were empty with no explanation. `AllExcludedNotice` states it and offers "Incluir todos".
+
+### fix(analytics): AOI metrics for the participants on screen
+- **Root cause.** AOI metrics, dwell and fixation averages were computed on the server for everyone (low quality excluded, or all if every one was low), while the heatmap and other views filtered in the browser by demographics and the include checkboxes.
+- **Fix.** `GET /analytics/research/:id/eye-tracking` accepts `moduleId` and `participants`; with a list, metrics use exactly those participants (the quality table still lists everyone). Each `StimulusCard` requests its AOIs for demographic filters minus excluded (`useScopedEyeTrackingStimulus`). Ids travel in the query string, which caps a request at a few hundred participants per module.
+
+### fix(analytics): AOI margin per axis and shared fixations
+- **Root cause.** The soft AOI margin was 0.35 × the longest side on both axes, so a full-height shelf column took gaze from columns two places away, and each AOI counted a fixation in full: the five `edee0a59` shelf columns read 78/96/97/85/57% (sum 413%).
+- **Fix.** Margin per axis (0.35 × size on that axis), and a fixation's weight is divided among the AOIs near it when their weights add up to more than 1. Same shelf: 8/34/44/14/1%. Notice rate and TTFF use plain proximity. Website Tracking zones follow the same rule.
+
+### test(eye-tracking): shelf stays fixed while viewing
+- A tester saw the shelf change at the end of a mobile exercise. Before v0.99.16 the shelf reshuffled on an 8 s timer and whenever the module was passed again; a renderer test now keeps the shuffled columns across a re-render and the whole viewing. No response saved after v0.99.16 yet confirms it on a phone.
+
+### feat(eval): expression capture and replay
+- `/test/expression-capture`: cued protocol (neutral 10 s; 8 expressions × 3 intensities with relaxed rests; 4 head turns; two rounds, the second reversed). Exports video, `ground-truth.json` with exact segment times, and metadata.
+- `/test/expression-eval?dataset=<name>`: replays the capture frame by frame through the production face-api action unit estimator and MediaPipe blendshapes and scores each AU: neutral noise, response per intensity, signal to noise, monotonic rate (each step must exceed neutral noise), specificity, head-turn false activation, round difference, saturation. Checked on a 30 s face video (898 frames, face found 100% by both engines). MediaPipe has no AU25 blendshape.
+- `docs/consentimiento-captura-expresiones.md`: consent draft for the 20-person phase (deltas only, no video), pending legal review.
+- **Tests.** Participant 1127 → 1137, backend 674 → 684, research-frontend 684 → 686, 0 failing.
+
 ## v0.99.16 — Eye Tracking: gaze in stimulus percent, one shelf layout (2026-10-23)
 
 ### fix(eye-tracking): fixations and video gaze saved in stimulus percent
