@@ -341,8 +341,9 @@ export function placeInShelfColumn(xPercent: number, columnOrder: readonly numbe
 const computeEyeTrackingMetrics = (
   responses: any[],
   configAois: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>,
-  hasEmotionRecognition: boolean,
+  options: { hasEmotionRecognition: boolean; includedParticipantIds?: ReadonlySet<string> },
 ) => {
+  const { hasEmotionRecognition, includedParticipantIds } = options;
   type Fixation = { x: number; y: number; duration: number; participantId: string; timestamp: number };
   const allFixationsRaw: Fixation[] = [];
   const participantMap = new Map<string, {
@@ -416,7 +417,10 @@ const computeEyeTrackingMetrics = (
   );
   const wouldHaveParticipants = participantMap.size - lowQualityPidsCandidates.size > 0;
   const lowQualityPids = wouldHaveParticipants ? lowQualityPidsCandidates : new Set<string>();
-  const allFixations = allFixationsRaw.filter(f => !lowQualityPids.has(f.participantId));
+  const excludedPids = includedParticipantIds
+    ? new Set(Array.from(participantMap.keys()).filter(pid => !includedParticipantIds.has(pid)))
+    : lowQualityPids;
+  const allFixations = allFixationsRaw.filter(f => !excludedPids.has(f.participantId));
 
   // Heatmap data: aggregate fixation positions with duration as weight
   const heatmapData = allFixations.map(f => ({ x: f.x, y: f.y, duration: f.duration }));
@@ -425,7 +429,7 @@ const computeEyeTrackingMetrics = (
   const aggregatedZoneMass: Record<string, number> = {};
   for (const row of responses) {
     try {
-      if (lowQualityPids.has(row.participant_id)) continue;
+      if (excludedPids.has(row.participant_id)) continue;
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
       if (parsed?.zoneMass && typeof parsed.zoneMass === 'object') {
         for (const [zoneId, mass] of Object.entries(parsed.zoneMass)) {
@@ -724,7 +728,12 @@ function extractV3Heatmap(responses: any[]): V3AggregatedHeatmap | undefined {
   };
 }
 
-export const getEyeTrackingResults = async (researchId: string, filterStageId?: string) => {
+export interface EyeTrackingResultsScope {
+  moduleId?: string;
+  participantIds?: ReadonlySet<string>;
+}
+
+export const getEyeTrackingResults = async (researchId: string, filterStageId?: string, scope: EyeTrackingResultsScope = {}) => {
   let stageIds: string[];
   if (filterStageId) {
     stageIds = [filterStageId];
@@ -748,10 +757,13 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
     ORDER BY order_index
   `;
   const moduleResult = await pool.query(moduleQuery, [researchId, ...stageIds]);
+  const modules = scope.moduleId
+    ? moduleResult.rows.filter((mod: Record<string, unknown>) => mod.id === scope.moduleId)
+    : moduleResult.rows;
 
   const stimuli: EyeTrackingStimulus[] = [];
 
-  for (const mod of moduleResult.rows) {
+  for (const mod of modules) {
     let config: any = {};
     try {
       config = typeof mod.config === 'string' ? JSON.parse(mod.config) : mod.config;
@@ -768,7 +780,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
     `;
     const responsesResult = await pool.query(responsesQuery, [researchId, mod.id]);
 
-    const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, hasEmotionRecognition);
+    const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition, includedParticipantIds: scope.participantIds });
 
     // V3 probabilistic heatmap (aggregated across participants)
     const v3Heatmap = extractV3Heatmap(responsesResult.rows);
@@ -939,7 +951,7 @@ export const getBenchmarkResults = async (researchId: string) => {
       `;
       const responsesResult = await pool.query(responsesQuery, [targetResearchId, mod.id]);
 
-      const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, false);
+      const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition: false });
 
       modules.push({
         moduleId: mod.id,

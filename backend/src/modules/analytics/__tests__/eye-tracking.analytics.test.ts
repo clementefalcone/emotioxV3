@@ -1319,6 +1319,40 @@ describe('getEyeTrackingResults', () => {
   // Multiple modules
   // -----------------------------------------------------------------------
 
+  it('computes AOI metrics only for the participants the researcher includes, even low quality ones', async () => {
+    const aoi = { id: 'aoi-1', label: 'Precio', x: 0, y: 0, width: 50, height: 100 };
+    const insideAoi = [{ x: 20, y: 50, duration: 400, timestamp: 0 }, { x: 25, y: 50, duration: 400, timestamp: 400 }, { x: 30, y: 50, duration: 400, timestamp: 800 }];
+    const outsideAoi = [{ x: 80, y: 50, duration: 400, timestamp: 0 }, { x: 85, y: 50, duration: 400, timestamp: 400 }, { x: 90, y: 50, duration: 400, timestamp: 800 }];
+    setupStandardMocks({
+      modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois: [aoi] }) }],
+      responses: [[
+        buildRow('good', { fixations: outsideAoi, calibrationRmsePx: 60, integrityScore: 0.9 }),
+        buildRow('low', { fixations: insideAoi, calibrationRmsePx: 600, integrityScore: 0.9 }),
+      ]],
+    });
+
+    const result = await getEyeTrackingResults('research-1', undefined, { participantIds: new Set(['low']) });
+    const s = result.stimuli[0];
+
+    expect(s.aois[0].participantCount).toBe(1);
+    expect(s.aois[0].dwellTimePercent).toBeGreaterThan(90);
+    expect(s.participants.map(p => p.participantId).sort()).toEqual(['good', 'low']);
+  });
+
+  it('returns only the requested module', async () => {
+    setupStandardMocks({
+      modules: [
+        { id: 'mod-1', name: 'Stim 1', config: buildETConfig() },
+        { id: 'mod-2', name: 'Stim 2', config: buildETConfig() },
+      ],
+      responses: [[]],
+    });
+
+    const result = await getEyeTrackingResults('research-1', undefined, { moduleId: 'mod-2' });
+
+    expect(result.stimuli.map(s => s.moduleId)).toEqual(['mod-2']);
+  });
+
   it('processes multiple modules within the ET stage', async () => {
     const mod1Config = buildETConfig({ stimulusUrl: '/img1.png' });
     const mod2Config = buildETConfig({ stimulusUrl: '/img2.png' });

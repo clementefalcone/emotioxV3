@@ -95,7 +95,12 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
         if (eyeTrackingMatch && httpMethod === 'GET') {
             const researchId = eyeTrackingMatch[1];
             const stageId = queryParams?.stageId as string | undefined;
-            const results = await analyticsService.getEyeTrackingResults(researchId, stageId);
+            const moduleId = queryParams?.moduleId as string | undefined;
+            const participants = queryParams?.participants as string | undefined;
+            const participantIds = participants === undefined
+                ? undefined
+                : new Set(participants.split(',').map(id => id.trim()).filter(Boolean));
+            const results = await analyticsService.getEyeTrackingResults(researchId, stageId, { moduleId, participantIds });
             return success({ results }, 200, undefined, origin);
         }
 
