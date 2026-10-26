@@ -6,6 +6,7 @@ const CAPTURE_ERROR_LABELS: Record<CaptureErrorKind, { label: string; descriptio
     'camera-unavailable': { label: 'No camera', description: 'The camera could not be opened (missing, busy or unsupported browser).' },
     'mediapipe-failed': { label: 'MediaPipe failed', description: 'The face model did not load — no gaze; emotions fell back to face-api.' },
     'face-models-failed': { label: 'Face models failed', description: 'The face-api fallback did not load — no emotions for this page.' },
+    'rrweb-truncated': { label: 'Replay truncated', description: 'The recording reached its size limit — the replay stops before the end of this page.' },
 };
 
 export const CaptureErrorBadges = ({ errors }: { errors: CaptureErrorKind[] }) => (

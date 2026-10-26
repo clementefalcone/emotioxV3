@@ -374,7 +374,7 @@ export const getAttentionHeatmap = async (
 
 // ─── Visitor Journeys ───────────────────────────────────────────────
 
-export type CaptureErrorKind = 'camera-denied' | 'camera-unavailable' | 'mediapipe-failed' | 'face-models-failed';
+export type CaptureErrorKind = 'camera-denied' | 'camera-unavailable' | 'mediapipe-failed' | 'face-models-failed' | 'rrweb-truncated';
 
 export interface VisitorPage {
     index: number;

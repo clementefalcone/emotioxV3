@@ -34,6 +34,7 @@ import {
     getFrictionSummary,
     getSessionFrictionTags,
     appendRrwebEvents,
+    MAX_RRWEB_JSON_LENGTH,
     getRrwebEvents,
     appendEmotionSamples,
     appendGazeSamples,
@@ -223,6 +224,10 @@ export const handlePublicTrackingRoutes = async (
                 return trackingError('Missing sessionId or events array');
             }
             const result = await appendRrwebEvents(sessionId, rrwebEvts);
+            if (result.isTruncated) {
+                console.warn(JSON.stringify({ event: 'tracking_rrweb_truncated', researchId: rrwebMatch[1], sessionId, droppedEvents: rrwebEvts.length }));
+                return trackingError(`rrweb recording of session ${sessionId} exceeds ${MAX_RRWEB_JSON_LENGTH} characters`, 413);
+            }
             return trackingSuccess(result, 201);
         }
 

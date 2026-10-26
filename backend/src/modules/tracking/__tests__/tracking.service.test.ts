@@ -62,6 +62,7 @@ import {
     getLiveSessions,
     savePageScreenshotFromBase64,
     appendRrwebEvents,
+    MAX_RRWEB_JSON_LENGTH,
     getRrwebEvents,
     computeFunnelDropoff,
     appendEmotionSamples,
@@ -897,16 +898,37 @@ describe('appendRrwebEvents', () => {
         expect(mockRelease).toHaveBeenCalledTimes(1);
     });
 
-    it('rolls back and releases the connection when the append fails', async () => {
-        const tooLarge = [{ type: 3, timestamp: 1, data: 'x'.repeat(5_242_880) }];
-        mockQuery.mockResolvedValue({ rows: [{ rrweb_events: null }] });
+    it('rolls back and releases the connection when the session is missing', async () => {
+        mockQuery.mockResolvedValueOnce(BEGIN).mockResolvedValue({ rows: [] });
 
-        await expect(appendRrwebEvents('s1', tooLarge)).rejects.toThrow('rrweb events too large');
+        await expect(appendRrwebEvents('missing', [{ type: 4, timestamp: 1 }])).rejects.toThrow('Session not found');
 
         const statements = mockQuery.mock.calls.map((call) => String(call[0]).trim());
         expect(statements).toContain('ROLLBACK');
         expect(statements).not.toContain('COMMIT');
         expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a 4.8 MB first snapshot and the batches after it', async () => {
+        const heavySnapshot = [{ type: 2, timestamp: 1, data: 'x'.repeat(4_800_000) }];
+        mockQuery.mockResolvedValue({ rows: [{ rrweb_events: JSON.stringify(heavySnapshot) }] });
+
+        const result = await appendRrwebEvents('s1', [{ type: 3, timestamp: 2 }]);
+
+        expect(result).toEqual({ saved: 1, isTruncated: false });
+    });
+
+    it('marks the session truncated past the limit without touching the recording', async () => {
+        const stored = [{ type: 2, timestamp: 1, data: 'x'.repeat(MAX_RRWEB_JSON_LENGTH) }];
+        mockQuery.mockResolvedValue({ rows: [{ rrweb_events: JSON.stringify(stored) }] });
+
+        const result = await appendRrwebEvents('s1', [{ type: 3, timestamp: 2 }]);
+
+        expect(result).toEqual({ saved: 0, isTruncated: true });
+        const update = mockQuery.mock.calls.find((call) => String(call[0]).startsWith('UPDATE'));
+        expect(update?.[0]).toContain("'rrweb-truncated'");
+        expect(update?.[0]).not.toContain('rrweb_events =');
+        expect(mockQuery.mock.calls.map((call) => String(call[0]).trim())).toContain('COMMIT');
     });
 
     it('computes rrweb duration from timestamps', async () => {

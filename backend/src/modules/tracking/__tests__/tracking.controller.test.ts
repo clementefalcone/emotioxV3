@@ -44,7 +44,8 @@ vi.mock('../tracking.service', async () => ({
     getPageSnapshotHtml: vi.fn().mockResolvedValue('<html><head></head><body><img src=x onerror="alert(1)"></body></html>'),
     getFrictionSummary: vi.fn().mockResolvedValue({ tags: [] }),
     getSessionFrictionTags: vi.fn().mockResolvedValue([]),
-    appendRrwebEvents: vi.fn().mockResolvedValue({ appended: 5 }),
+    appendRrwebEvents: vi.fn().mockResolvedValue({ saved: 5, isTruncated: false }),
+    MAX_RRWEB_JSON_LENGTH: 16777216,
     getRrwebEvents: vi.fn().mockResolvedValue([]),
     appendEmotionSamples: vi.fn().mockResolvedValue({ appended: 10 }),
     appendGazeSamples: vi.fn().mockResolvedValue({ appended: 20 }),
@@ -280,6 +281,15 @@ describe('handlePublicTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(201);
         expect(appendRrwebEvents).toHaveBeenCalledWith('s1', [{ type: 2, data: {} }]);
+    });
+
+    it('POST rrweb-events answers 413 when the recording is full', async () => {
+        vi.mocked(appendRrwebEvents).mockResolvedValueOnce({ saved: 0, isTruncated: true });
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/rrweb-events', { body: { sessionId: 's1', events: [{ type: 3 }] } }),
+        );
+        expect(res.statusCode).toBe(413);
+        expect(res.body).toContain('session s1 exceeds 16777216');
     });
 
     it('POST snapshot validates pageUrl and html', async () => {

@@ -1218,17 +1218,24 @@ const updateLockedSessionArray = async (
  * tracking_sessions.rrweb_events (LONGTEXT). Each call appends to the existing
  * array so the snippet can send incremental batches.
  */
+export const MAX_RRWEB_JSON_LENGTH = 16 * 1024 * 1024;
+
+const markRrwebTruncated = "capture_errors = IF(FIND_IN_SET('rrweb-truncated', COALESCE(capture_errors, '')) > 0, capture_errors, CONCAT_WS(',', capture_errors, 'rrweb-truncated'))";
+
 export const appendRrwebEvents = async (
     sessionId: string,
     events: unknown[]
-): Promise<{ saved: number }> => {
-    if (events.length === 0) return { saved: 0 };
+): Promise<{ saved: number; isTruncated: boolean }> => {
+    if (events.length === 0) return { saved: 0, isTruncated: false };
 
+    let isTruncated = false;
     await updateLockedSessionArray(sessionId, 'rrweb_events', (existing) => {
         const merged = [...existing, ...events];
-        // Cap at 5MB of JSON to prevent unbounded growth
         const json = JSON.stringify(merged);
-        if (json.length > 5_242_880) throw new Error('rrweb events too large');
+        if (json.length > MAX_RRWEB_JSON_LENGTH) {
+            isTruncated = true;
+            return { assignments: markRrwebTruncated, params: [] };
+        }
 
         // Compute rrweb replay duration from event timestamps
         let rrwebDurationMs: number | null = null;
@@ -1241,7 +1248,7 @@ export const appendRrwebEvents = async (
         return { assignments: 'rrweb_events = ?, rrweb_duration_ms = ?, ended_at = NOW()', params: [json, rrwebDurationMs] };
     });
 
-    return { saved: events.length };
+    return { saved: isTruncated ? 0 : events.length, isTruncated };
 };
 
 /**
