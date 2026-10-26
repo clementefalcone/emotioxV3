@@ -208,7 +208,7 @@ export const saveEvents = async (sessionRef: TrackingSessionRef, events: Trackin
 
     // Validate session exists
     const session = await pool.query(
-        'SELECT id FROM tracking_sessions WHERE id = ? AND research_id = ?',
+        'SELECT started_at FROM tracking_sessions WHERE id = ? AND research_id = ?',
         [sessionId, sessionRef.researchId]
     );
     if (session.rows.length === 0) {
@@ -249,7 +249,7 @@ export const saveEvents = async (sessionRef: TrackingSessionRef, events: Trackin
     const lastTs = Math.max(...capped.map((e) => e.timestampMs));
     if (activeDurationMs !== undefined) {
         // Cap active time: cannot exceed wall time (started_at to now)
-        const wallMs = lastTs - new Date(sessionId ? (await pool.query('SELECT started_at FROM tracking_sessions WHERE id = ?', [sessionId])).rows[0]?.started_at : 0).getTime();
+        const wallMs = lastTs - new Date(session.rows[0].started_at).getTime();
         const cappedActive = Math.min(activeDurationMs, Math.max(wallMs, 0));
         await pool.query(
             'UPDATE tracking_sessions SET ended_at = FROM_UNIXTIME(? / 1000), active_duration_ms = ? WHERE id = ?',

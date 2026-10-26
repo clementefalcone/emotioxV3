@@ -168,6 +168,19 @@ describe('saveEvents', () => {
         const result = await saveEvents({ researchId: 'r1', sessionId: 's1' }, manyEvents);
         expect(result.saved).toBe(50);
     });
+
+    it('caps active time at the wall time since the session started, in three queries', async () => {
+        const startedAt = new Date('2026-01-01T12:00:00Z');
+        mockQuery
+            .mockResolvedValueOnce({ rows: [{ started_at: startedAt }] })
+            .mockResolvedValueOnce({ rows: [] })
+            .mockResolvedValueOnce({ rows: [] });
+
+        await saveEvents({ researchId: 'r1', sessionId: 's1' }, [{ eventType: 'click', timestampMs: startedAt.getTime() + 10_000 }], 60_000);
+
+        expect(mockQuery).toHaveBeenCalledTimes(3);
+        expect(mockQuery.mock.calls[2][1]).toEqual([startedAt.getTime() + 10_000, 10_000, 's1']);
+    });
 });
 
 // ─── getTrackingConfig ───────────────────────────────────────────────
