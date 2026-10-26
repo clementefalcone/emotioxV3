@@ -31,7 +31,7 @@ vi.mock('../tracking.service', () => ({
     getTrackingConfig: (...args: unknown[]) => mockGetTrackingConfig(...args),
 }));
 
-import { getTrackingReport, generateTrackingReport } from '../tracking-report.service';
+import { generateTrackingReport } from '../tracking-report.service';
 
 const RESEARCH_ID = 'res-123';
 
@@ -106,45 +106,6 @@ beforeEach(() => {
     mockGetFrictionSummary.mockReset();
     mockGetVisitorJourneys.mockReset();
     mockGetTrackingConfig.mockReset();
-});
-
-describe('getTrackingReport', () => {
-    it('returns null when research not found', async () => {
-        mockQuery.mockResolvedValue({ rows: [] });
-        const result = await getTrackingReport(RESEARCH_ID);
-        expect(result).toBeNull();
-    });
-
-    it('returns null when no cached report', async () => {
-        mockQuery.mockResolvedValue({ rows: [{ config: {} }] });
-        const result = await getTrackingReport(RESEARCH_ID);
-        expect(result).toBeNull();
-    });
-
-    it('returns cached report from config.trackingReport', async () => {
-        const cached = { generatedAt: '2024-01-01', overview: 'cached' };
-        mockQuery.mockResolvedValue({ rows: [{ config: { trackingReport: cached } }] });
-        const result = await getTrackingReport(RESEARCH_ID);
-        expect(result).toEqual(cached);
-    });
-
-    it('handles config as string (JSON.parse)', async () => {
-        const cached = { generatedAt: '2024-01-01', overview: 'from string' };
-        mockQuery.mockResolvedValue({
-            rows: [{ config: JSON.stringify({ trackingReport: cached }) }],
-        });
-        const result = await getTrackingReport(RESEARCH_ID);
-        expect(result).toEqual(cached);
-    });
-
-    it('handles config as object directly', async () => {
-        const cached = { generatedAt: '2024-01-01', overview: 'from object' };
-        mockQuery.mockResolvedValue({
-            rows: [{ config: { trackingReport: cached } }],
-        });
-        const result = await getTrackingReport(RESEARCH_ID);
-        expect(result).toEqual(cached);
-    });
 });
 
 describe('generateTrackingReport', () => {

@@ -46,17 +46,6 @@ export interface TrackingReport {
     analyzedSections: string[];
 }
 
-export const getTrackingReport = async (researchId: string): Promise<TrackingReport | null> => {
-    const result = await pool.query('SELECT config FROM researches WHERE id = ?', [researchId]);
-    if (!result.rows[0]) return null;
-
-    const config = typeof result.rows[0].config === 'string'
-        ? JSON.parse(result.rows[0].config)
-        : result.rows[0].config || {};
-
-    return config.trackingReport || null;
-};
-
 export const generateTrackingReport = async (
     researchId: string,
     sections?: ReportSections

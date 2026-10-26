@@ -15,12 +15,10 @@ import {
     getTrackedPages,
     getClickHeatmap,
     getElementClicks,
-    getSessions,
     verifyInstallation,
     getEmbedSnippet,
     getTrackingConfig,
     updateConfig,
-    savePageScreenshot,
     getScrollDepth,
     getSessionReplay,
     getRrwebReplay,
@@ -33,7 +31,6 @@ import {
     getAttentionHeatmap,
     getVisitorJourneys,
     getLiveSessions,
-    getTrackingReport,
     generateTrackingReport,
     getTrackingEmotions,
     getTrackingGaze,
@@ -120,23 +117,6 @@ describe('Heatmaps', () => {
 // ─── Sessions ────────────────────────────────────────────────────────
 
 describe('Sessions', () => {
-    it('getSessions calls GET /tracking/:id/sessions with default limit/offset', async () => {
-        mockGet.mockResolvedValue({ sessions: [] });
-        const result = await getSessions('r1');
-        expect(mockGet).toHaveBeenCalledWith('/tracking/r1/sessions', {
-            params: { limit: 50, offset: 0 },
-        });
-        expect(result).toEqual([]);
-    });
-
-    it('getSessions passes custom limit and offset', async () => {
-        mockGet.mockResolvedValue({ sessions: [] });
-        await getSessions('r1', 10, 20);
-        expect(mockGet).toHaveBeenCalledWith('/tracking/r1/sessions', {
-            params: { limit: 10, offset: 20 },
-        });
-    });
-
     it('getSessionReplay calls GET /tracking/:id/sessions/:sid/events', async () => {
         const mockReplay = { session: {}, events: [] };
         mockGet.mockResolvedValue(mockReplay);
@@ -296,33 +276,6 @@ describe('Snapshots', () => {
     it('getPageSnapshot returns null when no snapshot', async () => {
         mockGet.mockResolvedValue({ html: null });
         const result = await getPageSnapshot('r1', 'https://example.com');
-        expect(result).toBeNull();
-    });
-
-    it('savePageScreenshot calls POST /tracking/:id/pages/screenshot', async () => {
-        mockPost.mockResolvedValue(undefined);
-        await savePageScreenshot('r1', 'https://example.com', 'screenshots/s1.png');
-        expect(mockPost).toHaveBeenCalledWith('/tracking/r1/pages/screenshot', {
-            pageUrl: 'https://example.com',
-            screenshotS3Key: 'screenshots/s1.png',
-        });
-    });
-});
-
-// ─── Report ──────────────────────────────────────────────────────────
-
-describe('Report', () => {
-    it('getTrackingReport calls GET /tracking/:id/report and unwraps', async () => {
-        const report = { generatedAt: '2026-01-01', overview: 'test', keyFindings: [], recommendations: [], usabilityScore: 80, engagementAnalysis: '', frictionAnalysis: '', scrollBehavior: '', funnelAnalysis: '', topIssues: [], analyzedSections: [] };
-        mockGet.mockResolvedValue({ report });
-        const result = await getTrackingReport('r1');
-        expect(mockGet).toHaveBeenCalledWith('/tracking/r1/report');
-        expect(result).toEqual(report);
-    });
-
-    it('getTrackingReport returns null when no report', async () => {
-        mockGet.mockResolvedValue({ report: null });
-        const result = await getTrackingReport('r1');
         expect(result).toBeNull();
     });
 

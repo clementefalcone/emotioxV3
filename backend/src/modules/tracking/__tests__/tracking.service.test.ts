@@ -48,11 +48,9 @@ import {
     getSessionEvents,
     getPageFunnels,
     getExportData,
-    savePageScreenshot,
     saveTrackingConfig,
     getElementClickData,
     getRecentSessionCount,
-    getSessions,
     savePageSnapshot,
     getFrictionSummary,
     getSessionFrictionTags,
@@ -60,7 +58,6 @@ import {
     getAttentionHeatmapData,
     getVisitorJourneys,
     getLiveSessions,
-    savePageScreenshotFromBase64,
     appendRrwebEvents,
     MAX_RRWEB_JSON_LENGTH,
     getRrwebEvents,
@@ -341,21 +338,6 @@ describe('getExportData', () => {
     });
 });
 
-// ─── savePageScreenshot ──────────────────────────────────────────────
-
-describe('savePageScreenshot', () => {
-    it('updates tracking_pages with s3key', async () => {
-        mockQuery.mockResolvedValueOnce({ rows: [] });
-
-        await savePageScreenshot('r1', 'https://example.com', 'screenshots/r1/page.png');
-
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining('UPDATE tracking_pages'),
-            ['screenshots/r1/page.png', 'r1', 'https://example.com']
-        );
-    });
-});
-
 // ─── saveTrackingConfig ──────────────────────────────────────────────
 
 describe('saveTrackingConfig', () => {
@@ -478,40 +460,6 @@ describe('getTrackedPages', () => {
 
         expect(pages[0].screenshotDevices).toEqual({ desktop: 'path.png' });
         expect(pages[0].hasSnapshot).toBe(false);
-    });
-});
-
-// ─── getSessions ────────────────────────────────────────────────────
-
-describe('getSessions', () => {
-    it('returns sessions with default limit/offset', async () => {
-        mockQuery.mockResolvedValueOnce({
-            rows: [
-                {
-                    id: 's1', visitor_id: 'v1', page_url: '/home', page_title: 'Home',
-                    viewport_width: 1920, viewport_height: 1080, user_agent: 'Mozilla',
-                    referrer: null, started_at: '2026-01-01', ended_at: '2026-01-01',
-                    hasRrweb: 1, eventCount: 20,
-                },
-            ],
-        });
-
-        const sessions = await getSessions('r1');
-
-        expect(sessions).toHaveLength(1);
-        expect(sessions[0].id).toBe('s1');
-        expect(sessions[0].hasRrweb).toBe(true);
-        expect(sessions[0].eventCount).toBe(20);
-        // Default limit=50, offset=0
-        expect(mockQuery.mock.calls[0][1]).toEqual(['r1', 50, 0]);
-    });
-
-    it('passes custom limit and offset', async () => {
-        mockQuery.mockResolvedValueOnce({ rows: [] });
-
-        await getSessions('r1', 10, 20);
-
-        expect(mockQuery.mock.calls[0][1]).toEqual(['r1', 10, 20]);
     });
 });
 
@@ -797,48 +745,6 @@ describe('getLiveSessions', () => {
         const result = await getLiveSessions('r1');
 
         expect(result.sessions).toHaveLength(0);
-    });
-});
-
-// ─── savePageScreenshotFromBase64 ───────────────────────────────────
-
-describe('savePageScreenshotFromBase64', () => {
-    it('saves valid PNG base64 and updates DB', async () => {
-        // PNG magic bytes: 89 50 4E 47 ...
-        const pngBuffer = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-        const base64 = pngBuffer.toString('base64');
-
-        // SELECT existing devices, then UPDATE
-        mockQuery
-            .mockResolvedValueOnce({ rows: [{ screenshot_devices: null }] })
-            .mockResolvedValueOnce({ rows: [] });
-
-        const path = await savePageScreenshotFromBase64('r1', '/home', base64, 'desktop');
-
-        expect(path).toContain('research/r1/tracking/screenshot_desktop_');
-        expect(path).toMatch(/\.png$/);
-    });
-
-    it('strips data URI prefix', async () => {
-        const jpegBuffer = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]);
-        const base64 = `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
-
-        mockQuery
-            .mockResolvedValueOnce({ rows: [{ screenshot_devices: null }] })
-            .mockResolvedValueOnce({ rows: [] });
-
-        const path = await savePageScreenshotFromBase64('r1', '/home', base64);
-
-        expect(path).toMatch(/\.jpg$/);
-    });
-
-    it('throws for invalid image data', async () => {
-        const badBuffer = Buffer.from([0x00, 0x00, 0x00, 0x00]);
-        const base64 = badBuffer.toString('base64');
-
-        await expect(
-            savePageScreenshotFromBase64('r1', '/home', base64)
-        ).rejects.toThrow('Invalid image data');
     });
 });
 

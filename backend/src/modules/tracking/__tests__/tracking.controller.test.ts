@@ -27,13 +27,10 @@ vi.mock('../tracking.service', async () => ({
     getScrollDepthData: vi.fn().mockResolvedValue({ depths: [] }),
     getOverviewMetrics: vi.fn().mockResolvedValue({ sessions: 10 }),
     getTrackedPages: vi.fn().mockResolvedValue(['/home']),
-    getSessions: vi.fn().mockResolvedValue([{ id: 's1' }]),
     getSessionEvents: vi.fn().mockResolvedValue([{ type: 'click' }]),
     getPageFunnels: vi.fn().mockResolvedValue({ funnels: [] }),
     computeFunnelDropoff: vi.fn().mockResolvedValue({ steps: [] }),
     getExportData: vi.fn().mockResolvedValue({ csv: 'data' }),
-    savePageScreenshot: vi.fn().mockResolvedValue(undefined),
-    savePageScreenshotFromBase64: vi.fn().mockResolvedValue(undefined),
     saveTrackingConfig: vi.fn().mockResolvedValue(undefined),
     getRecentSessionCount: vi.fn().mockResolvedValue({ count: 5 }),
     getVisitorJourneys: vi.fn().mockResolvedValue({ visitors: [] }),
@@ -74,7 +71,6 @@ vi.mock('../tracking-gaze.analytics', () => ({
 }));
 
 vi.mock('../tracking-report.service', () => ({
-    getTrackingReport: vi.fn().mockResolvedValue({ sections: [] }),
     generateTrackingReport: vi.fn().mockResolvedValue({ sections: ['overview'] }),
 }));
 
@@ -109,12 +105,10 @@ import {
     getScrollDepthData,
     getOverviewMetrics,
     getTrackedPages,
-    getSessions,
     getSessionEvents,
     getPageFunnels,
     computeFunnelDropoff,
     getExportData,
-    savePageScreenshot,
     saveTrackingConfig,
     getRecentSessionCount,
     getVisitorJourneys,
@@ -128,7 +122,6 @@ import {
     appendEmotionSamples,
     appendGazeSamples,
     savePageSnapshot,
-    savePageScreenshotFromBase64,
     recordCaptureError,
 } from '../tracking.service';
 import { generateTrackingSnippet, generateEmbedSnippet } from '../tracking-snippet';
@@ -334,50 +327,6 @@ describe('handlePublicTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(201);
         expect(savePageSnapshot).toHaveBeenCalledWith('r1', 'https://x.com', '<div>hi</div>');
-    });
-
-    it('POST screenshot validates pageUrl and imageData', async () => {
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/screenshot', {
-                body: { pageUrl: 'https://x.com' },
-            }),
-        );
-        expect(res.statusCode).toBe(400);
-        expect(res.body).toContain('Missing pageUrl or imageData');
-    });
-
-    it('POST screenshot rejects payloads > 5MB', async () => {
-        const bigImg = 'x'.repeat(5_242_881);
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/screenshot', {
-                body: { pageUrl: 'https://x.com', imageData: bigImg },
-            }),
-        );
-        expect(res.statusCode).toBe(413);
-        expect(res.body).toContain('Screenshot too large');
-    });
-
-    it('POST screenshot calls savePageScreenshotFromBase64 with device category', async () => {
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/screenshot', {
-                body: { pageUrl: 'https://x.com', imageData: 'base64data', device: 'mobile' },
-            }),
-        );
-        expect(res.statusCode).toBe(201);
-        expect(savePageScreenshotFromBase64).toHaveBeenCalledWith(
-            'r1', 'https://x.com', 'base64data', 'mobile',
-        );
-    });
-
-    it('POST screenshot defaults device to desktop for unknown values', async () => {
-        await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/screenshot', {
-                body: { pageUrl: 'https://x.com', imageData: 'base64data', device: 'unknown' },
-            }),
-        );
-        expect(savePageScreenshotFromBase64).toHaveBeenCalledWith(
-            'r1', 'https://x.com', 'base64data', 'desktop',
-        );
     });
 
     it('POST emotions validates sessionId and samples', async () => {
@@ -588,19 +537,6 @@ describe('handleTrackingRoutes', () => {
         expect(getElementClickData).toHaveBeenCalledWith('r1', 'https://example.com', 'desktop');
     });
 
-    it('GET /tracking/:id/sessions parses limit/offset', async () => {
-        const res = await handleTrackingRoutes(
-            mockEvent('GET', '/tracking/r1/sessions', { query: { limit: '10', offset: '20' } }),
-        );
-        expect(res.statusCode).toBe(200);
-        expect(getSessions).toHaveBeenCalledWith('r1', 10, 20);
-    });
-
-    it('GET /tracking/:id/sessions defaults limit=50 offset=0', async () => {
-        await handleTrackingRoutes(mockEvent('GET', '/tracking/r1/sessions'));
-        expect(getSessions).toHaveBeenCalledWith('r1', 50, 0);
-    });
-
     it('GET /tracking/:id/scroll passes page param', async () => {
         const res = await handleTrackingRoutes(
             mockEvent('GET', '/tracking/r1/scroll', {
@@ -782,33 +718,6 @@ describe('handleTrackingRoutes', () => {
         expect(generateEmbedSnippet).toHaveBeenCalledWith('r1', expect.any(String));
     });
 
-    it('POST /tracking/:id/pages/screenshot validates body', async () => {
-        const res = await handleTrackingRoutes(
-            mockEvent('POST', '/tracking/r1/pages/screenshot', {
-                body: { pageUrl: 'https://x.com' },
-            }),
-        );
-        expect(res.statusCode).toBe(400);
-        expect(res.body).toContain('Missing pageUrl or screenshotS3Key');
-    });
-
-    it('POST /tracking/:id/pages/screenshot saves screenshot', async () => {
-        const res = await handleTrackingRoutes(
-            mockEvent('POST', '/tracking/r1/pages/screenshot', {
-                body: { pageUrl: 'https://x.com', screenshotS3Key: 'key.png' },
-            }),
-        );
-        expect(res.statusCode).toBe(200);
-        expect(savePageScreenshot).toHaveBeenCalledWith('r1', 'https://x.com', 'key.png');
-    });
-
-    it('GET /tracking/:id/report returns cached report', async () => {
-        const res = await handleTrackingRoutes(
-            mockEvent('GET', '/tracking/r1/report'),
-        );
-        expect(res.statusCode).toBe(200);
-    });
-
     it('POST /tracking/:id/report generates AI report', async () => {
         const res = await handleTrackingRoutes(
             mockEvent('POST', '/tracking/r1/report', {
@@ -865,12 +774,12 @@ describe('tracking routes — study access', () => {
     it('does not expose or modify tracking data of a study the user cannot access', async () => {
         vi.mocked(canAccessResearch).mockResolvedValueOnce(false).mockResolvedValueOnce(false);
 
-        const sessions = await handleTrackingRoutes(mockEvent('GET', '/tracking/foreign/sessions'));
+        const visitors = await handleTrackingRoutes(mockEvent('GET', '/tracking/foreign/visitors'));
         const config = await handleTrackingRoutes(mockEvent('PUT', '/tracking/foreign/config', { body: { allowedDomains: ['evil.example'] } }));
 
-        expect(sessions.statusCode).toBe(404);
+        expect(visitors.statusCode).toBe(404);
         expect(config.statusCode).toBe(404);
-        expect(getSessions).not.toHaveBeenCalled();
+        expect(getVisitorJourneys).not.toHaveBeenCalled();
         expect(saveTrackingConfig).not.toHaveBeenCalled();
     });
 

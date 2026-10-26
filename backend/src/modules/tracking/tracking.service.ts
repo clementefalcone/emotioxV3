@@ -4,10 +4,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 import pool from '../../config/database';
 import { parseCaptureErrors, type CaptureErrorKind } from './capture-errors';
-import { getMediaPath, ensureDirectoryExists } from '../../config/local-storage';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -549,43 +547,6 @@ export const getTrackedPages = async (researchId: string) => {
     }));
 };
 
-// ─── Session List ───────────��────────────────────────────────────────
-
-export const getSessions = async (researchId: string, limit = 50, offset = 0) => {
-    const result = await pool.query(
-        `SELECT
-            ts.id, ts.visitor_id, ts.page_url, ts.page_title,
-            ts.viewport_width, ts.viewport_height, ts.user_agent, ts.referrer,
-            ts.started_at, ts.ended_at,
-            ts.rrweb_events IS NOT NULL as hasRrweb,
-            COUNT(te.id) as eventCount
-         FROM tracking_sessions ts
-         LEFT JOIN tracking_events te ON te.session_id = ts.id
-         WHERE ts.research_id = ?
-         GROUP BY ts.id
-         HAVING COUNT(te.id) > 0 OR ts.rrweb_events IS NOT NULL
-            OR ts.started_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-         ORDER BY ts.started_at DESC
-         LIMIT ? OFFSET ?`,
-        [researchId, limit, offset]
-    );
-
-    return result.rows.map((row: Record<string, unknown>) => ({
-        id: row.id,
-        visitorId: row.visitor_id,
-        pageUrl: row.page_url,
-        pageTitle: row.page_title,
-        viewportWidth: row.viewport_width,
-        viewportHeight: row.viewport_height,
-        userAgent: row.user_agent,
-        referrer: row.referrer,
-        startedAt: row.started_at,
-        endedAt: row.ended_at,
-        eventCount: Number(row.eventCount || 0),
-        hasRrweb: !!row.hasRrweb,
-    }));
-};
-
 // ─── Page Snapshot ──────────────────────────────────────────────────
 
 export const savePageSnapshot = async (
@@ -1006,71 +967,6 @@ export const getLiveSessions = async (researchId: string) => {
     }
 
     return { sessions: [...visitorMap.values()] };
-};
-
-// ─── Save Page Screenshot ────────────────────────────────────────────
-
-export const savePageScreenshot = async (
-    researchId: string,
-    pageUrl: string,
-    screenshotS3Key: string
-): Promise<void> => {
-    await pool.query(
-        `UPDATE tracking_pages SET screenshot_s3_key = ?, updated_at = NOW()
-         WHERE research_id = ? AND page_url = ?`,
-        [screenshotS3Key, researchId, pageUrl]
-    );
-};
-
-/**
- * Save a base64-encoded screenshot image to the filesystem and update the page record.
- * Called by the public tracking snippet (client-side html2canvas capture).
- * Stores per-device category (mobile/tablet/desktop) in screenshot_devices JSON.
- */
-export const savePageScreenshotFromBase64 = async (
-    researchId: string,
-    pageUrl: string,
-    base64Data: string,
-    deviceCategory: 'mobile' | 'tablet' | 'desktop' = 'desktop'
-): Promise<string> => {
-    // Strip data URI prefix if present
-    const raw = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(raw, 'base64');
-
-    // Validate it's a real JPEG/PNG (check magic bytes)
-    const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8;
-    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50;
-    if (!isJpeg && !isPng) {
-        throw new Error('Invalid image data');
-    }
-
-    const ext = isPng ? 'png' : 'jpg';
-    const fileName = `screenshot_${deviceCategory}_${Date.now()}.${ext}`;
-    const relativePath = `research/${researchId}/tracking/${fileName}`;
-    const fullPath = getMediaPath(relativePath);
-
-    ensureDirectoryExists(fullPath);
-    fs.writeFileSync(fullPath, buffer);
-
-    // Update screenshot_devices JSON — merge with existing
-    const existing = await pool.query(
-        `SELECT screenshot_devices FROM tracking_pages WHERE research_id = ? AND page_url = ?`,
-        [researchId, pageUrl]
-    );
-    const currentDevices = existing.rows[0]?.screenshot_devices
-        ? (typeof existing.rows[0].screenshot_devices === 'string'
-            ? JSON.parse(existing.rows[0].screenshot_devices)
-            : existing.rows[0].screenshot_devices)
-        : {};
-    currentDevices[deviceCategory] = relativePath;
-
-    await pool.query(
-        `UPDATE tracking_pages SET screenshot_s3_key = ?, screenshot_devices = ?, updated_at = NOW()
-         WHERE research_id = ? AND page_url = ?`,
-        [relativePath, JSON.stringify(currentDevices), researchId, pageUrl]
-    );
-
-    return relativePath;
 };
 
 // ─── Analytics: Scroll Depth ─────────────────────────────────────────

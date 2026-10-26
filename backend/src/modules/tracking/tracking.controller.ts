@@ -16,13 +16,10 @@ import {
     getScrollDepthData,
     getOverviewMetrics,
     getTrackedPages,
-    getSessions,
     getSessionEvents,
     getPageFunnels,
     computeFunnelDropoff,
     getExportData,
-    savePageScreenshot,
-    savePageScreenshotFromBase64,
     saveTrackingConfig,
     isTrackingZone,
     getRecentSessionCount,
@@ -240,24 +237,6 @@ export const handlePublicTrackingRoutes = async (
             if (!pageUrl || !html) return trackingError('Missing pageUrl or html');
             if (html.length > 4194304) return trackingError('Snapshot too large', 413);
             await savePageSnapshot(researchId, pageUrl, html);
-            return trackingSuccess({ saved: true }, 201);
-        }
-
-        // POST /public/tracking/:researchId/screenshot — save client-captured screenshot
-        const screenshotPublicMatch = path.match(/^\/public\/tracking\/([^/]+)\/screenshot$/);
-        if (screenshotPublicMatch && httpMethod === 'POST') {
-            const researchId = screenshotPublicMatch[1];
-            let body: Record<string, unknown>;
-            try { body = JSON.parse(event.body || '{}'); } catch { return trackingError('Invalid JSON'); }
-            const pageUrl = body.pageUrl as string;
-            const imageData = body.imageData as string;
-            const deviceCategory = (['mobile', 'tablet', 'desktop'].includes(body.device as string)
-                ? body.device as 'mobile' | 'tablet' | 'desktop'
-                : 'desktop');
-            if (!pageUrl || !imageData) return trackingError('Missing pageUrl or imageData');
-            // Cap base64 at ~5MB
-            if (imageData.length > 5242880) return trackingError('Screenshot too large', 413);
-            await savePageScreenshotFromBase64(researchId, pageUrl, imageData, deviceCategory);
             return trackingSuccess({ saved: true }, 201);
         }
 
@@ -642,16 +621,6 @@ export const handleTrackingRoutes = async (
             return success(data, 200, undefined, origin);
         }
 
-        // GET /tracking/:researchId/sessions — list sessions
-        const sessionsMatch = path.match(/^\/tracking\/([^/]+)\/sessions$/);
-        if (sessionsMatch && httpMethod === 'GET') {
-            const researchId = sessionsMatch[1];
-            const limit = parseInt(event.queryStringParameters?.limit || '50', 10);
-            const offset = parseInt(event.queryStringParameters?.offset || '0', 10);
-            const sessions = await getSessions(researchId, limit, offset);
-            return success({ sessions }, 200, undefined, origin);
-        }
-
         // GET /tracking/:researchId/scroll?page=URL — scroll depth data
         const scrollMatch = path.match(/^\/tracking\/([^/]+)\/scroll$/);
         if (scrollMatch && httpMethod === 'GET') {
@@ -880,27 +849,6 @@ export const handleTrackingRoutes = async (
             const apiBaseUrl = process.env.API_BASE_URL || 'https://emotio.cx/api';
             const snippet = generateEmbedSnippet(researchId, apiBaseUrl);
             return success({ snippet }, 200, undefined, origin);
-        }
-
-        // POST /tracking/:researchId/pages/screenshot — save screenshot s3key for a page
-        const screenshotMatch = path.match(/^\/tracking\/([^/]+)\/pages\/screenshot$/);
-        if (screenshotMatch && httpMethod === 'POST') {
-            const researchId = screenshotMatch[1];
-            const body = JSON.parse(event.body || '{}');
-            if (!body.pageUrl || !body.screenshotS3Key) {
-                return error('Missing pageUrl or screenshotS3Key', 400, undefined, origin);
-            }
-            await savePageScreenshot(researchId, body.pageUrl, body.screenshotS3Key);
-            return success({ updated: true }, 200, undefined, origin);
-        }
-
-        // GET /tracking/:researchId/report — get cached AI report
-        const reportGetMatch = path.match(/^\/tracking\/([^/]+)\/report$/);
-        if (reportGetMatch && httpMethod === 'GET') {
-            const researchId = reportGetMatch[1];
-            const { getTrackingReport } = await import('./tracking-report.service');
-            const report = await getTrackingReport(researchId);
-            return success({ report }, 200, undefined, origin);
         }
 
         // POST /tracking/:researchId/report — generate AI report

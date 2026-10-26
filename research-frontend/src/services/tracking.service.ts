@@ -109,21 +109,6 @@ export interface ClickHeatmapData {
     sessions: number;
 }
 
-export interface TrackingSession {
-    id: string;
-    visitorId: string;
-    pageUrl: string;
-    pageTitle: string | null;
-    viewportWidth: number;
-    viewportHeight: number;
-    userAgent: string | null;
-    referrer: string | null;
-    startedAt: string;
-    endedAt: string | null;
-    eventCount: number;
-    hasRrweb?: boolean;
-}
-
 // ─── API Calls ───────────────────────────────────────────────────────
 
 export const getOverview = async (researchId: string, from?: string, to?: string): Promise<TrackingOverview> => {
@@ -171,17 +156,6 @@ export const getElementClicks = async (
     return apiClient.get<{ clicks: ElementClick[] }>(`/tracking/${researchId}/element-clicks`, { params });
 };
 
-export const getSessions = async (
-    researchId: string,
-    limit = 50,
-    offset = 0
-): Promise<TrackingSession[]> => {
-    const response = await apiClient.get<{ sessions: TrackingSession[] }>(`/tracking/${researchId}/sessions`, {
-        params: { limit, offset },
-    });
-    return response.sessions;
-};
-
 export const verifyInstallation = async (
     researchId: string,
     sinceSeconds = 120
@@ -205,17 +179,6 @@ export const updateConfig = async (
     config: Partial<TrackingConfig>
 ): Promise<void> => {
     await apiClient.put(`/tracking/${researchId}/config`, config);
-};
-
-export const savePageScreenshot = async (
-    researchId: string,
-    pageUrl: string,
-    screenshotS3Key: string
-): Promise<void> => {
-    await apiClient.post(`/tracking/${researchId}/pages/screenshot`, {
-        pageUrl,
-        screenshotS3Key,
-    });
 };
 
 // ─── Scroll Depth ────────────────────────────────────────────────────
@@ -455,11 +418,6 @@ export interface TrackingReport {
     topIssues: Array<{ issue: string; severity: 'high' | 'medium' | 'low'; suggestion: string }>;
     analyzedSections: string[];
 }
-
-export const getTrackingReport = async (researchId: string): Promise<TrackingReport | null> => {
-    const res = await apiClient.get<{ report: TrackingReport | null }>(`/tracking/${researchId}/report`);
-    return res.report;
-};
 
 export const generateTrackingReport = async (researchId: string, sections?: Record<string, boolean> | object): Promise<TrackingReport> => {
     const res = await apiClient.post<{ report: TrackingReport }>(`/tracking/${researchId}/report`, { sections });
