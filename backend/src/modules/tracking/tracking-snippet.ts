@@ -755,6 +755,11 @@ function uiButton(label,isPrimary,onClick){
     button.addEventListener("click",function(e){e.stopPropagation();onClick();});
     return button;
 }
+function uiSkipButton(overlay){
+    var button=uiButton(uiText("skip"),false,function(){overlay.remove();skipCameraCapture();});
+    button.style.background="#f3f4f6";button.style.color="#4b5563";
+    return button;
+}
 function uiDot(color,size){
     var dot=uiNode("div","position:absolute;width:"+size+"px;height:"+size+"px;transform:translate(-50%,-50%);transition:left .3s ease,top .3s ease;pointer-events:none;");
     var mask="radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px))";
@@ -875,7 +880,10 @@ function runCameraCheck(onPass){
                 setTimeout(function(){overlay.remove();onPass();},1500);
                 return;
             }
-            footer.appendChild(uiButton(uiText("qgRetry"),true,check));
+            var actions=uiNode("div","display:flex;gap:12px;justify-content:center;");
+            actions.appendChild(uiButton(uiText("qgRetry"),true,check));
+            actions.appendChild(uiSkipButton(overlay));
+            footer.appendChild(actions);
         });
     }
     check();
@@ -893,6 +901,7 @@ function runCalibration(nPts,cb){
     overlay.appendChild(uiNode("div","margin-top:8px;font-size:18px;font-weight:700;color:#111827;",uiText("dwell")));
     overlay.appendChild(counter);
     overlay.appendChild(area);
+    overlay.appendChild(uiSkipButton(overlay));
     area.appendChild(dot);
     document.body.appendChild(overlay);
     var pIdx=0;

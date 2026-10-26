@@ -399,6 +399,53 @@ function runStartCameraCapture({ storedCalibration, isMediaPipeLoaded, isSkipped
     return { withCamera, beginCapture, runCameraCheck };
 }
 
+describe('generateTrackingSnippet — the visitor can always leave the camera screens', () => {
+    const fakeNode = () => {
+        const node = { children: [] as unknown[], style: {} as Record<string, string>, textContent: '', remove: vi.fn(), appendChild: (child: unknown) => { node.children.push(child); return child; } };
+        return node;
+    };
+    const runScreen = (screen: 'runCameraCheck' | 'runCalibration') => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const source = js.slice(js.indexOf('function uiSkipButton('), js.indexOf('function uiDot(')) +
+            js.slice(js.indexOf('function runCameraCheck('), js.indexOf('var VALIDATION_POINTS='));
+        const overlays: Array<ReturnType<typeof fakeNode>> = [];
+        const buttons: Array<{ label: string; onClick: () => void }> = [];
+        const skipCameraCapture = vi.fn();
+        const failingMetrics = { width: 1280, height: 720, brightness: 40 };
+        new Function('uiOverlay', 'uiNode', 'uiPill', 'uiDot', 'uiButton', 'uiText', 'uiQualityRow', 'collectCameraMetrics', 'rateCameraQuality', 'QUALITY_CHECK_IDS', 'skipCameraCapture', 'document', 'setTimeout', 'calPoints', 'GAZE_FEAT_DIM',
+            `${source}${screen}(5,function(){});`,
+        )(
+            () => { const overlay = fakeNode(); overlays.push(overlay); return overlay; },
+            () => fakeNode(),
+            () => Object.assign(fakeNode(), { setPercent: () => undefined }),
+            () => Object.assign(fakeNode(), { moveTo: () => undefined, setProgress: () => undefined }),
+            (label: string, _isPrimary: boolean, onClick: () => void) => { buttons.push({ label, onClick }); return Object.assign(fakeNode(), { style: {} }); },
+            (key: string) => key,
+            () => ({ node: fakeNode(), show: () => undefined }),
+            (cb: (metrics: object) => void) => cb(failingMetrics),
+            () => ({ brightness: 'fail' }),
+            ['brightness'],
+            skipCameraCapture,
+            { body: fakeNode() },
+            () => 0,
+            () => [[50, 50]],
+            3,
+        );
+        return { overlay: overlays[0], buttons, skipCameraCapture };
+    };
+
+    it.each(['runCameraCheck', 'runCalibration'] as const)('%s offers a skip that closes the screen and stops the camera', (screen) => {
+        const { overlay, buttons, skipCameraCapture } = runScreen(screen);
+        const skip = buttons.find((button) => button.label === 'skip');
+
+        expect(skip).toBeDefined();
+        skip?.onClick();
+
+        expect(overlay.remove).toHaveBeenCalled();
+        expect(skipCameraCapture).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('generateTrackingSnippet — calibration overlay always closes', () => {
     it('closes the calibration and validation screens when the camera is released', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
