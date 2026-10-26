@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { assertPublicUrl, fetchPublicUrl, BlockedUrlError } from '../public-fetch';
+import { assertPublicUrl, fetchPublicUrl, BlockedUrlError, MAX_PUBLIC_RESPONSE_BYTES } from '../public-fetch';
 
 describe('assertPublicUrl', () => {
     it.each([
@@ -43,5 +43,21 @@ describe('fetchPublicUrl', () => {
 
         expect(response.status).toBe(200);
         expect(String(fetchMock.mock.calls[1][0])).toBe('https://93.184.216.34/v2/font.woff2');
+    });
+
+    it('stops reading a body larger than the limit', async () => {
+        const oversized = new Uint8Array(MAX_PUBLIC_RESPONSE_BYTES + 1);
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(oversized, { status: 200 })));
+
+        await expect(fetchPublicUrl('https://93.184.216.34/huge.bin')).rejects.toThrow(`exceeds ${MAX_PUBLIC_RESPONSE_BYTES} bytes`);
+    });
+
+    it('returns a body within the limit with its headers', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('body{}', { status: 200, headers: { 'content-type': 'text/css' } })));
+
+        const response = await fetchPublicUrl('https://93.184.216.34/style.css');
+
+        expect(await response.text()).toBe('body{}');
+        expect(response.headers.get('content-type')).toBe('text/css');
     });
 });

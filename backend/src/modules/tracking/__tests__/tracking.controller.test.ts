@@ -165,6 +165,15 @@ describe('handlePublicTrackingRoutes', () => {
         expect(res.headers?.['Access-Control-Allow-Methods']).toContain('POST');
     });
 
+    it('GET proxy-asset refuses a research that does not exist', async () => {
+        vi.mocked(getTrackingConfig).mockRejectedValueOnce(new Error('Research not found'));
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('GET', '/public/tracking/x/proxy-asset', { query: { url: 'https://93.184.216.34/a.css' } }),
+        );
+        expect(res.statusCode).toBe(404);
+        expect(getTrackingConfig).toHaveBeenCalledWith('x');
+    });
+
     it('GET script.js calls getTrackingConfig and generateTrackingSnippet', async () => {
         const res = await handlePublicTrackingRoutes(mockEvent('GET', '/public/tracking/r1/script.js'));
         expect(res.statusCode).toBe(200);

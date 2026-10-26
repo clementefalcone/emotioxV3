@@ -3,6 +3,7 @@ import { isIP } from 'net';
 
 const MAX_REDIRECTS = 5;
 const PROXY_USER_AGENT = 'Mozilla/5.0 (compatible; EmotioCX/1.0)';
+export const MAX_PUBLIC_RESPONSE_BYTES = 10 * 1024 * 1024;
 
 export class BlockedUrlError extends Error {}
 
@@ -47,13 +48,31 @@ export const assertPublicUrl = async (rawUrl: string): Promise<URL> => {
     return url;
 };
 
+const readCappedBody = async (response: Response, url: string): Promise<Response> => {
+    if (!response.body) return response;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_PUBLIC_RESPONSE_BYTES) {
+            await reader.cancel();
+            throw new BlockedUrlError(`Response from ${url} exceeds ${MAX_PUBLIC_RESPONSE_BYTES} bytes`);
+        }
+        chunks.push(value);
+    }
+    return new Response(Buffer.concat(chunks), { status: response.status, headers: response.headers });
+};
+
 export const fetchPublicUrl = async (rawUrl: string): Promise<Response> => {
     let current = rawUrl;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
         const url = await assertPublicUrl(current);
         const response = await fetch(url, { headers: { 'User-Agent': PROXY_USER_AGENT }, redirect: 'manual' });
         const location = response.headers.get('location');
-        if (response.status < 300 || response.status >= 400 || !location) return response;
+        if (response.status < 300 || response.status >= 400 || !location) return readCappedBody(response, current);
         current = new URL(location, url).toString();
     }
     throw new BlockedUrlError(`Too many redirects for ${rawUrl}`);

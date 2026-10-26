@@ -330,6 +330,7 @@ export const handlePublicTrackingRoutes = async (
                 ? decodeURIComponent(event.queryStringParameters.url)
                 : null;
             if (!assetUrl) return trackingError('Missing url parameter');
+            await getTrackingConfig(publicProxyAssetMatch[1]);
 
             try {
                 const response = await fetchPublicUrl(assetUrl);
