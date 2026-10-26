@@ -530,25 +530,6 @@ export const getTrackingGaze = async (
     return apiClient.get<TrackingGazeData>(`/tracking/${researchId}/gaze`, { params });
 };
 
-// ─── Mouse-Attention Heatmap ────────────────────────────────────────
-
-export interface MouseAttentionHeatmapData {
-    points: Array<{ x: number; y: number; weight: number }>;
-    totalSamples: number;
-    sessions: number;
-}
-
-export const getMouseAttentionHeatmap = async (
-    researchId: string,
-    pageUrl?: string,
-    device?: 'mobile' | 'tablet' | 'desktop'
-): Promise<MouseAttentionHeatmapData> => {
-    const params: Record<string, string> = {};
-    if (pageUrl) params.page = pageUrl;
-    if (device) params.device = device;
-    return apiClient.get<MouseAttentionHeatmapData>(`/tracking/${researchId}/mouse-attention`, { params });
-};
-
 // ─── Emotion Video ──────────────────────────────────────────────────
 
 export const getEmotionVideoUrl = (researchId: string, sessionId: string): string => {
