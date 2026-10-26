@@ -633,7 +633,7 @@ describe('handleTrackingRoutes', () => {
             mockEvent('GET', '/tracking/r1/sessions/s1/events'),
         );
         expect(res.statusCode).toBe(200);
-        expect(getSessionEvents).toHaveBeenCalledWith('s1');
+        expect(getSessionEvents).toHaveBeenCalledWith('r1', 's1');
     });
 
     it('GET /tracking/:id/sessions/:sid/rrweb returns rrweb events', async () => {
@@ -641,7 +641,16 @@ describe('handleTrackingRoutes', () => {
             mockEvent('GET', '/tracking/r1/sessions/s1/rrweb'),
         );
         expect(res.statusCode).toBe(200);
-        expect(getRrwebEvents).toHaveBeenCalledWith('s1');
+        expect(getRrwebEvents).toHaveBeenCalledWith('r1', 's1');
+    });
+
+    it('GET a session of another research answers 404', async () => {
+        vi.mocked(getRrwebEvents).mockRejectedValueOnce(new Error('Session s9 not found in research r1'));
+        const res = await handleTrackingRoutes(
+            mockEvent('GET', '/tracking/r1/sessions/s9/rrweb'),
+        );
+        expect(res.statusCode).toBe(404);
+        expect(res.body).toContain('Session s9 not found in research r1');
     });
 
     it('GET /tracking/:id/funnels/:funnelId returns funnel dropoff', async () => {

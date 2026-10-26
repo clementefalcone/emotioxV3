@@ -683,16 +683,14 @@ export const handleTrackingRoutes = async (
         // GET /tracking/:researchId/sessions/:sessionId/events — session replay data
         const sessionEventsMatch = path.match(/^\/tracking\/([^/]+)\/sessions\/([^/]+)\/events$/);
         if (sessionEventsMatch && httpMethod === 'GET') {
-            const sessionId = sessionEventsMatch[2];
-            const data = await getSessionEvents(sessionId);
+            const data = await getSessionEvents(sessionEventsMatch[1], sessionEventsMatch[2]);
             return success(data, 200, undefined, origin);
         }
 
         // GET /tracking/:researchId/sessions/:sessionId/rrweb — rrweb recording data for replay
         const rrwebGetMatch = path.match(/^\/tracking\/([^/]+)\/sessions\/([^/]+)\/rrweb$/);
         if (rrwebGetMatch && httpMethod === 'GET') {
-            const sessionId = rrwebGetMatch[2];
-            const data = await getRrwebEvents(sessionId);
+            const data = await getRrwebEvents(rrwebGetMatch[1], rrwebGetMatch[2]);
             return success(data, 200, undefined, origin);
         }
 
@@ -895,14 +893,14 @@ export const handleTrackingRoutes = async (
         // GET /tracking/:researchId/sessions/:sessionId/emotion-video — stream webcam recording
         const emotionVideoAuthMatch = path.match(/^\/tracking\/([^/]+)\/sessions\/([^/]+)\/emotion-video$/);
         if (emotionVideoAuthMatch && httpMethod === 'GET') {
-            const sessionId = emotionVideoAuthMatch[2];
+            const [, researchId, sessionId] = emotionVideoAuthMatch;
             const dbPool = (await import('../../config/database')).default;
             const session = await dbPool.query(
-                'SELECT emotion_video_path FROM tracking_sessions WHERE id = ?',
-                [sessionId]
+                'SELECT emotion_video_path FROM tracking_sessions WHERE id = ? AND research_id = ?',
+                [sessionId, researchId]
             );
             const videoPath = session.rows[0]?.emotion_video_path;
-            if (!videoPath) return error('No emotion video found', 404, undefined, origin);
+            if (!videoPath) return error(`No emotion video for session ${sessionId} in research ${researchId}`, 404, undefined, origin);
             const { getMediaPath } = await import('../../config/local-storage');
             const fs = await import('fs');
             const fullPath = getMediaPath(videoPath);
@@ -966,6 +964,9 @@ export const handleTrackingRoutes = async (
         const isAuthError = msg.includes('Unauthorized') || msg.includes('token') || msg.includes('jwt') || msg.includes('No token');
         if (isAuthError) {
             return error('Unauthorized', 401, undefined, origin);
+        }
+        if (/^Session \S+ not found in research \S+$/.test(msg)) {
+            return error(msg, 404, undefined, origin);
         }
         console.error('[Tracking] Error:', err);
         return error(msg, 500, undefined, origin);

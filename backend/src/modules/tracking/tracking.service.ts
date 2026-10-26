@@ -1126,16 +1126,16 @@ export const getScrollDepthData = async (
 
 // ─── Analytics: Session Events (for replay) ─────────────────────────
 
-export const getSessionEvents = async (sessionId: string) => {
+export const getSessionEvents = async (researchId: string, sessionId: string) => {
     const session = await pool.query(
         `SELECT ts.*, tp.screenshot_s3_key
          FROM tracking_sessions ts
          LEFT JOIN tracking_pages tp ON tp.research_id = ts.research_id AND tp.page_url = ts.page_url
-         WHERE ts.id = ?`,
-        [sessionId]
+         WHERE ts.id = ? AND ts.research_id = ?`,
+        [sessionId, researchId]
     );
     if (session.rows.length === 0) {
-        throw new Error('Session not found');
+        throw new Error(`Session ${sessionId} not found in research ${researchId}`);
     }
 
     const events = await pool.query(
@@ -1256,16 +1256,16 @@ export const appendRrwebEvents = async (
 /**
  * Retrieve rrweb events for a session (for replay).
  */
-export const getRrwebEvents = async (sessionId: string) => {
+export const getRrwebEvents = async (researchId: string, sessionId: string) => {
     const result = await pool.query(
         `SELECT ts.id, ts.visitor_id, ts.page_url, ts.page_title,
                 ts.viewport_width, ts.viewport_height,
                 ts.started_at, ts.ended_at, ts.rrweb_events
          FROM tracking_sessions ts
-         WHERE ts.id = ?`,
-        [sessionId]
+         WHERE ts.id = ? AND ts.research_id = ?`,
+        [sessionId, researchId]
     );
-    if (result.rows.length === 0) throw new Error('Session not found');
+    if (result.rows.length === 0) throw new Error(`Session ${sessionId} not found in research ${researchId}`);
 
     const s = result.rows[0] as Record<string, unknown>;
     let events: unknown[] = [];

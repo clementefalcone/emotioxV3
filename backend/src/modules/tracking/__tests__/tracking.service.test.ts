@@ -863,7 +863,7 @@ describe('getSessionEvents', () => {
                 }],
             });
 
-        const result = await getSessionEvents('s1');
+        const result = await getSessionEvents('r1', 's1');
 
         expect(result.session.id).toBe('s1');
         expect(result.session.screenshotS3Key).toBe('key.png');
@@ -876,7 +876,15 @@ describe('getSessionEvents', () => {
     it('throws when session not found', async () => {
         mockQuery.mockResolvedValueOnce({ rows: [] });
 
-        await expect(getSessionEvents('bad')).rejects.toThrow('Session not found');
+        await expect(getSessionEvents('r1', 'bad')).rejects.toThrow('Session bad not found in research r1');
+    });
+
+    it('only reads sessions of the requested research', async () => {
+        mockQuery.mockResolvedValueOnce({ rows: [] });
+
+        await expect(getSessionEvents('r1', 's-of-r2')).rejects.toThrow('not found');
+        expect(mockQuery.mock.calls[0][0]).toContain('ts.research_id = ?');
+        expect(mockQuery.mock.calls[0][1]).toEqual(['s-of-r2', 'r1']);
     });
 });
 
@@ -983,7 +991,7 @@ describe('getRrwebEvents', () => {
             }],
         });
 
-        const result = await getRrwebEvents('s1');
+        const result = await getRrwebEvents('r1', 's1');
 
         expect(result.session.id).toBe('s1');
         expect(result.events).toHaveLength(2);
@@ -991,7 +999,15 @@ describe('getRrwebEvents', () => {
 
     it('throws when session not found', async () => {
         mockQuery.mockResolvedValueOnce({ rows: [] });
-        await expect(getRrwebEvents('bad')).rejects.toThrow('Session not found');
+        await expect(getRrwebEvents('r1', 'bad')).rejects.toThrow('Session bad not found in research r1');
+    });
+
+    it('only reads recordings of the requested research', async () => {
+        mockQuery.mockResolvedValueOnce({ rows: [] });
+
+        await expect(getRrwebEvents('r1', 's-of-r2')).rejects.toThrow('not found');
+        expect(mockQuery.mock.calls[0][0]).toContain('ts.research_id = ?');
+        expect(mockQuery.mock.calls[0][1]).toEqual(['s-of-r2', 'r1']);
     });
 
     it('returns empty array when no rrweb events stored', async () => {
@@ -1004,7 +1020,7 @@ describe('getRrwebEvents', () => {
             }],
         });
 
-        const result = await getRrwebEvents('s1');
+        const result = await getRrwebEvents('r1', 's1');
         expect(result.events).toEqual([]);
     });
 });
