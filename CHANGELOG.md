@@ -24,9 +24,10 @@
 - Proxies share `proxy-rewrite.ts`; 19 recorded requests match byte for byte except two unifications (uppercase `<HEAD>` now inert in proxy-page, snapshot-html drops inline handlers).
 - `saveEvents` reads `started_at` with its validation query.
 
-### Open
-- The server keeps 50 events per batch and drops the rest while the snippet may send more; not measured.
-- **Tests.** Backend 684 → 686, research-frontend 686 → 679 (removed code), 0 failing.
+### fix(tracking): events buffered before a session exists
+- **Batch cap.** Since `378706e` (Oct 4) the snippet sent its whole buffer in one post while the server keeps 50 per post. Production since Oct 4: 45 sessions, at most 7 events before the session existed, none lost. It happens when session creation fails for a while: Aug 13, one tab open 6 h with 8 failed attempts sent 54 at once (then still split by 50, nothing lost). The snippet now posts in batches of `maxEventsPerFlush`; local run with a 30 s session delay: 208 events in 50/50/50/48/9/1, all stored.
+- **Mixed visits.** That Aug 13 session holds events of 9 page views over 6 h, because events of pages whose session was never created moved to the next session. They are now dropped when a new session starts (events of the new page during its first ~1 s of session creation are dropped too).
+- **Tests.** Backend 684 → 687, research-frontend 686 → 679 (removed code), 0 failing.
 
 ## v0.99.17 — Eye Tracking: AOIs follow filters and share gaze; expression evaluation tools (2026-10-24)
 

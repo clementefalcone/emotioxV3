@@ -23,7 +23,7 @@
 - El "fallo 2" (emociones esperan a la calibración) es deliberado: durante la calibración el visitante no ve la web.
 
 ### Pendiente
-- Servidor guarda máx. 50 eventos por envío; el snippet puede mandar más. Sin medir.
+- Resuelto en la misma sesión: tope de 50 eventos (riesgo latente desde 4-oct, 0 sesiones afectadas) y visitas mezcladas tras fallos de sesión.
 - `url( "…" )` con espacios en CSS proxificado no se reescribe.
 - Activar emociones/mirada en un estudio real para tener datos.
 

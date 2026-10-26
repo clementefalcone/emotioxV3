@@ -12,7 +12,7 @@ Actualizado: 2026-10-26 · Versión: v0.99.18 · Producción = `main` (backend y
 
 ## Qué falta
 
-- **Website Tracking:** (a) servidor guarda máx. 50 eventos por envío y el snippet puede mandar más — sin medir; (b) `url( "…" )` con espacios en CSS proxificado no se reescribe; (c) emociones y mirada nunca se activaron en estudios reales — activar en uno para tener datos; (d) prueba real en producción con cámara (el test forense fue local).
+- **Website Tracking:** (a) resuelto: envío en tandas de 50 y sin mezclar visitas (pendiente de deploy si no se hizo); (b) `url( "…" )` con espacios en CSS proxificado no se reescribe; (c) emociones y mirada nunca se activaron en estudios reales — activar en uno para tener datos; (d) prueba real en producción con cámara (el test forense fue local).
 1. **Grabación etiquetada** con `/test/expression-capture` (6 min). Guardar en `participant-frontend/eval/datasets/expressions-<fecha>/` (`video.webm`, `ground-truth.json`, `metadata.json`) y abrir `/test/expression-eval?dataset=expressions-<fecha>`.
 2. **Decidir face-api vs blendshapes** con esos números.
 3. **Fase 2 (20 personas):** cambiar la captura para procesar en el navegador y guardar solo cambios respecto a la cara neutra (no video); revisión legal del consentimiento.
