@@ -432,6 +432,34 @@ describe('generateTrackingSnippet — gaze only when the researcher turned it on
     });
 });
 
+describe('generateTrackingSnippet — emotions on devices without WebGL', () => {
+    it('points the wasm backend at its own TensorFlow version and waits for it before loading models', async () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = js.slice(js.indexOf('function loadFaceApi('), js.indexOf('function sampleEmotion('));
+        const steps: string[] = [];
+        let finishReady: () => void = () => undefined;
+        const net = { loadFromUri: vi.fn(async () => { steps.push('load'); }) };
+        const faceapi = {
+            tf: {
+                version_core: '4.21.0',
+                setWasmPaths: vi.fn((path: string) => { steps.push(`wasm ${path}`); }),
+                ready: vi.fn(() => new Promise<void>((resolve) => { finishReady = () => { steps.push('ready'); resolve(); }; })),
+            },
+            nets: { tinyFaceDetector: net, faceLandmark68Net: net, faceExpressionNet: net },
+        };
+        const onLoaded = vi.fn();
+        new Function('C', 'window', 'faceapi', 'reportCaptureError', 'faceApiReady', `${source}loadFaceApi(arguments[5]);`)(
+            { emoModelUrl: 'https://models' }, { faceapi }, faceapi, vi.fn(), false, onLoaded,
+        );
+
+        expect(net.loadFromUri).not.toHaveBeenCalled();
+        finishReady();
+        await vi.waitFor(() => expect(onLoaded).toHaveBeenCalledTimes(1));
+
+        expect(steps).toEqual(['wasm https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.21.0/dist/', 'ready', 'load', 'load', 'load']);
+    });
+});
+
 describe('generateTrackingSnippet — the visitor can always leave the camera screens', () => {
     const fakeNode = () => {
         const node = { children: [] as unknown[], style: {} as Record<string, string>, textContent: '', remove: vi.fn(), appendChild: (child: unknown) => { node.children.push(child); return child; } };

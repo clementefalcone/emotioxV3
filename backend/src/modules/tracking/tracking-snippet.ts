@@ -1215,11 +1215,14 @@ function loadMediaPipe(cb){
 function loadFaceApi(cb){
     if(faceApiReady){cb();return;}
     var onModels=function(){
-        Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(C.emoModelUrl),
-            faceapi.nets.faceLandmark68Net.loadFromUri(C.emoModelUrl),
-            faceapi.nets.faceExpressionNet.loadFromUri(C.emoModelUrl)
-        ]).then(function(){faceApiReady=true;cb();},function(){reportCaptureError("face-models-failed");cb();});
+        faceapi.tf.setWasmPaths("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@"+faceapi.tf.version_core+"/dist/");
+        faceapi.tf.ready().then(function(){
+            return Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(C.emoModelUrl),
+                faceapi.nets.faceLandmark68Net.loadFromUri(C.emoModelUrl),
+                faceapi.nets.faceExpressionNet.loadFromUri(C.emoModelUrl)
+            ]);
+        }).then(function(){faceApiReady=true;cb();},function(){reportCaptureError("face-models-failed");cb();});
     };
     if(window.faceapi){onModels();return;}
     var sc=document.createElement("script");
