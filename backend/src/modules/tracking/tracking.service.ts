@@ -843,9 +843,13 @@ export const getVisitorJourneys = async (researchId: string, limit = 20, offset 
          WHERE ts.research_id = ?
          GROUP BY ts.id
          HAVING eventCount > 0
-         ORDER BY ts.started_at ASC
+         ORDER BY ts.started_at DESC
          LIMIT 5000`,
         [researchId]
+    );
+    const sessionsByVisitorThenStart = (sessionsResult.rows as Array<Record<string, unknown>>).sort((a, b) =>
+        String(a.visitor_id).localeCompare(String(b.visitor_id))
+        || (a.started_at as Date).getTime() - (b.started_at as Date).getTime()
     );
 
     // Group sessions into visits (gap > 30 min = new visit)
@@ -877,7 +881,7 @@ export const getVisitorJourneys = async (researchId: string, limit = 20, offset 
     let prevEndedAt: Date | null = null;
     let prevVisitorId = '';
 
-    for (const s of sessionsResult.rows as Array<Record<string, unknown>>) {
+    for (const s of sessionsByVisitorThenStart) {
         const visitorId = s.visitor_id as string;
         const startedAt = s.started_at as Date;
         const endedAt = s.ended_at as Date | null;

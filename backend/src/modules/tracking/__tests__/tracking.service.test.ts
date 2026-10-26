@@ -704,6 +704,36 @@ describe('getVisitorJourneys', () => {
         expect(result.totalVisitors).toBe(0);
         expect(result.visitors).toHaveLength(0);
     });
+
+    it('keeps one visit per visitor when another visitor browses in between', async () => {
+        const session = (id: string, visitorId: string, start: string, end: string) => ({
+            id, visitor_id: visitorId, page_url: `/${id}`, page_title: null,
+            started_at: new Date(start), ended_at: new Date(end), active_duration_ms: null,
+            rrweb_duration_ms: null, viewport_width: 1920, user_agent: null,
+            hasRrweb: 0, eventCount: 3, clickCount: 1,
+        });
+        mockQuery.mockResolvedValueOnce({
+            rows: [
+                session('a2', 'v1', '2026-01-01T12:04:00Z', '2026-01-01T12:06:00Z'),
+                session('b1', 'v2', '2026-01-01T12:02:00Z', '2026-01-01T12:03:00Z'),
+                session('a1', 'v1', '2026-01-01T12:00:00Z', '2026-01-01T12:01:00Z'),
+            ],
+        });
+
+        const result = await getVisitorJourneys('r1');
+
+        expect(result.totalVisitors).toBe(2);
+        const visitorOne = result.visitors.find((visit) => visit.visitorId === 'v1');
+        expect(visitorOne?.pages.map((page) => page.sessionId)).toEqual(['a1', 'a2']);
+    });
+
+    it('reads the most recent sessions first', async () => {
+        mockQuery.mockResolvedValueOnce({ rows: [] });
+
+        await getVisitorJourneys('r1');
+
+        expect(mockQuery.mock.calls[0][0]).toMatch(/ORDER BY ts\.started_at DESC\s+LIMIT 5000/);
+    });
 });
 
 // ─── getLiveSessions ────────────────────────────────────────────────
