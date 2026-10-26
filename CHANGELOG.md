@@ -1,3 +1,33 @@
+## v0.99.18 — Website Tracking: forensic review, data integrity, camera fixes (2026-10-26)
+
+### fix(tracking): data integrity
+- **Visits split in two.** `getVisitorJourneys` walked sessions of every visitor interleaved by time, so another visitor in between started a new visit. Production: `d3e0822b` 794 → 744 visits, `1d673c9f` 439 → 434. The 5000-session cap now keeps the newest.
+- **Overlapping batches.** rrweb, emotion and gaze appends were read-merge-write without a lock; 359 of 1424 recordings have out-of-order timestamps (overlap proof), 173 have no full snapshot. Appends now lock the session row (`SELECT … FOR UPDATE`).
+- **rrweb cap.** 26 recordings stopped at 5 MB (heavy useremotion.com pages, first snapshot 4.6–4.8 MB) and every later batch failed with 500. Cap 16 MB (merge measured on the server: 111 ms, 105 MB RSS); past it, 413 and capture error `rrweb-truncated` (badge "Replay truncated").
+- **Snapshots dropped.** The snippet posts `location.href`, sessions store the normalized url (no `www.`, no trailing slash); `emotio.cx/es` (301 → `/es/`, 502 sessions) never got a heatmap backdrop. Lookup now normalizes.
+- **Scroll by default.** Scroll and Attention layers need scroll events; `captureScroll` now defaults on (explicit `false` kept).
+- **Mouse-attention removed.** Filters were appended after `ORDER BY` (MariaDB 1064); no caller, 0 sessions with gaze data.
+
+### fix(tracking): access
+- Session reads (`events`, `rrweb`) and public writes (`events`, `rrweb-events`, `emotions`, `gaze`) are scoped to the research in the path; other sessions answer 404 naming session and research.
+- Proxies refuse bodies over 10 MB while streaming; the public asset proxy answers 404 for unknown studies. October logs: one blocked SSRF probe, no abuse.
+
+### fix(tracking): camera capture (local forensic run: real Chromium, recorded face as fake camera, mock API)
+- **Visitor locked out.** The camera check covered the site with only "Try again"; calibration waited forever without a face. Both now offer "Skip this activity" (closes, releases the camera; clicks, scroll and replay continue).
+- **Gaze without consent.** With only Emotions on, MediaPipe still loaded and gaze samples were sent (56 in 40 s). Gaze model now loads only with Gaze Tracking; emotions went 533 → 822 samples in the same run.
+- **No WebGL.** face-api loaded models before TensorFlow was ready; without WebGL the load threw (`face-models-failed`) and its wasm 404'd. Waits for `tf.ready()` with the wasm path of the bundled TF version: 0 → 725 samples without WebGL; with GPU still WebGL (45 vs 47 ms).
+- **Why production has no emotion/gaze data.** Both real studies have them off; the one test study with them on (Aug 28) predates capture-error logging.
+
+### refactor(tracking)
+- Webcam video recording removed (never stored, no player, consent under legal review). `emotion_video_path` column kept.
+- Unused routes removed: session list, cached report reader, screenshot writers (existing 15 screenshots still read).
+- Proxies share `proxy-rewrite.ts`; 19 recorded requests match byte for byte except two unifications (uppercase `<HEAD>` now inert in proxy-page, snapshot-html drops inline handlers).
+- `saveEvents` reads `started_at` with its validation query.
+
+### Open
+- The server keeps 50 events per batch and drops the rest while the snippet may send more; not measured.
+- **Tests.** Backend 684 → 686, research-frontend 686 → 679 (removed code), 0 failing.
+
 ## v0.99.17 — Eye Tracking: AOIs follow filters and share gaze; expression evaluation tools (2026-10-24)
 
 ### fix(results): say when all participants are excluded

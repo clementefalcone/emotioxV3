@@ -5,7 +5,27 @@
 
 ---
 
-## Última actualización: 2026-10-24 (sesión 51, día 2)
+## Última actualización: 2026-10-26 (sesión 52)
+
+---
+
+## Sesión 52: 26 de octubre de 2026 — Revisión forense de Website Tracking (v0.99.18)
+
+### Qué se hizo
+- Revisión completa de backend, snippet y resultados de Website Tracking; cada hallazgo medido en producción (MariaDB, logs de Apache) antes de corregir. 16 commits, uno por hallazgo.
+- Integridad: visitas partidas, lotes rrweb/emociones/mirada pisados (lock de fila), tope rrweb 16 MB con badge, snapshots perdidos por URL sin normalizar (`emotio.cx/es`), scroll por defecto.
+- Acceso: lecturas y escrituras de sesiones limitadas al estudio de la ruta; proxies con tope de 10 MB.
+- Test forense local de cámara (Chromium real + vídeo de cara como cámara + API falsa): visitante bloqueado sin salida (botón "Saltar"), mirada enviada sin Gaze Tracking, emociones fallaban sin WebGL.
+- Eliminado: vídeo de webcam, mouse-attention, rutas sin uso. Proxies unificados en `proxy-rewrite.ts` con comparación byte a byte.
+
+### Hallazgos clave
+- 0 datos de emociones/mirada en producción porque los dos estudios reales las tienen apagadas, no por fallo.
+- El "fallo 2" (emociones esperan a la calibración) es deliberado: durante la calibración el visitante no ve la web.
+
+### Pendiente
+- Servidor guarda máx. 50 eventos por envío; el snippet puede mandar más. Sin medir.
+- `url( "…" )` con espacios en CSS proxificado no se reescribe.
+- Activar emociones/mirada en un estudio real para tener datos.
 
 ---
 
