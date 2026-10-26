@@ -194,7 +194,7 @@ export const handlePublicTrackingRoutes = async (
 
             const activeDurationMs = typeof body.activeDurationMs === 'number' ? body.activeDurationMs : undefined;
 
-            const result = await saveEvents(sessionId, events.map((e) => ({
+            const result = await saveEvents({ researchId: eventsMatch[1], sessionId }, events.map((e) => ({
                 eventType: e.eventType as 'click' | 'scroll' | 'mousemove' | 'resize' | 'pageview',
                 x: typeof e.x === 'number' ? e.x : undefined,
                 y: typeof e.y === 'number' ? e.y : undefined,
@@ -223,7 +223,7 @@ export const handlePublicTrackingRoutes = async (
             if (!sessionId || !Array.isArray(rrwebEvts)) {
                 return trackingError('Missing sessionId or events array');
             }
-            const result = await appendRrwebEvents(sessionId, rrwebEvts);
+            const result = await appendRrwebEvents({ researchId: rrwebMatch[1], sessionId }, rrwebEvts);
             if (result.isTruncated) {
                 console.warn(JSON.stringify({ event: 'tracking_rrweb_truncated', researchId: rrwebMatch[1], sessionId, droppedEvents: rrwebEvts.length }));
                 return trackingError(`rrweb recording of session ${sessionId} exceeds ${MAX_RRWEB_JSON_LENGTH} characters`, 413);
@@ -274,7 +274,7 @@ export const handlePublicTrackingRoutes = async (
                 return trackingError('Missing sessionId or samples array');
             }
             if (samples.length > 1000) return trackingError('Too many samples (max 1000)', 413);
-            const result = await appendEmotionSamples(sessionId, samples);
+            const result = await appendEmotionSamples({ researchId: emotionsMatch[1], sessionId }, samples);
             return trackingSuccess(result, 201);
         }
 
@@ -289,7 +289,7 @@ export const handlePublicTrackingRoutes = async (
                 return trackingError('Missing sessionId or samples array');
             }
             if (samples.length > 2000) return trackingError('Too many samples (max 2000)', 413);
-            const result = await appendGazeSamples(sessionId, samples);
+            const result = await appendGazeSamples({ researchId: gazeMatch[1], sessionId }, samples);
             return trackingSuccess(result, 201);
         }
 

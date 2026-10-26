@@ -197,16 +197,25 @@ export const createSession = async (input: CreateSessionInput): Promise<{ sessio
 
 // ─── Event Ingestion ─────────────────────────────────────────────────
 
-export const saveEvents = async (sessionId: string, events: TrackingEvent[], activeDurationMs?: number): Promise<{ saved: number }> => {
+export interface TrackingSessionRef {
+    researchId: string;
+    sessionId: string;
+}
+
+const sessionNotFound = ({ researchId, sessionId }: TrackingSessionRef): Error =>
+    new Error(`Session ${sessionId} not found in research ${researchId}`);
+
+export const saveEvents = async (sessionRef: TrackingSessionRef, events: TrackingEvent[], activeDurationMs?: number): Promise<{ saved: number }> => {
     if (events.length === 0) return { saved: 0 };
+    const { sessionId } = sessionRef;
 
     // Validate session exists
     const session = await pool.query(
-        'SELECT id FROM tracking_sessions WHERE id = ?',
-        [sessionId]
+        'SELECT id FROM tracking_sessions WHERE id = ? AND research_id = ?',
+        [sessionId, sessionRef.researchId]
     );
     if (session.rows.length === 0) {
-        throw new Error('Session not found');
+        throw sessionNotFound(sessionRef);
     }
 
     // Cap at 50 events per flush to prevent abuse
@@ -1187,7 +1196,7 @@ const parseStoredArray = (raw: unknown): unknown[] => {
 };
 
 const updateLockedSessionArray = async (
-    sessionId: string,
+    sessionRef: TrackingSessionRef,
     column: SessionArrayColumn,
     buildUpdate: (existing: unknown[]) => { assignments: string; params: unknown[] }
 ): Promise<void> => {
@@ -1195,14 +1204,14 @@ const updateLockedSessionArray = async (
     try {
         await client.query('BEGIN');
         const session = await client.query(
-            `SELECT ${column} FROM tracking_sessions WHERE id = ? FOR UPDATE`,
-            [sessionId]
+            `SELECT ${column} FROM tracking_sessions WHERE id = ? AND research_id = ? FOR UPDATE`,
+            [sessionRef.sessionId, sessionRef.researchId]
         );
-        if (session.rows.length === 0) throw new Error('Session not found');
+        if (session.rows.length === 0) throw sessionNotFound(sessionRef);
         const update = buildUpdate(parseStoredArray(session.rows[0][column]));
         await client.query(
             `UPDATE tracking_sessions SET ${update.assignments} WHERE id = ?`,
-            [...update.params, sessionId]
+            [...update.params, sessionRef.sessionId]
         );
         await client.query('COMMIT');
     } catch (error) {
@@ -1225,13 +1234,13 @@ export const MAX_RRWEB_JSON_LENGTH = 16 * 1024 * 1024;
 const markRrwebTruncated = "capture_errors = IF(FIND_IN_SET('rrweb-truncated', COALESCE(capture_errors, '')) > 0, capture_errors, CONCAT_WS(',', capture_errors, 'rrweb-truncated'))";
 
 export const appendRrwebEvents = async (
-    sessionId: string,
+    sessionRef: TrackingSessionRef,
     events: unknown[]
 ): Promise<{ saved: number; isTruncated: boolean }> => {
     if (events.length === 0) return { saved: 0, isTruncated: false };
 
     let isTruncated = false;
-    await updateLockedSessionArray(sessionId, 'rrweb_events', (existing) => {
+    await updateLockedSessionArray(sessionRef, 'rrweb_events', (existing) => {
         const merged = [...existing, ...events];
         const json = JSON.stringify(merged);
         if (json.length > MAX_RRWEB_JSON_LENGTH) {
@@ -1508,12 +1517,12 @@ export const MAX_EMOTION_SAMPLES_PER_SESSION = 6000;
  * the existing array so the snippet can send incremental batches.
  */
 export const appendEmotionSamples = async (
-    sessionId: string,
+    sessionRef: TrackingSessionRef,
     samples: unknown[]
 ): Promise<{ saved: number }> => {
     if (samples.length === 0) return { saved: 0 };
 
-    await updateLockedSessionArray(sessionId, 'emotion_samples', (existing) => ({
+    await updateLockedSessionArray(sessionRef, 'emotion_samples', (existing) => ({
         assignments: 'emotion_samples = ?, ended_at = NOW()',
         params: [JSON.stringify([...existing, ...samples].slice(-MAX_EMOTION_SAMPLES_PER_SESSION))],
     }));
@@ -1543,12 +1552,12 @@ export const recordCaptureError = async (
 // ─── Gaze Attention Samples ─────────────────────────────────────────
 
 export const appendGazeSamples = async (
-    sessionId: string,
+    sessionRef: TrackingSessionRef,
     samples: unknown[]
 ): Promise<{ saved: number }> => {
     if (samples.length === 0) return { saved: 0 };
 
-    await updateLockedSessionArray(sessionId, 'gaze_samples', (existing) => ({
+    await updateLockedSessionArray(sessionRef, 'gaze_samples', (existing) => ({
         assignments: 'gaze_samples = ?, ended_at = NOW()',
         params: [JSON.stringify([...existing, ...samples].slice(-2000))],
     }));

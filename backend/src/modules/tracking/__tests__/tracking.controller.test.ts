@@ -256,7 +256,7 @@ describe('handlePublicTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(201);
         expect(saveEvents).toHaveBeenCalledWith(
-            's1',
+            { researchId: 'r1', sessionId: 's1' },
             [expect.objectContaining({ eventType: 'click', x: 100, y: 200 })],
             5000,
         );
@@ -289,7 +289,16 @@ describe('handlePublicTrackingRoutes', () => {
             mockEvent('POST', '/public/tracking/r1/rrweb-events', { body }),
         );
         expect(res.statusCode).toBe(201);
-        expect(appendRrwebEvents).toHaveBeenCalledWith('s1', [{ type: 2, data: {} }]);
+        expect(appendRrwebEvents).toHaveBeenCalledWith({ researchId: 'r1', sessionId: 's1' }, [{ type: 2, data: {} }]);
+    });
+
+    it('POST events to a session of another research answers 404', async () => {
+        vi.mocked(saveEvents).mockRejectedValueOnce(new Error('Session s1 not found in research r2'));
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r2/events', { body: { sessionId: 's1', events: [{ eventType: 'click' }] } }),
+        );
+        expect(res.statusCode).toBe(404);
+        expect(saveEvents).toHaveBeenCalledWith({ researchId: 'r2', sessionId: 's1' }, expect.any(Array), undefined);
     });
 
     it('POST rrweb-events answers 413 when the recording is full', async () => {
@@ -401,7 +410,7 @@ describe('handlePublicTrackingRoutes', () => {
             }),
         );
         expect(res.statusCode).toBe(201);
-        expect(appendEmotionSamples).toHaveBeenCalledWith('s1', samples);
+        expect(appendEmotionSamples).toHaveBeenCalledWith({ researchId: 'r1', sessionId: 's1' }, samples);
     });
 
     it('POST capture-error rejects a kind outside the dictionary', async () => {
@@ -462,7 +471,7 @@ describe('handlePublicTrackingRoutes', () => {
             }),
         );
         expect(res.statusCode).toBe(201);
-        expect(appendGazeSamples).toHaveBeenCalledWith('s1', samples);
+        expect(appendGazeSamples).toHaveBeenCalledWith({ researchId: 'r1', sessionId: 's1' }, samples);
     });
 
     it('POST emotion-video validates sessionId and video', async () => {
