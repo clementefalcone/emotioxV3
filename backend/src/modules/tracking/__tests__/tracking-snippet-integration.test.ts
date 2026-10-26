@@ -37,7 +37,6 @@ const defaultConfig = {
     targetPages: [],
     excludePages: [],
     captureEmotions: true,
-    emotionVideoEnabled: false,
     emotionModelBaseUrl: 'https://cdn.example.com/models',
     captureGaze: false,
     gazeCalibrationPoints: 9 as const,
@@ -58,7 +57,6 @@ describe('generateTrackingSnippet — JS validity', () => {
         const configs = [
             { ...defaultConfig, captureEmotions: false },
             { ...defaultConfig, consentRequired: true },
-            { ...defaultConfig, emotionVideoEnabled: true },
             { ...defaultConfig, allowedDomains: ['a.com', 'b.com', 'c.com'] },
             { ...defaultConfig, targetPages: ['/pricing', '/about'] },
         ];
@@ -657,7 +655,7 @@ describe('generateTrackingSnippet — one shared camera', () => {
         const visibilityHandler = js.slice(js.indexOf('addEventListener("visibilitychange"'), js.indexOf('addEventListener("beforeunload"'));
         expect(visibilityHandler).toContain('cameraReleaseTimer=setTimeout(releaseCamera,30000);');
         expect(visibilityHandler).toContain('clearTimeout(cameraReleaseTimer);');
-        expect(visibilityHandler).toContain('stopEmotionCapture();flushEmoVideo();releaseCamera();');
+        expect(visibilityHandler).toContain('stopEmotionCapture();releaseCamera();');
     });
 });
 
@@ -710,23 +708,6 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
         expect(bodies).toHaveLength(1);
         expect(bodies[0].sessionId).toBe('old');
         expect(bodies[0].events).toHaveLength(5);
-    });
-
-    it('sends the emotion video with the session it was recorded in', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, emotionVideoEnabled: true });
-        const { FakeXMLHttpRequest, bodies } = fakeXhr();
-        const readers: Array<{ onloadend: () => void; result: string }> = [];
-        function FakeFileReader(this: { readAsDataURL: () => void; onloadend: () => void; result: string }) {
-            this.readAsDataURL = () => { this.result = 'data:video/webm;base64,AAAA'; readers.push(this); };
-        }
-        const switchSession = new Function('C', 'XMLHttpRequest', 'FileReader', 'Blob',
-            `var sid="old",emoChunks=[{}];${extractFunction(js, 'flushEmoVideo')}flushEmoVideo();return function(){sid="new";};`,
-        )({ emoVideo: true, api: 'https://api', rid: 'r' }, FakeXMLHttpRequest, FakeFileReader, function Blob() { return {}; });
-
-        switchSession();
-        readers[0].onloadend();
-
-        expect(bodies[0].sessionId).toBe('old');
     });
 
     it('flushes emotions and gaze before switching to a new session', () => {

@@ -21,7 +21,6 @@ vi.mock('../tracking.service', async () => ({
         targetPages: [],
         excludePages: [],
         captureEmotions: false,
-        emotionVideoEnabled: false,
     }),
     getClickHeatmapData: vi.fn().mockResolvedValue({ clicks: [] }),
     getElementClickData: vi.fn().mockResolvedValue({ elements: [] }),
@@ -49,7 +48,6 @@ vi.mock('../tracking.service', async () => ({
     getRrwebEvents: vi.fn().mockResolvedValue([]),
     appendEmotionSamples: vi.fn().mockResolvedValue({ appended: 10 }),
     appendGazeSamples: vi.fn().mockResolvedValue({ appended: 20 }),
-    saveEmotionVideo: vi.fn().mockResolvedValue({ saved: true }),
     recordCaptureError: vi.fn().mockResolvedValue({ found: true }),
 }));
 
@@ -129,7 +127,6 @@ import {
     getRrwebEvents,
     appendEmotionSamples,
     appendGazeSamples,
-    saveEmotionVideo,
     savePageSnapshot,
     savePageScreenshotFromBase64,
     recordCaptureError,
@@ -472,38 +469,6 @@ describe('handlePublicTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(201);
         expect(appendGazeSamples).toHaveBeenCalledWith({ researchId: 'r1', sessionId: 's1' }, samples);
-    });
-
-    it('POST emotion-video validates sessionId and video', async () => {
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/emotion-video', {
-                body: { sessionId: 's1' },
-            }),
-        );
-        expect(res.statusCode).toBe(400);
-        expect(res.body).toContain('Missing sessionId or video');
-    });
-
-    it('POST emotion-video rejects > 15MB', async () => {
-        const bigVideo = 'x'.repeat(20_971_521);
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/emotion-video', {
-                body: { sessionId: 's1', video: bigVideo },
-            }),
-        );
-        expect(res.statusCode).toBe(413);
-        expect(res.body).toContain('Video too large');
-    });
-
-    it('POST emotion-video calls saveEmotionVideo', async () => {
-        const video = Buffer.from('fake-video').toString('base64');
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('POST', '/public/tracking/r1/emotion-video', {
-                body: { sessionId: 's1', video },
-            }),
-        );
-        expect(res.statusCode).toBe(201);
-        expect(saveEmotionVideo).toHaveBeenCalledWith('r1', 's1', expect.any(Buffer));
     });
 
     it('unknown route returns 404', async () => {

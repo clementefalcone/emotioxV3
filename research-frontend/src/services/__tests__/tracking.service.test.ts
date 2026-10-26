@@ -37,7 +37,6 @@ import {
     generateTrackingReport,
     getTrackingEmotions,
     getTrackingGaze,
-    getEmotionVideoUrl,
 } from '../tracking.service';
 
 const mockGet = vi.mocked(apiClient.get);
@@ -365,19 +364,5 @@ describe('Emotions & Gaze', () => {
         expect(mockGet).toHaveBeenCalledWith('/tracking/r1/gaze', {
             params: { page: 'https://example.com' },
         });
-    });
-
-    it('getEmotionVideoUrl returns correct URL from runtime config', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__RUNTIME_CONFIG__ = { apiBaseUrl: 'https://emotio.cx/api' };
-        const url = getEmotionVideoUrl('r1', 's1');
-        expect(url).toBe('https://emotio.cx/api/tracking/r1/sessions/s1/emotion-video');
-    });
-
-    it('getEmotionVideoUrl falls back to empty base when no runtime config', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__RUNTIME_CONFIG__ = undefined;
-        const url = getEmotionVideoUrl('r1', 's1');
-        expect(url).toBe('/tracking/r1/sessions/s1/emotion-video');
     });
 });

@@ -67,7 +67,6 @@ import {
     computeFunnelDropoff,
     appendEmotionSamples,
     appendGazeSamples,
-    saveEmotionVideo,
     getSessionEmotionSamples,
 } from '../tracking.service';
 
@@ -1148,30 +1147,6 @@ describe('appendGazeSamples', () => {
     it('throws when session not found', async () => {
         mockQuery.mockResolvedValueOnce(BEGIN).mockResolvedValueOnce({ rows: [] });
         await expect(appendGazeSamples({ researchId: 'r1', sessionId: 'bad' }, [{ x: 1 }])).rejects.toThrow('not found in research r1');
-    });
-});
-
-// ─── saveEmotionVideo ───────────────────────────────────────────────
-
-describe('saveEmotionVideo', () => {
-    it('saves video buffer and updates DB path', async () => {
-        mockQuery
-            .mockResolvedValueOnce({ rows: [{ id: 's1' }] })  // session check
-            .mockResolvedValueOnce({ rows: [] });              // UPDATE
-
-        const videoBuffer = Buffer.from('fake-webm-data');
-        const result = await saveEmotionVideo('r1', 's1', videoBuffer);
-
-        expect(result.path).toContain('research/r1/tracking/emotion_s1_');
-        expect(result.path).toMatch(/\.webm$/);
-    });
-
-    it('throws when session not found', async () => {
-        mockQuery.mockResolvedValueOnce({ rows: [] });
-
-        await expect(
-            saveEmotionVideo('r1', 'bad', Buffer.from('data'))
-        ).rejects.toThrow('Session not found');
     });
 });
 

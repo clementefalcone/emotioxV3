@@ -39,7 +39,6 @@ export interface TrackingConfig {
     funnels?: FunnelDefinition[];
     verified?: boolean;
     captureEmotions: boolean;
-    emotionVideoEnabled: boolean;
     captureGaze: boolean;
     gazeCalibrationPoints: 5 | 9;
     zones: TrackingZone[];
@@ -478,7 +477,6 @@ export interface TrackingEmotionData {
         pageUrl: string;
         dominantEmotion: EkmanEmotion;
         sampleCount: number;
-        hasVideo: boolean;
     }>;
     valenceArousal: Array<{ timestampS: number; valence: number; arousal: number }>;
 }
@@ -528,13 +526,4 @@ export const getTrackingGaze = async (
     const params: Record<string, string> = {};
     if (pageUrl) params.page = pageUrl;
     return apiClient.get<TrackingGazeData>(`/tracking/${researchId}/gaze`, { params });
-};
-
-// ─── Emotion Video ──────────────────────────────────────────────────
-
-export const getEmotionVideoUrl = (researchId: string, sessionId: string): string => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cfg = (window as any).__RUNTIME_CONFIG__ as { apiBaseUrl?: string } | undefined;
-    const baseUrl = cfg?.apiBaseUrl || '';
-    return `${baseUrl}/tracking/${researchId}/sessions/${sessionId}/emotion-video`;
 };

@@ -17,7 +17,6 @@ export interface TrackingEmotionData {
         pageUrl: string;
         dominantEmotion: EkmanEmotion;
         sampleCount: number;
-        hasVideo: boolean;
     }>;
     valenceArousal: Array<{ timestampS: number; valence: number; arousal: number }>;
 }
@@ -118,7 +117,7 @@ export async function getTrackingEmotionData(
     researchId: string,
     pageUrl?: string
 ): Promise<TrackingEmotionData> {
-    let query = `SELECT id, visitor_id, page_url, emotion_samples, emotion_video_path
+    let query = `SELECT id, visitor_id, page_url, emotion_samples
                  FROM tracking_sessions
                  WHERE research_id = ? AND emotion_samples IS NOT NULL`;
     const params: unknown[] = [researchId];
@@ -134,7 +133,6 @@ export async function getTrackingEmotionData(
         visitor_id: string;
         page_url: string;
         emotion_samples: string | unknown[];
-        emotion_video_path: string | null;
     }>;
 
     const sessionSamples = sessions
@@ -156,7 +154,6 @@ export async function getTrackingEmotionData(
             pageUrl: session.page_url,
             dominantEmotion: (Object.entries(sessionCounts).sort((a, b) => b[1] - a[1])[0][0] as EkmanEmotion),
             sampleCount: samples.length,
-            hasVideo: !!session.emotion_video_path,
         };
     });
 

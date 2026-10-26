@@ -38,7 +38,6 @@ import {
     getRrwebEvents,
     appendEmotionSamples,
     appendGazeSamples,
-    saveEmotionVideo,
     recordCaptureError,
 } from './tracking.service';
 import { isCaptureErrorKind, CAPTURE_ERROR_KINDS } from './capture-errors';
@@ -109,7 +108,6 @@ export const handlePublicTrackingRoutes = async (
                     targetPages: config.targetPages,
                     excludePages: config.excludePages,
                     captureEmotions: config.captureEmotions,
-                    emotionVideoEnabled: config.emotionVideoEnabled,
                     emotionModelBaseUrl: apiBaseUrl + '/media/face-api-models',
                     captureGaze: config.captureGaze,
                     gazeCalibrationPoints: config.gazeCalibrationPoints,
@@ -306,22 +304,6 @@ export const handlePublicTrackingRoutes = async (
             if (!found) return trackingError(`Session ${sessionId} not found in research ${researchId}`, 404);
             console.warn(JSON.stringify({ event: 'tracking_capture_error', researchId, sessionId, kind }));
             return trackingSuccess({ recorded: true }, 201);
-        }
-
-        // POST /public/tracking/:researchId/emotion-video — upload webcam recording
-        const emotionVideoMatch = path.match(/^\/public\/tracking\/([^/]+)\/emotion-video$/);
-        if (emotionVideoMatch && httpMethod === 'POST') {
-            const researchId = emotionVideoMatch[1];
-            let body: Record<string, unknown>;
-            try { body = JSON.parse(event.body || '{}'); } catch { return trackingError('Invalid JSON'); }
-            const sessionId = body.sessionId as string;
-            const videoBase64 = body.video as string;
-            if (!sessionId || !videoBase64) return trackingError('Missing sessionId or video');
-            // Cap at 15MB base64 (~11MB raw)
-            if (videoBase64.length > 20_971_520) return trackingError('Video too large (max 15MB)', 413);
-            const videoBuffer = Buffer.from(videoBase64, 'base64');
-            const result = await saveEmotionVideo(researchId, sessionId, videoBuffer);
-            return trackingSuccess(result, 201);
         }
 
         const publicProxyAssetMatch = path.match(/^\/public\/tracking\/([^/]+)\/proxy-asset$/);
@@ -889,34 +871,6 @@ export const handleTrackingRoutes = async (
             const { getTrackingGazeData } = await import('./tracking-gaze.analytics');
             const data = await getTrackingGazeData(researchId, pageUrl);
             return success(data, 200, undefined, origin);
-        }
-
-        // GET /tracking/:researchId/sessions/:sessionId/emotion-video — stream webcam recording
-        const emotionVideoAuthMatch = path.match(/^\/tracking\/([^/]+)\/sessions\/([^/]+)\/emotion-video$/);
-        if (emotionVideoAuthMatch && httpMethod === 'GET') {
-            const [, researchId, sessionId] = emotionVideoAuthMatch;
-            const dbPool = (await import('../../config/database')).default;
-            const session = await dbPool.query(
-                'SELECT emotion_video_path FROM tracking_sessions WHERE id = ? AND research_id = ?',
-                [sessionId, researchId]
-            );
-            const videoPath = session.rows[0]?.emotion_video_path;
-            if (!videoPath) return error(`No emotion video for session ${sessionId} in research ${researchId}`, 404, undefined, origin);
-            const { getMediaPath } = await import('../../config/local-storage');
-            const fs = await import('fs');
-            const fullPath = getMediaPath(videoPath);
-            if (!fs.existsSync(fullPath)) return error('Video file missing', 404, undefined, origin);
-            const videoBuffer = fs.readFileSync(fullPath);
-            return {
-                statusCode: 200,
-                headers: {
-                    'Content-Type': 'video/webm',
-                    'Content-Length': String(videoBuffer.length),
-                    ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
-                },
-                body: videoBuffer.toString('base64'),
-                isBase64Encoded: true,
-            };
         }
 
         // GET /tracking/:researchId/snippet — get embed snippet

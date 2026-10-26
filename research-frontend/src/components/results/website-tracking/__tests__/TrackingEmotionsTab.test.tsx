@@ -44,7 +44,6 @@ const mockEmotionData = {
             pageUrl: 'https://example.com/',
             dominantEmotion: 'joy' as const,
             sampleCount: 200,
-            hasVideo: true,
         },
         {
             sessionId: 's2',
@@ -52,7 +51,6 @@ const mockEmotionData = {
             pageUrl: 'https://example.com/pricing',
             dominantEmotion: 'neutral' as const,
             sampleCount: 150,
-            hasVideo: false,
         },
     ],
     valenceArousal: [

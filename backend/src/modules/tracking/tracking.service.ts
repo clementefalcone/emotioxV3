@@ -85,7 +85,6 @@ interface TrackingConfig {
     dataRetentionDays: number;
     funnels?: FunnelDefinition[];
     captureEmotions: boolean;
-    emotionVideoEnabled: boolean;
     captureGaze: boolean;
     gazeCalibrationPoints: 5 | 9;
     zones: TrackingZone[];
@@ -310,7 +309,6 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
         dataRetentionDays: (trackingConfig.dataRetentionDays as number) || 90,
         funnels: (trackingConfig.funnels as FunnelDefinition[]) || [],
         captureEmotions: trackingConfig.captureEmotions === true,
-        emotionVideoEnabled: trackingConfig.emotionVideoEnabled === true,
         captureGaze: trackingConfig.captureGaze === true,
         gazeCalibrationPoints: trackingConfig.gazeCalibrationPoints === 5 ? 5 : 9,
         zones: Array.isArray(trackingConfig.zones) ? trackingConfig.zones.filter(isTrackingZone) : [],
@@ -1563,39 +1561,6 @@ export const appendGazeSamples = async (
     }));
 
     return { saved: samples.length };
-};
-
-// ─── Emotion Video Storage ───────────────────────────────────────────
-
-/**
- * Save webcam recording for a tracking session.
- * Stores WebM file on filesystem, path in tracking_sessions.emotion_video_path.
- */
-export const saveEmotionVideo = async (
-    researchId: string,
-    sessionId: string,
-    videoBuffer: Buffer
-): Promise<{ path: string }> => {
-    // Validate session belongs to research
-    const session = await pool.query(
-        'SELECT id FROM tracking_sessions WHERE id = ? AND research_id = ?',
-        [sessionId, researchId]
-    );
-    if (session.rows.length === 0) throw new Error('Session not found');
-
-    const fileName = `emotion_${sessionId}_${Date.now()}.webm`;
-    const relativePath = `research/${researchId}/tracking/${fileName}`;
-    const fullPath = getMediaPath(relativePath);
-
-    ensureDirectoryExists(fullPath);
-    fs.writeFileSync(fullPath, videoBuffer);
-
-    await pool.query(
-        'UPDATE tracking_sessions SET emotion_video_path = ? WHERE id = ?',
-        [relativePath, sessionId]
-    );
-
-    return { path: relativePath };
 };
 
 // ─── Emotion Data Retrieval ──────────────────────────────────────────

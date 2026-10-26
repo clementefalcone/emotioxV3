@@ -30,7 +30,6 @@ interface SnippetConfig {
     targetPages: string[];
     excludePages: string[];
     captureEmotions: boolean;
-    emotionVideoEnabled: boolean;
     emotionModelBaseUrl: string;
     captureGaze: boolean;
     gazeCalibrationPoints: 5 | 9;
@@ -66,7 +65,6 @@ var C=${JSON.stringify({
         targetPg: config.targetPages,
         excludePg: config.excludePages,
         emotions: config.captureEmotions,
-        emoVideo: config.emotionVideoEnabled,
         emoModelUrl: config.emotionModelBaseUrl,
         gaze: config.captureGaze,
         gazeCal: config.gazeCalibrationPoints,
@@ -471,7 +469,7 @@ function startCapture(){
             var away=Date.now()-hiddenAt;
             if(away>30000){
                 // Away >30s — start fresh session (old one already flushed)
-                stopEmotionCapture();flushEmoVideo();releaseCamera();
+                stopEmotionCapture();releaseCamera();
                 createSession();
             }else{
                 // Brief switch — resume existing session
@@ -495,7 +493,6 @@ function startCapture(){
         stopEmotionCapture();
         flushEmotions(true);
         flushGaze(true);
-        flushEmoVideo();
     });
 
     // SPA navigation — new session only when pathname changes, 1s debounce
@@ -549,7 +546,7 @@ function startSession(){
 // ─── Emotion + Gaze Recognition (MediaPipe FaceLandmarker) ──────────
 
 var emoBuf=[],gazeBuf=[],emoRunning=false,emoVideo=null,emoStream=null;
-var emoChunks=[],emoActiveMs=0,emoStartTime=0;
+var emoActiveMs=0,emoStartTime=0;
 var EMO_MAX_MS=300000; // 5 min cap
 var emoInterval=null;
 var mpLandmarker=null;
@@ -1017,7 +1014,7 @@ function isCameraSkipped(){
 }
 function skipCameraCapture(){
     store(CAMERA_SKIP_KEY,String(Date.now()));
-    stopEmotionCapture();flushEmoVideo();releaseCamera();
+    stopEmotionCapture();releaseCamera();
 }
 function calibrateGaze(recalibrations){
     runCalibration(C.gazeCal,function(W,d,xBuf,yBuf){
@@ -1154,7 +1151,6 @@ function beginCapture(){
     isCaptureStarted=true;
     estimateActionUnits=createActionUnitEstimator();
     startSampling();
-    if(C.emotions&&C.emoVideo&&emoStream)startEmoRecording(emoStream);
 }
 
 function startCameraCapture(){
@@ -1303,23 +1299,10 @@ function sampleGaze(){
     }catch(e){}
 }
 
-function startEmoRecording(stream){
-    try{
-        var mr=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp8"});
-        emoChunks=[];
-        mr.ondataavailable=function(e){if(e.data.size>0)emoChunks.push(e.data);};
-        mr.start(1000);
-        emoVideo._recorder=mr;
-    }catch(e){}
-}
-
 function stopEmotionCapture(){
     emoRunning=false;
     if(emoInterval){clearInterval(emoInterval);emoInterval=null;}
     if(gazeInterval){clearInterval(gazeInterval);gazeInterval=null;}
-    if(emoVideo&&emoVideo._recorder){
-        try{emoVideo._recorder.stop();}catch(e){}
-    }
 }
 
 function flushEmotions(sync){
@@ -1347,28 +1330,6 @@ function flushGaze(sync){
         xhr.setRequestHeader("Content-Type","application/json");
         xhr.send(body);
     }catch(e){}
-}
-
-function flushEmoVideo(){
-    if(!emoChunks.length||!sid||!C.emoVideo)return;
-    var blob=new Blob(emoChunks,{type:"video/webm"});
-    emoChunks=[];
-    var sessionId=sid;
-    // Convert to base64 and POST (best-effort, async)
-    var reader=new FileReader();
-    reader.onloadend=function(){
-        var b64=reader.result.split(",")[1];
-        if(!b64||b64.length>20971520)return; // 15MB cap
-        var body=JSON.stringify({sessionId:sessionId,video:b64});
-        var url=C.api+"/public/tracking/"+C.rid+"/emotion-video";
-        try{
-            var xhr=new XMLHttpRequest();
-            xhr.open("POST",url,true);
-            xhr.setRequestHeader("Content-Type","application/json");
-            xhr.send(body);
-        }catch(e){}
-    };
-    reader.readAsDataURL(blob);
 }
 
 // ─── Load rrweb ──────────────────────────────────────────────────────

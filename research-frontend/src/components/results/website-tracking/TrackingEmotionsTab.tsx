@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { SmilePlus, Video } from 'lucide-react';
+import { SmilePlus } from 'lucide-react';
 import * as trackingService from '../../../services/tracking.service';
 import type { TrackingEmotionData } from '../../../services/tracking.service';
 import type { EkmanEmotion } from '../../../services/analytics.service';
@@ -98,7 +98,6 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
                             <span className="text-gray-700 font-medium truncate flex-1">{s.pageUrl}</span>
                             <span className="text-gray-400">{EMOTION_LABELS[s.dominantEmotion]}</span>
                             <span className="text-gray-300">{s.sampleCount} samples</span>
-                            {s.hasVideo && <Video className="h-3.5 w-3.5 text-blue-400" />}
                         </div>
                     ))}
                 </div>

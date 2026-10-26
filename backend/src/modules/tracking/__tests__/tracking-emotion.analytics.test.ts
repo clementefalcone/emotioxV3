@@ -16,14 +16,13 @@ import { getTrackingEmotionData } from '../tracking-emotion.analytics';
 function sessionRow(
     id: string,
     samples: Array<{ timestamp: number; emotion: string; confidence: number; actionUnits?: Record<string, unknown> }>,
-    overrides: Partial<{ visitor_id: string; page_url: string; emotion_video_path: string | null }> = {},
+    overrides: Partial<{ visitor_id: string; page_url: string }> = {},
 ) {
     return {
         id,
         visitor_id: overrides.visitor_id ?? `visitor-${id}`,
         page_url: overrides.page_url ?? 'https://example.com/',
         emotion_samples: JSON.stringify(samples),
-        emotion_video_path: overrides.emotion_video_path ?? null,
     };
 }
 
@@ -110,7 +109,7 @@ describe('getTrackingEmotionData — malformed input', () => {
     it('survives unparseable JSON in emotion_samples', async () => {
         mockQuery.mockResolvedValueOnce({
             rows: [
-                { id: 's1', visitor_id: 'v1', page_url: '/', emotion_samples: '{not json', emotion_video_path: null },
+                { id: 's1', visitor_id: 'v1', page_url: '/', emotion_samples: '{not json' },
                 sessionRow('s2', [{ timestamp: 0, emotion: 'joy', confidence: 0.8 }]),
             ],
         });
@@ -123,7 +122,7 @@ describe('getTrackingEmotionData — malformed input', () => {
 
     it('survives emotion_samples holding a non-array JSON value', async () => {
         mockQuery.mockResolvedValueOnce({
-            rows: [{ id: 's1', visitor_id: 'v1', page_url: '/', emotion_samples: '{"a":1}', emotion_video_path: null }],
+            rows: [{ id: 's1', visitor_id: 'v1', page_url: '/', emotion_samples: '{"a":1}' }],
         });
 
         const result = await getTrackingEmotionData('r1');
@@ -138,7 +137,6 @@ describe('getTrackingEmotionData — malformed input', () => {
                 visitor_id: 'v1',
                 page_url: '/',
                 emotion_samples: [{ timestamp: 0, emotion: 'anger', confidence: 0.7 }],
-                emotion_video_path: null,
             }],
         });
 
@@ -193,7 +191,6 @@ describe('getTrackingEmotionData — malformed input', () => {
                     42,
                     { timestamp: 0, emotion: 'joy', confidence: 0.9 },
                 ]),
-                emotion_video_path: null,
             }],
         });
 
@@ -353,20 +350,6 @@ describe('getTrackingEmotionData — per-session summaries', () => {
             pageUrl: 'https://example.com/checkout',
             sampleCount: 2,
         });
-    });
-
-    it('flags sessions that stored a webcam recording', async () => {
-        mockQuery.mockResolvedValueOnce({
-            rows: [
-                sessionRow('s1', [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }], { emotion_video_path: '/media/s1.webm' }),
-                sessionRow('s2', [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }]),
-            ],
-        });
-
-        const result = await getTrackingEmotionData('r1');
-
-        expect(result.perSession[0].hasVideo).toBe(true);
-        expect(result.perSession[1].hasVideo).toBe(false);
     });
 });
 
@@ -730,7 +713,6 @@ function sessionRowWithExpressions(
         visitor_id: `visitor-${id}`,
         page_url: 'https://example.com/',
         emotion_samples: JSON.stringify(samples),
-        emotion_video_path: null,
     };
 }
 
@@ -810,7 +792,6 @@ describe('getTrackingEmotionData — expression-weighted V/A', () => {
             rows: [{
                 id: 's1', visitor_id: 'v1', page_url: 'https://example.com/',
                 emotion_samples: JSON.stringify(samples),
-                emotion_video_path: null,
             }],
         });
 
