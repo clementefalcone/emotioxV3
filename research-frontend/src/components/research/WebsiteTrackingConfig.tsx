@@ -28,7 +28,7 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
     const existingConfig = (settings.trackingConfig || {}) as Partial<TrackingConfig>;
     const [config, setConfig] = useState<TrackingConfig>({
         captureClicks: existingConfig.captureClicks !== false,
-        captureScroll: existingConfig.captureScroll === true,
+        captureScroll: existingConfig.captureScroll !== false,
         captureMousemove: existingConfig.captureMousemove === true,
         consentRequired: existingConfig.consentRequired !== false,
         flushIntervalMs: existingConfig.flushIntervalMs || 2000,

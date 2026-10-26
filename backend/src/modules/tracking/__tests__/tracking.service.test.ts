@@ -185,9 +185,19 @@ describe('getTrackingConfig', () => {
         const config = await getTrackingConfig('r1');
 
         expect(config.captureClicks).toBe(true);
-        expect(config.captureScroll).toBe(false); // default
+        expect(config.captureScroll).toBe(true); // default
         expect(config.consentRequired).toBe(true); // default
         expect(config.flushIntervalMs).toBe(2000);
+    });
+
+    it('keeps scroll capture off when the researcher turned it off', async () => {
+        mockQuery.mockResolvedValueOnce({
+            rows: [{ config: JSON.stringify({ trackingConfig: { captureScroll: false } }) }],
+        });
+
+        const config = await getTrackingConfig('r1');
+
+        expect(config.captureScroll).toBe(false);
     });
 
     it('throws when research not found', async () => {

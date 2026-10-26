@@ -283,7 +283,7 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
 
     return {
         captureClicks: trackingConfig.captureClicks !== false,
-        captureScroll: trackingConfig.captureScroll === true,
+        captureScroll: trackingConfig.captureScroll !== false,
         captureMousemove: trackingConfig.captureMousemove === true,
         consentRequired: trackingConfig.consentRequired !== false,
         flushIntervalMs: (trackingConfig.flushIntervalMs as number) || 2000,
