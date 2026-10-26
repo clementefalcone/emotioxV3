@@ -399,6 +399,39 @@ function runStartCameraCapture({ storedCalibration, isMediaPipeLoaded, isSkipped
     return { withCamera, beginCapture, runCameraCheck };
 }
 
+describe('generateTrackingSnippet — gaze only when the researcher turned it on', () => {
+    const loadModelsWith = (config: { gaze: boolean; emotions: boolean }) => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = js.slice(js.indexOf('function loadCaptureModels('), js.indexOf('function loadMediaPipe('));
+        const loadMediaPipe = vi.fn((cb: () => void) => cb());
+        const loadFaceApi = vi.fn((cb: () => void) => cb());
+        const onLoaded = vi.fn();
+        new Function('C', 'loadMediaPipe', 'loadFaceApi', `${source}loadCaptureModels(arguments[3]);`)(config, loadMediaPipe, loadFaceApi, onLoaded);
+        return { loadMediaPipe, loadFaceApi, onLoaded };
+    };
+
+    it('does not load the gaze model when only emotions are captured', () => {
+        const { loadMediaPipe, loadFaceApi, onLoaded } = loadModelsWith({ gaze: false, emotions: true });
+        expect(loadMediaPipe).not.toHaveBeenCalled();
+        expect(loadFaceApi).toHaveBeenCalledTimes(1);
+        expect(onLoaded).toHaveBeenCalledTimes(1);
+    });
+
+    it('loads both models when gaze and emotions are captured', () => {
+        const { loadMediaPipe, loadFaceApi, onLoaded } = loadModelsWith({ gaze: true, emotions: true });
+        expect(loadMediaPipe).toHaveBeenCalledTimes(1);
+        expect(loadFaceApi).toHaveBeenCalledTimes(1);
+        expect(onLoaded).toHaveBeenCalledTimes(1);
+    });
+
+    it('loads only the gaze model when emotions are off', () => {
+        const { loadMediaPipe, loadFaceApi, onLoaded } = loadModelsWith({ gaze: true, emotions: false });
+        expect(loadMediaPipe).toHaveBeenCalledTimes(1);
+        expect(loadFaceApi).not.toHaveBeenCalled();
+        expect(onLoaded).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('generateTrackingSnippet — the visitor can always leave the camera screens', () => {
     const fakeNode = () => {
         const node = { children: [] as unknown[], style: {} as Record<string, string>, textContent: '', remove: vi.fn(), appendChild: (child: unknown) => { node.children.push(child); return child; } };

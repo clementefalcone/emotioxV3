@@ -1189,9 +1189,9 @@ function restoreCalibration(){
 }
 
 function loadCaptureModels(cb){
-    var pending=C.emotions?2:1;
+    var pending=(C.gaze?1:0)+(C.emotions?1:0);
     var done=function(){pending--;if(pending===0)cb();};
-    loadMediaPipe(done);
+    if(C.gaze)loadMediaPipe(done);
     if(C.emotions)loadFaceApi(done);
 }
 
