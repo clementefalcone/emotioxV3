@@ -1175,6 +1175,42 @@ export const getSessionEvents = async (sessionId: string) => {
     };
 };
 
+// ─── Session Array Columns ───────────────────────────────────────────
+
+type SessionArrayColumn = 'rrweb_events' | 'emotion_samples' | 'gaze_samples';
+
+const parseStoredArray = (raw: unknown): unknown[] => {
+    if (!raw) return [];
+    try { return typeof raw === 'string' ? JSON.parse(raw) : raw as unknown[]; } catch { return []; }
+};
+
+const updateLockedSessionArray = async (
+    sessionId: string,
+    column: SessionArrayColumn,
+    buildUpdate: (existing: unknown[]) => { assignments: string; params: unknown[] }
+): Promise<void> => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const session = await client.query(
+            `SELECT ${column} FROM tracking_sessions WHERE id = ? FOR UPDATE`,
+            [sessionId]
+        );
+        if (session.rows.length === 0) throw new Error('Session not found');
+        const update = buildUpdate(parseStoredArray(session.rows[0][column]));
+        await client.query(
+            `UPDATE tracking_sessions SET ${update.assignments} WHERE id = ?`,
+            [...update.params, sessionId]
+        );
+        await client.query('COMMIT');
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
 // ─── rrweb Event Storage ─────────────────────────────────────────────
 
 /**
@@ -1188,37 +1224,22 @@ export const appendRrwebEvents = async (
 ): Promise<{ saved: number }> => {
     if (events.length === 0) return { saved: 0 };
 
-    // Validate session exists
-    const session = await pool.query(
-        'SELECT id, rrweb_events FROM tracking_sessions WHERE id = ?',
-        [sessionId]
-    );
-    if (session.rows.length === 0) throw new Error('Session not found');
+    await updateLockedSessionArray(sessionId, 'rrweb_events', (existing) => {
+        const merged = [...existing, ...events];
+        // Cap at 5MB of JSON to prevent unbounded growth
+        const json = JSON.stringify(merged);
+        if (json.length > 5_242_880) throw new Error('rrweb events too large');
 
-    // Merge with existing events
-    let existing: unknown[] = [];
-    const raw = session.rows[0].rrweb_events;
-    if (raw) {
-        try { existing = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { existing = []; }
-    }
+        // Compute rrweb replay duration from event timestamps
+        let rrwebDurationMs: number | null = null;
+        if (merged.length >= 2) {
+            const first = (merged[0] as { timestamp?: number })?.timestamp;
+            const last = (merged[merged.length - 1] as { timestamp?: number })?.timestamp;
+            if (first && last && last > first) rrwebDurationMs = last - first;
+        }
 
-    const merged = [...existing, ...events];
-    // Cap at 5MB of JSON to prevent unbounded growth
-    const json = JSON.stringify(merged);
-    if (json.length > 5_242_880) throw new Error('rrweb events too large');
-
-    // Compute rrweb replay duration from event timestamps
-    let rrwebDurationMs: number | null = null;
-    if (merged.length >= 2) {
-        const first = (merged[0] as { timestamp?: number })?.timestamp;
-        const last = (merged[merged.length - 1] as { timestamp?: number })?.timestamp;
-        if (first && last && last > first) rrwebDurationMs = last - first;
-    }
-
-    await pool.query(
-        'UPDATE tracking_sessions SET rrweb_events = ?, rrweb_duration_ms = ?, ended_at = NOW() WHERE id = ?',
-        [json, rrwebDurationMs, sessionId]
-    );
+        return { assignments: 'rrweb_events = ?, rrweb_duration_ms = ?, ended_at = NOW()', params: [json, rrwebDurationMs] };
+    });
 
     return { saved: events.length };
 };
@@ -1483,25 +1504,10 @@ export const appendEmotionSamples = async (
 ): Promise<{ saved: number }> => {
     if (samples.length === 0) return { saved: 0 };
 
-    const session = await pool.query(
-        'SELECT id, emotion_samples FROM tracking_sessions WHERE id = ?',
-        [sessionId]
-    );
-    if (session.rows.length === 0) throw new Error('Session not found');
-
-    let existing: unknown[] = [];
-    const raw = session.rows[0].emotion_samples;
-    if (raw) {
-        try { existing = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { existing = []; }
-    }
-
-    const merged = [...existing, ...samples].slice(-MAX_EMOTION_SAMPLES_PER_SESSION);
-    const json = JSON.stringify(merged);
-
-    await pool.query(
-        'UPDATE tracking_sessions SET emotion_samples = ?, ended_at = NOW() WHERE id = ?',
-        [json, sessionId]
-    );
+    await updateLockedSessionArray(sessionId, 'emotion_samples', (existing) => ({
+        assignments: 'emotion_samples = ?, ended_at = NOW()',
+        params: [JSON.stringify([...existing, ...samples].slice(-MAX_EMOTION_SAMPLES_PER_SESSION))],
+    }));
 
     return { saved: samples.length };
 };
@@ -1533,25 +1539,10 @@ export const appendGazeSamples = async (
 ): Promise<{ saved: number }> => {
     if (samples.length === 0) return { saved: 0 };
 
-    const session = await pool.query(
-        'SELECT id, gaze_samples FROM tracking_sessions WHERE id = ?',
-        [sessionId]
-    );
-    if (session.rows.length === 0) throw new Error('Session not found');
-
-    let existing: unknown[] = [];
-    const raw = session.rows[0].gaze_samples;
-    if (raw) {
-        try { existing = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { existing = []; }
-    }
-
-    const merged = [...existing, ...samples].slice(-2000);
-    const json = JSON.stringify(merged);
-
-    await pool.query(
-        'UPDATE tracking_sessions SET gaze_samples = ?, ended_at = NOW() WHERE id = ?',
-        [json, sessionId]
-    );
+    await updateLockedSessionArray(sessionId, 'gaze_samples', (existing) => ({
+        assignments: 'gaze_samples = ?, ended_at = NOW()',
+        params: [JSON.stringify([...existing, ...samples].slice(-2000))],
+    }));
 
     return { saved: samples.length };
 };

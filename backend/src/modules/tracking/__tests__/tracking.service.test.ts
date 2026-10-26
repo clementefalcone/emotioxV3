@@ -7,8 +7,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the database pool before importing the service
 const mockQuery = vi.fn();
+const mockRelease = vi.fn();
 vi.mock('../../../config/database', () => ({
-    default: { query: (...args: unknown[]) => mockQuery(...args) },
+    default: {
+        query: (...args: unknown[]) => mockQuery(...args),
+        connect: async () => ({ query: (...args: unknown[]) => mockQuery(...args), release: mockRelease }),
+    },
 }));
 
 // Mock uuid
@@ -68,7 +72,10 @@ import {
 
 beforeEach(() => {
     mockQuery.mockReset();
+    mockRelease.mockReset();
 });
+
+const BEGIN = { rows: [] };
 
 // ─── createSession ───────────────────────────────────────────────────
 
@@ -856,13 +863,14 @@ describe('getSessionEvents', () => {
 describe('appendRrwebEvents', () => {
     it('appends events to existing array', async () => {
         mockQuery
+            .mockResolvedValueOnce(BEGIN)
             .mockResolvedValueOnce({ rows: [{ id: 's1', rrweb_events: JSON.stringify([{ type: 1, timestamp: 100 }]) }] })
             .mockResolvedValueOnce({ rows: [] }); // UPDATE
 
         const result = await appendRrwebEvents('s1', [{ type: 2, timestamp: 200 }]);
 
         expect(result.saved).toBe(1);
-        const savedJson = JSON.parse(mockQuery.mock.calls[1][1][0]);
+        const savedJson = JSON.parse(mockQuery.mock.calls[2][1][0]);
         expect(savedJson).toHaveLength(2);
     });
 
@@ -873,12 +881,37 @@ describe('appendRrwebEvents', () => {
     });
 
     it('throws when session not found', async () => {
-        mockQuery.mockResolvedValueOnce({ rows: [] });
+        mockQuery.mockResolvedValueOnce(BEGIN).mockResolvedValueOnce({ rows: [] });
         await expect(appendRrwebEvents('bad', [{ type: 1 }])).rejects.toThrow('Session not found');
+    });
+
+    it('reads the stored events under a row lock and commits the append', async () => {
+        mockQuery.mockResolvedValue({ rows: [{ rrweb_events: null }] });
+
+        await appendRrwebEvents('s1', [{ type: 4, timestamp: 100 }]);
+
+        const statements = mockQuery.mock.calls.map((call) => String(call[0]).trim());
+        expect(statements[0]).toBe('BEGIN');
+        expect(statements[1]).toMatch(/FOR UPDATE$/);
+        expect(statements[3]).toBe('COMMIT');
+        expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('rolls back and releases the connection when the append fails', async () => {
+        const tooLarge = [{ type: 3, timestamp: 1, data: 'x'.repeat(5_242_880) }];
+        mockQuery.mockResolvedValue({ rows: [{ rrweb_events: null }] });
+
+        await expect(appendRrwebEvents('s1', tooLarge)).rejects.toThrow('rrweb events too large');
+
+        const statements = mockQuery.mock.calls.map((call) => String(call[0]).trim());
+        expect(statements).toContain('ROLLBACK');
+        expect(statements).not.toContain('COMMIT');
+        expect(mockRelease).toHaveBeenCalledTimes(1);
     });
 
     it('computes rrweb duration from timestamps', async () => {
         mockQuery
+            .mockResolvedValueOnce(BEGIN)
             .mockResolvedValueOnce({ rows: [{ id: 's1', rrweb_events: null }] })
             .mockResolvedValueOnce({ rows: [] });
 
@@ -888,7 +921,7 @@ describe('appendRrwebEvents', () => {
         ]);
 
         // rrwebDurationMs should be 4000
-        const rrwebDuration = mockQuery.mock.calls[1][1][1];
+        const rrwebDuration = mockQuery.mock.calls[2][1][1];
         expect(rrwebDuration).toBe(4000);
     });
 });
@@ -990,25 +1023,27 @@ describe('computeFunnelDropoff', () => {
 describe('appendEmotionSamples', () => {
     it('appends samples and caps at 1000', async () => {
         mockQuery
+            .mockResolvedValueOnce(BEGIN)
             .mockResolvedValueOnce({ rows: [{ id: 's1', emotion_samples: JSON.stringify([{ t: 1 }]) }] })
             .mockResolvedValueOnce({ rows: [] });
 
         const result = await appendEmotionSamples('s1', [{ t: 2 }, { t: 3 }]);
 
         expect(result.saved).toBe(2);
-        const savedJson = JSON.parse(mockQuery.mock.calls[1][1][0]);
+        const savedJson = JSON.parse(mockQuery.mock.calls[2][1][0]);
         expect(savedJson).toHaveLength(3);
     });
 
     it('keeps five minutes of 20 Hz samples, dropping only older ones', async () => {
         const fiveMinutesAt20Hz = Array.from({ length: 6000 }, (_, i) => ({ timestamp: i * 50 }));
         mockQuery
+            .mockResolvedValueOnce(BEGIN)
             .mockResolvedValueOnce({ rows: [{ id: 's1', emotion_samples: JSON.stringify(fiveMinutesAt20Hz.slice(0, 5990)) }] })
             .mockResolvedValueOnce({ rows: [] });
 
         await appendEmotionSamples('s1', [...fiveMinutesAt20Hz.slice(5990), { timestamp: 300000 }]);
 
-        const savedJson = JSON.parse(mockQuery.mock.calls[1][1][0]) as Array<{ timestamp: number }>;
+        const savedJson = JSON.parse(mockQuery.mock.calls[2][1][0]) as Array<{ timestamp: number }>;
         expect(savedJson).toHaveLength(6000);
         expect(savedJson[0].timestamp).toBe(50);
         expect(savedJson[5999].timestamp).toBe(300000);
@@ -1020,7 +1055,7 @@ describe('appendEmotionSamples', () => {
     });
 
     it('throws when session not found', async () => {
-        mockQuery.mockResolvedValueOnce({ rows: [] });
+        mockQuery.mockResolvedValueOnce(BEGIN).mockResolvedValueOnce({ rows: [] });
         await expect(appendEmotionSamples('bad', [{ t: 1 }])).rejects.toThrow('Session not found');
     });
 });
@@ -1030,6 +1065,7 @@ describe('appendEmotionSamples', () => {
 describe('appendGazeSamples', () => {
     it('appends gaze samples to existing', async () => {
         mockQuery
+            .mockResolvedValueOnce(BEGIN)
             .mockResolvedValueOnce({ rows: [{ id: 's1', gaze_samples: null }] })
             .mockResolvedValueOnce({ rows: [] });
 
@@ -1044,7 +1080,7 @@ describe('appendGazeSamples', () => {
     });
 
     it('throws when session not found', async () => {
-        mockQuery.mockResolvedValueOnce({ rows: [] });
+        mockQuery.mockResolvedValueOnce(BEGIN).mockResolvedValueOnce({ rows: [] });
         await expect(appendGazeSamples('bad', [{ x: 1 }])).rejects.toThrow('Session not found');
     });
 });
