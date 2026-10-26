@@ -39,6 +39,7 @@ vi.mock('../../../config/local-storage', () => ({
 // Now import the service (uses mocked pool)
 import {
     createSession,
+    TrackingRejectedError,
     saveEvents,
     getTrackingConfig,
     getClickHeatmapData,
@@ -94,6 +95,27 @@ describe('createSession', () => {
 
         expect(result.sessionId).toBe('mock-uuid-1234');
         expect(mockQuery).toHaveBeenCalledTimes(3);
+    });
+
+    it('rejects a page outside the allowed domains without creating a session', async () => {
+        const config = JSON.stringify({ trackingConfig: { allowedDomains: ['useremotion.com'] } });
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 'r1', status: 'active', config }] });
+
+        const attempt = createSession({ researchId: 'r1', visitorId: 'v1', pageUrl: 'https://evil.example/', viewportWidth: 1, viewportHeight: 1, requestOrigin: 'https://evil.example' });
+
+        await expect(attempt).rejects.toBeInstanceOf(TrackingRejectedError);
+        await expect(attempt).rejects.toThrow('Domain evil.example not allowed for research r1');
+        expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an excluded visitor IP without echoing the IP', async () => {
+        const config = JSON.stringify({ trackingConfig: { excludedIPs: ['10.1.2.3'] } });
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 'r1', status: 'active', config }] });
+
+        const attempt = createSession({ researchId: 'r1', visitorId: 'v1', pageUrl: 'https://site/', viewportWidth: 1, viewportHeight: 1, requestIP: '10.1.2.3' });
+
+        await expect(attempt).rejects.toBeInstanceOf(TrackingRejectedError);
+        await expect(attempt).rejects.toThrow('Visitor IP excluded from tracking in research r1');
     });
 
     it('throws when research not found', async () => {

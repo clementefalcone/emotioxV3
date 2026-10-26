@@ -3,6 +3,7 @@ import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 vi.mock('../tracking.service', async () => ({
     isTrackingZone: (await vi.importActual<typeof import('../tracking.service')>('../tracking.service')).isTrackingZone,
+    TrackingRejectedError: (await vi.importActual<typeof import('../tracking.service')>('../tracking.service')).TrackingRejectedError,
     createSession: vi.fn().mockResolvedValue({ sessionId: 'sess-1' }),
     saveEvents: vi.fn().mockResolvedValue({ saved: 3 }),
     getTrackingConfig: vi.fn().mockResolvedValue({
@@ -98,6 +99,7 @@ vi.mock('../../../utils/request', () => ({
 import { handlePublicTrackingRoutes, handleTrackingRoutes } from '../tracking.controller';
 import {
     createSession,
+    TrackingRejectedError,
     saveEvents,
     getTrackingConfig,
     getClickHeatmapData,
@@ -289,6 +291,15 @@ describe('handlePublicTrackingRoutes', () => {
         );
         expect(res.statusCode).toBe(404);
         expect(saveEvents).toHaveBeenCalledWith({ researchId: 'r2', sessionId: 's1' }, expect.any(Array), undefined);
+    });
+
+    it('POST session answers 403 when the study rejects the visitor', async () => {
+        vi.mocked(createSession).mockRejectedValueOnce(new TrackingRejectedError('Domain evil.example not allowed for research r1'));
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/session', { body: { visitorId: 'v', pageUrl: 'https://evil.example/', viewportWidth: 1, viewportHeight: 1 } }),
+        );
+        expect(res.statusCode).toBe(403);
+        expect(res.body).toContain('Domain evil.example not allowed for research r1');
     });
 
     it('POST rrweb-events answers 413 when the recording is full', async () => {

@@ -36,6 +36,7 @@ import {
     appendEmotionSamples,
     appendGazeSamples,
     recordCaptureError,
+    TrackingRejectedError,
 } from './tracking.service';
 import { isCaptureErrorKind, CAPTURE_ERROR_KINDS } from './capture-errors';
 import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippet';
@@ -328,6 +329,10 @@ export const handlePublicTrackingRoutes = async (
 
         return trackingError('Route not found', 404);
     } catch (err: unknown) {
+        if (err instanceof TrackingRejectedError) {
+            console.warn(JSON.stringify({ event: 'tracking_session_rejected', reason: err.message }));
+            return trackingError(err.message, 403);
+        }
         const msg = err instanceof Error ? err.message : 'Unknown error';
         console.error('[Tracking Public] Error:', err);
         if (msg.includes('not found') || msg.includes('not active')) {

@@ -90,6 +90,8 @@ interface TrackingConfig {
 
 // ─── Session Management ──────────────────────────────────────────────
 
+export class TrackingRejectedError extends Error {}
+
 // Normalize page URL: strip www. prefix so camarablockchain.cl and www.camarablockchain.cl match
 const normalizePageUrl = (url: string): string => {
     try {
@@ -138,7 +140,7 @@ export const createSession = async (input: CreateSessionInput): Promise<{ sessio
             return hostname === clean || hostname.endsWith(`.${clean}`);
         });
         if (!domainAllowed) {
-            throw new Error('Domain not allowed');
+            throw new TrackingRejectedError(`Domain ${hostname} not allowed for research ${input.researchId}`);
         }
     }
 
@@ -146,7 +148,7 @@ export const createSession = async (input: CreateSessionInput): Promise<{ sessio
     const excludedIPs = (trackingConfig.excludedIPs as string[]) || [];
     if (excludedIPs.length > 0 && input.requestIP) {
         if (excludedIPs.includes(input.requestIP)) {
-            throw new Error('IP excluded from tracking');
+            throw new TrackingRejectedError(`Visitor IP excluded from tracking in research ${input.researchId}`);
         }
     }
 
