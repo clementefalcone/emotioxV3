@@ -93,6 +93,18 @@ interface TrackingConfig {
 
 // ─── Session Management ──────────────────────────────────────────────
 
+// Normalize page URL: strip www. prefix so camarablockchain.cl and www.camarablockchain.cl match
+const normalizePageUrl = (url: string): string => {
+    try {
+        const u = new URL(url);
+        u.hostname = u.hostname.replace(/^www\./, '');
+        // Remove trailing slash for consistency (keep root /)
+        let normalized = u.toString();
+        if (normalized.endsWith('/') && u.pathname !== '/') normalized = normalized.slice(0, -1);
+        return normalized;
+    } catch { return url; }
+};
+
 export const createSession = async (input: CreateSessionInput): Promise<{ sessionId: string }> => {
     // Validate research exists and is active
     const research = await pool.query(
@@ -141,17 +153,6 @@ export const createSession = async (input: CreateSessionInput): Promise<{ sessio
         }
     }
 
-    // Normalize page URL: strip www. prefix so camarablockchain.cl and www.camarablockchain.cl match
-    const normalizePageUrl = (url: string): string => {
-        try {
-            const u = new URL(url);
-            u.hostname = u.hostname.replace(/^www\./, '');
-            // Remove trailing slash for consistency (keep root /)
-            let normalized = u.toString();
-            if (normalized.endsWith('/') && u.pathname !== '/') normalized = normalized.slice(0, -1);
-            return normalized;
-        } catch { return url; }
-    };
     const normalizedPageUrl = normalizePageUrl(input.pageUrl);
 
     const sessionId = uuidv4();
@@ -585,15 +586,16 @@ export const savePageSnapshot = async (
     pageUrl: string,
     html: string
 ): Promise<void> => {
+    const sessionPageUrl = normalizePageUrl(pageUrl);
     // Only save if no snapshot exists yet for this page
     const existing = await pool.query(
         'SELECT id, page_snapshot FROM tracking_pages WHERE research_id = ? AND page_url = ?',
-        [researchId, pageUrl]
+        [researchId, sessionPageUrl]
     );
     if (existing.rows.length > 0 && !existing.rows[0].page_snapshot) {
         await pool.query(
             'UPDATE tracking_pages SET page_snapshot = ? WHERE research_id = ? AND page_url = ?',
-            [html, researchId, pageUrl]
+            [html, researchId, sessionPageUrl]
         );
     }
 };

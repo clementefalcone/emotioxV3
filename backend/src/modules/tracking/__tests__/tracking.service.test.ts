@@ -546,6 +546,17 @@ describe('savePageSnapshot', () => {
 
         expect(mockQuery).toHaveBeenCalledTimes(1);
     });
+
+    it('finds the page under the url the session stored', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ rows: [{ id: 'p1', page_snapshot: null }] })
+            .mockResolvedValueOnce({ rows: [] });
+
+        await savePageSnapshot('r1', 'https://www.emotio.cx/es/', '<html>x</html>');
+
+        expect(mockQuery.mock.calls[0][1]).toEqual(['r1', 'https://emotio.cx/es']);
+        expect(mockQuery.mock.calls[1][1]).toEqual(['<html>x</html>', 'r1', 'https://emotio.cx/es']);
+    });
 });
 
 // ─── getFrictionSummary ─────────────────────────────────────────────
