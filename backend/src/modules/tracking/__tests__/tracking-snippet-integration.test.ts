@@ -698,16 +698,28 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
         return { FakeXMLHttpRequest, bodies };
     };
 
-    it('sends every buffered event in one flush, not only the first maxEventsPerFlush', () => {
+    it('sends every buffered event in batches the server accepts whole', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, maxEventsPerFlush: 2 });
         const { FakeXMLHttpRequest, bodies } = fakeXhr();
         new Function('C', 'XMLHttpRequest',
             `var sid="old",buf=[{a:1},{a:2},{a:3},{a:4},{a:5}],flushing=false,activeMs=0,activeStart=0;${extractFunction(js, 'flush')}flush();`,
         )({ max: 2, api: 'https://api', rid: 'r' }, FakeXMLHttpRequest);
 
-        expect(bodies).toHaveLength(1);
-        expect(bodies[0].sessionId).toBe('old');
-        expect(bodies[0].events).toHaveLength(5);
+        expect(bodies.map((body) => (body.events as unknown[]).length)).toEqual([2, 2, 1]);
+        expect(bodies.every((body) => body.sessionId === 'old')).toBe(true);
+    });
+
+    it('drops events of a page whose session was never created instead of moving them to the next one', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = extractFunction(js, 'createSession');
+        const XMLHttpRequest = function (this: { open: () => void; setRequestHeader: () => void; send: () => void }) {
+            this.open = () => undefined; this.setRequestHeader = () => undefined; this.send = () => undefined;
+        };
+        const buffered = new Function('C', 'XMLHttpRequest', 'push', 'location', 'document', 'screen', 'navigator', 'window',
+            `var sid=null,buf=[{eventType:"mousemove",timestampMs:1},{eventType:"click",timestampMs:2}],pageStart=0,activeMs=0,activeStart=0,paused=false,rrwebStopFn=null,rrwebActiveMs=0,emoActiveMs=0,emoStartTime=0,vid="v";${source}\ncreateSession();return buf;`,
+        )({ api: 'https://api', rid: 'r' }, XMLHttpRequest, () => undefined, { href: 'https://site/' }, { title: '' }, {}, {}, { innerWidth: 1, innerHeight: 1 });
+
+        expect(buffered).toEqual([]);
     });
 
     it('flushes emotions and gaze before switching to a new session', () => {

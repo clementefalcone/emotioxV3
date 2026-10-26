@@ -158,16 +158,17 @@ function push(evt){
 function flush(useBeacon){
     if(!buf.length||!sid||flushing)return;
     flushing=true;
-    var batch=buf.splice(0,buf.length);
     var totalActive=activeMs+(activeStart>0?Date.now()-activeStart:0);
-    var body=JSON.stringify({sessionId:sid,events:batch,activeDurationMs:totalActive});
     var url=C.api+"/public/tracking/"+C.rid+"/events";
-    try{
-        var xhr=new XMLHttpRequest();
-        xhr.open("POST",url,!useBeacon); // sync on unload, async otherwise
-        xhr.setRequestHeader("Content-Type","application/json");
-        xhr.send(body);
-    }catch(e){}
+    while(buf.length){
+        var body=JSON.stringify({sessionId:sid,events:buf.splice(0,C.max),activeDurationMs:totalActive});
+        try{
+            var xhr=new XMLHttpRequest();
+            xhr.open("POST",url,!useBeacon); // sync on unload, async otherwise
+            xhr.setRequestHeader("Content-Type","application/json");
+            xhr.send(body);
+        }catch(e){}
+    }
     flushing=false;
 }
 
@@ -202,7 +203,7 @@ function createSession(){
     if(pageStart&&Date.now()-pageStart<2000){
         push({eventType:"pageview",metadata:{friction:"speed-browsing"}});
     }
-    if(sid){flush();flushRrweb();flushEmotions();flushGaze();}
+    if(sid){flush();flushRrweb();flushEmotions();flushGaze();}else{buf=[];}
     sid=null;
     pageStart=Date.now();
     activeMs=0;
