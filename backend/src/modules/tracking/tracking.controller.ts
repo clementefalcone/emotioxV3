@@ -132,7 +132,7 @@ export const handlePublicTrackingRoutes = async (
                     captureEmotions: config.captureEmotions,
                     emotionModelBaseUrl: apiBaseUrl + '/media/face-api-models',
                     captureGaze: config.captureGaze,
-                    gazeCalibrationPoints: config.gazeCalibrationPoints,
+                    eyeEmbedUrl: (process.env.PARTICIPANT_FRONTEND_URL || 'https://emotio.cx/participant') + '/embed/eye.js',
                     zones: config.zones,
                 });
 

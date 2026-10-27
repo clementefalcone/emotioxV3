@@ -4,11 +4,11 @@ import type { CaptureErrorKind } from '../../../services/tracking.service';
 const CAPTURE_ERROR_LABELS: Record<CaptureErrorKind, { label: string; description: string }> = {
     'camera-denied': { label: 'Camera denied', description: 'The visitor refused camera access — no emotions or gaze for this page.' },
     'camera-unavailable': { label: 'No camera', description: 'The camera could not be opened (missing, busy or unsupported browser).' },
-    'mediapipe-failed': { label: 'MediaPipe failed', description: 'The face model did not load — no gaze; emotions fell back to face-api.' },
+    'mediapipe-failed': { label: 'Gaze model failed', description: 'The Eye Tracking gaze model did not load — no gaze or emotions for this page.' },
     'face-models-failed': { label: 'Face models failed', description: 'The face-api fallback did not load — no emotions for this page.' },
     'rrweb-truncated': { label: 'Replay truncated', description: 'The recording reached its size limit — the replay stops before the end of this page.' },
     'camera-skipped': { label: 'Camera skipped', description: 'The visitor skipped the camera step — no emotions or gaze for this page.' },
-    'calibration-abandoned': { label: 'Calibration abandoned', description: 'The visitor left with the camera open before finishing calibration — no emotions or gaze for this page.' },
+    'calibration-abandoned': { label: 'Calibration abandoned', description: 'The visitor left before finishing the camera and calibration screens — no emotions or gaze for this page.' },
 };
 
 export const CaptureErrorBadges = ({ errors }: { errors: CaptureErrorKind[] }) => (
