@@ -4,7 +4,11 @@
 - **Why.** The tracker had its own camera check, 5/9-point calibration and validation, so site visitors saw a different flow than Eye Tracking participants and got a weaker gaze model.
 - **Change.** With Gaze Tracking on, the snippet loads `participant/embed/eye.js` (`vite.embed.config.ts`): the module's consent, face position and 13-point dwell calibration (`useCalibrationSequence`, extracted from the renderer) in a shadow root, built ASCII-only for pages without a UTF-8 charset. The ridge samples are exported so the next page rebuilds the model; a calibration is reused for 10 minutes across page loads. The tracker's own calibration, ridge solver, filter, click retraining and the "Calibration points 5/9" setting are removed.
 - **Capture errors.** Skipping the camera or leaving mid-calibration now records a capture error shown as a badge in Sessions; the Emotions and Attention tabs name the missing toggle or camera step instead of always asking to enable "Capture Emotions".
-- **Tests.** Backend 690 → 675 (snippet calibration tests removed with the code), participant 1137 → 1140, research-frontend 679 → 679 passing. `monthlyCreations.test.ts` (2) fails on this Node's month format (`May ’26`), unrelated.
+- **Tests.** Backend 690 → 675 (snippet calibration tests removed with the code), participant 1137 → 1140, research-frontend 679 → 681, 0 failing.
+
+### fix(history): month labels independent of the browser locale data
+- **Root cause.** `monthLabel` used `toLocaleDateString('en-US', { month: 'short', year: '2-digit' })`; recent CLDR (Node 26, current browsers) renders `May ’26` instead of `May 26`, so the History axis changed with the environment and `monthlyCreations.test.ts` failed (2).
+- **Fix.** Fixed month names + two-digit year.
 
 ## v0.99.18 — Website Tracking: forensic review, data integrity, camera fixes (2026-10-26)
 
