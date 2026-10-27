@@ -1,6 +1,6 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-10-27 · Versión: v0.99.25 · Producción = `main` local (backend, research y participant desplegados hoy). `main` va 28 commits por delante de `origin/main`: falta `git push`.
+Actualizado: 2026-10-27 · Versión: v0.99.26 · Producción = `main` local (backend, research y participant desplegados hoy). `main` va 28 commits por delante de `origin/main`: falta `git push`.
 
 ## Estado actual
 
@@ -9,6 +9,7 @@ Actualizado: 2026-10-27 · Versión: v0.99.25 · Producción = `main` local (bac
 - **Website Tracking — medidas de mirada (v0.99.20–21):** cuadrante desde la mirada calibrada (3×3 de la ventana), fijaciones a 20 Hz. Visitas con calibración "low" fuera de la cuadrícula de cuadrantes y zonas (misma regla `dropLowQuality` en `tracking-gaze.analytics.ts`); aviso en la pestaña Attention.
 - **Eye Tracking — calibración a pantalla completa (v0.99.22):** los puntos cubrían solo el área bajo las instrucciones y el centro de la calibración caía debajo del estímulo en teléfonos (12/12 respuestas de teléfono con 49–100% en la fila inferior; `kiosk-13` con 0 fijaciones → LOW). Ahora cubren toda la pantalla; las instrucciones flotan en la mitad opuesta al punto.
 - **Encuestas en iframe (v0.99.23):** participant responde `frame-ancestors 'self' https:` (antes `X-Frame-Options: SAMEORIGIN` bloqueaba el iframe del cliente). Escrito por `deploy-participant-frontend-cpanel.sh`.
+- **Calibración sin congelamiento (v0.99.26):** `RidgeRegression.train()` hace una sola validación cruzada sobre `XᵀX`/`Xᵀy` (780 muestras: 967 → 117 ms, resultados idénticos).
 - **Otros:** etiquetas de mes de History sin depender del locale; `deploy-backend-cpanel.sh` avisa si el build remoto muere.
 
 ## Qué falta
@@ -17,7 +18,7 @@ Actualizado: 2026-10-27 · Versión: v0.99.25 · Producción = `main` local (bac
 2. **Precisión en computadores:** errores de calibración 214–649 px (solo `kiosk-7` bajo 200). El arreglo de hoy corrige dónde cae la mirada, no el error.
 3. **Shelf con 3 puntos de mirada** (`kiosk-13`, integridad 0,03): causa desconocida.
 4. **Umbral de 200 px** igual para monitor y teléfono (157 px = 40% de un teléfono de 390 px).
-5. **Congelamiento de 2,8 s al cerrar la calibración** (medido con GPU; probable `trainRidge`). Afecta ET y Website Tracking.
+5. **Primeras emociones ~7 s después de cargar face-api** (sin tareas largas; visto en prueba local). Puede ser el hueco de 8 s de producción. El congelamiento de 2,8 s al cerrar la calibración quedó resuelto en v0.99.26 (`train()` 8× más rápido).
 6. **Website Tracking:** mirada ~600 px a la izquierda de los clics en `c23d9543` (ver con sesión nueva); hueco de 8 s al iniciar captura en producción no reproducido; sesiones antiguas aún usan `quadrantProbs` (iris sin calibrar).
 7. **Encuesta desde el snippet** (no construido): disparador, tope por visitante, `ECX=<visitor_id>`, cierre con `postMessage` al terminar.
 8. **Infra:** el deploy de participant vacía la carpeta remota antes de copiar 121 MB (sitio a medio subir unos minutos); causa del build remoto muerto (límites LVE) sin confirmar.
