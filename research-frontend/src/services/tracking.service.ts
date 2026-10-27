@@ -472,6 +472,8 @@ export interface TrackingGazeData {
         cursor: number;
         calibratedGaze: number;
         qualityBreakdown: { good: number; fair: number; low: number };
+        lowQualitySessions: number;
+        excludedLowQualitySessions: number;
     };
     fixations: Array<{ x: number; y: number; duration: number; timestamp: number }>;
 }

@@ -102,7 +102,8 @@ export const TrackingAttentionTab = ({ researchId, selectedPageUrl }: TrackingAt
                 {/* Quadrant heatmap grid */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1">
                     <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Gaze Zone Distribution</h3>
-                    <p className="text-[10px] text-gray-300 mb-3">Probabilistic area estimation — each sample spreads across zones based on iris uncertainty. Not exact gaze.</p>
+                    <p className="text-[10px] text-gray-300 mb-3">Calibrated gaze placed on a 3×3 grid of each visitor's screen.</p>
+                    <LowQualityGazeNotice dataSource={data.dataSource} />
                     <div className="flex flex-col gap-1 max-w-[240px] mx-auto">
                         {QUADRANT_GRID.map((row, ri) => (
                             <div key={ri} className="flex gap-1">
@@ -279,3 +280,16 @@ const AttentionTimelineCanvas = ({ data }: { data: TrackingGazeData }) => {
 
     return <canvas ref={canvasRef} width={1200} height={200} className="w-full" style={{ height: 160 }} />;
 };
+
+function LowQualityGazeNotice({ dataSource }: { dataSource: TrackingGazeData['dataSource'] }) {
+    if (dataSource.lowQualitySessions === 0) return null;
+    const isEveryVisitLow = dataSource.excludedLowQualitySessions === 0;
+    const plural = dataSource.lowQualitySessions === 1 ? 'visit' : 'visits';
+    return (
+        <p className="text-[10px] text-amber-600 bg-amber-50 rounded-md px-2 py-1 mb-3">
+            {isEveryVisitLow
+                ? 'Every visit has a low-quality calibration (error above 150 px); zones use them anyway and may be off.'
+                : `${dataSource.lowQualitySessions} ${plural} with a low-quality calibration (error above 150 px) left out of the zones.`}
+        </p>
+    );
+}

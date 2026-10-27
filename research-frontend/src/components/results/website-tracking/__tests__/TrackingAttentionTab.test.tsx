@@ -58,6 +58,14 @@ const mockGazeData = {
             sampleCount: 1000,
         },
     ],
+    dataSource: {
+        cursor: 0,
+        calibratedGaze: 2500,
+        qualityBreakdown: { good: 2500, fair: 0, low: 0 },
+        lowQualitySessions: 0,
+        excludedLowQualitySessions: 0,
+    },
+    fixations: [],
 };
 
 const EMPTY_DATA = { ...mockGazeData, totalSamples: 0 };
@@ -170,5 +178,23 @@ describe('TrackingAttentionTab', () => {
         expect(screen.getByText('55%')).toBeInTheDocument();
         expect(screen.getByText('1500 samples')).toBeInTheDocument();
         expect(screen.getByText('1000 samples')).toBeInTheDocument();
+    });
+
+    it('says how many low-quality visits are left out of the gaze zones', async () => {
+        vi.mocked(trackingService.getTrackingGaze).mockResolvedValue({
+            ...mockGazeData,
+            dataSource: { ...mockGazeData.dataSource, lowQualitySessions: 2, excludedLowQualitySessions: 2 },
+        });
+        renderComponent({ researchId: 'r1' });
+        expect(await screen.findByText('2 visits with a low-quality calibration (error above 150 px) left out of the zones.')).toBeInTheDocument();
+    });
+
+    it('warns when every visit is low quality and zones still use them', async () => {
+        vi.mocked(trackingService.getTrackingGaze).mockResolvedValue({
+            ...mockGazeData,
+            dataSource: { ...mockGazeData.dataSource, lowQualitySessions: 1, excludedLowQualitySessions: 0 },
+        });
+        renderComponent({ researchId: 'r1' });
+        expect(await screen.findByText(/Every visit has a low-quality calibration/)).toBeInTheDocument();
     });
 });
