@@ -383,6 +383,43 @@ describe('generateTrackingSnippet — emotion and gaze delivery', () => {
     });
 });
 
+describe('generateTrackingSnippet — why a page has no camera data', () => {
+    const runUnload = ({ captureGaze, hasCamera, isCaptureStarted }: { captureGaze: boolean; hasCamera: boolean; isCaptureStarted: boolean }) => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze });
+        const unloadHandler = js.slice(js.indexOf('window.addEventListener("beforeunload"'), js.indexOf('// SPA navigation'));
+        const reportCaptureError = vi.fn();
+        const handlers: Array<() => void> = [];
+        const noop = () => undefined;
+        new Function('C', 'window', 'reportCaptureError', 'emoStream', 'isCaptureStarted', 'flush', 'flushRrweb', 'stopEmotionCapture', 'flushEmotions', 'flushGaze', 'push',
+            `var activeStart=0,activeMs=0,pageStart=0,paused=false;${unloadHandler}`,
+        )({ gaze: captureGaze }, { addEventListener: (_: string, handler: () => void) => handlers.push(handler) }, reportCaptureError,
+            hasCamera ? {} : null, isCaptureStarted, noop, noop, noop, noop, noop, noop);
+        handlers[0]();
+        return reportCaptureError;
+    };
+
+    it('reports calibration-abandoned when the visitor leaves with the camera open before calibration ends', () => {
+        expect(runUnload({ captureGaze: true, hasCamera: true, isCaptureStarted: false })).toHaveBeenCalledWith('calibration-abandoned', true);
+    });
+
+    it('reports nothing on unload once capture started, without a camera, or without gaze', () => {
+        expect(runUnload({ captureGaze: true, hasCamera: true, isCaptureStarted: true })).not.toHaveBeenCalled();
+        expect(runUnload({ captureGaze: true, hasCamera: false, isCaptureStarted: false })).not.toHaveBeenCalled();
+        expect(runUnload({ captureGaze: false, hasCamera: true, isCaptureStarted: false })).not.toHaveBeenCalled();
+    });
+
+    it('reports camera-skipped when the visitor skips the camera step', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const source = js.slice(js.indexOf('function skipCameraCapture(){'), js.indexOf('function calibrateGaze('));
+        const reportCaptureError = vi.fn();
+        const noop = () => undefined;
+        new Function('store', 'CAMERA_SKIP_KEY', 'reportCaptureError', 'stopEmotionCapture', 'releaseCamera', `${source}skipCameraCapture();`)(
+            noop, 'key', reportCaptureError, noop, noop);
+
+        expect(reportCaptureError).toHaveBeenCalledWith('camera-skipped');
+    });
+});
+
 function runStartCameraCapture({ storedCalibration, isMediaPipeLoaded, isSkipped = false, captureGaze = true }: { storedCalibration: string | null; isMediaPipeLoaded: boolean; isSkipped?: boolean; captureGaze?: boolean }) {
     const js = generateTrackingSnippet({ ...defaultConfig, captureGaze });
     const source = js.slice(js.indexOf('function startCameraCapture(){'), js.indexOf('function onCalDone(')) +

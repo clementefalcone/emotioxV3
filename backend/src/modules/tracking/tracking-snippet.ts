@@ -491,6 +491,7 @@ function startCapture(){
         }
         flush(true);
         flushRrweb(true);
+        if(C.gaze&&emoStream&&!isCaptureStarted)reportCaptureError("calibration-abandoned",true);
         stopEmotionCapture();
         flushEmotions(true);
         flushGaze(true);
@@ -1015,6 +1016,7 @@ function isCameraSkipped(){
 }
 function skipCameraCapture(){
     store(CAMERA_SKIP_KEY,String(Date.now()));
+    reportCaptureError("camera-skipped");
     stopEmotionCapture();releaseCamera();
 }
 function calibrateGaze(recalibrations){
@@ -1087,11 +1089,11 @@ var lastCursorX=0,lastCursorY=0;
 document.addEventListener("mousemove",function(e){lastCursorX=e.clientX;lastCursorY=e.clientY;},true);
 document.addEventListener("touchmove",function(e){var t=e.touches[0];if(t){lastCursorX=t.clientX;lastCursorY=t.clientY;}},true);
 
-function reportCaptureError(kind){
+function reportCaptureError(kind,sync){
     if(!sid)return;
     try{
         var xhr=new XMLHttpRequest();
-        xhr.open("POST",C.api+"/public/tracking/"+C.rid+"/capture-error",true);
+        xhr.open("POST",C.api+"/public/tracking/"+C.rid+"/capture-error",!sync);
         xhr.setRequestHeader("Content-Type","application/json");
         xhr.send(JSON.stringify({sessionId:sid,kind:kind}));
     }catch(e){}
