@@ -10,6 +10,7 @@ import { Eye } from 'lucide-react';
 import * as trackingService from '../../../services/tracking.service';
 import type { TrackingGazeData } from '../../../services/tracking.service';
 import { TrackingZonesPanel } from './TrackingZonesPanel';
+import { TrackingCaptureEmptyState } from './TrackingCaptureEmptyState';
 
 type GazeQuadrant =
     | 'top-left' | 'top-center' | 'top-right'
@@ -70,13 +71,13 @@ export const TrackingAttentionTab = ({ researchId, selectedPageUrl }: TrackingAt
 
     if (!data || data.totalSamples === 0) {
         return (
-            <div className="bg-white rounded-xl border border-gray-200 flex items-center justify-center py-20">
-                <div className="text-center">
-                    <Eye className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">No attention data collected yet</p>
-                    <p className="text-xs text-gray-300 mt-1">Enable "Capture Emotions" in tracking config — gaze tracking activates with the camera</p>
-                </div>
-            </div>
+            <TrackingCaptureEmptyState
+                researchId={researchId}
+                icon={Eye}
+                title="No attention data collected yet"
+                captureSetting="captureGaze"
+                toggleLabel="Gaze Tracking"
+            />
         );
     }
 

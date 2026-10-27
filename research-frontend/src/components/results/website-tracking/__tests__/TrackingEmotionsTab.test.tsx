@@ -9,6 +9,7 @@ import { TrackingEmotionsTab } from '../TrackingEmotionsTab';
 
 vi.mock('../../../../services/tracking.service', () => ({
     getTrackingEmotions: vi.fn(),
+    getTrackingConfig: vi.fn(),
 }));
 
 import * as trackingService from '../../../../services/tracking.service';
@@ -59,6 +60,8 @@ const mockEmotionData = {
     ],
 };
 
+const EMPTY_DATA = { ...mockEmotionData, emotions: { ...mockEmotionData.emotions, totalSamples: 0 } };
+
 const renderComponent = (props: { researchId: string; selectedPageUrl?: string }) => {
     const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -73,6 +76,7 @@ const renderComponent = (props: { researchId: string; selectedPageUrl?: string }
 describe('TrackingEmotionsTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ captureEmotions: false } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
     });
 
     it('renders loading state with pulse skeletons', () => {
@@ -92,6 +96,15 @@ describe('TrackingEmotionsTab', () => {
         await waitFor(() => {
             expect(screen.getByText('No emotion data collected yet')).toBeInTheDocument();
         });
+        expect(await screen.findByText('Enable "Emotions" in tracking config')).toBeInTheDocument();
+    });
+
+    it('explains that capture is on but no visitor finished the camera step', async () => {
+        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ captureEmotions: true } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
+        vi.mocked(trackingService.getTrackingEmotions).mockResolvedValue(EMPTY_DATA);
+        renderComponent({ researchId: 'r1' });
+
+        expect(await screen.findByText('Capture is on — no visitor has accepted the camera and finished calibration yet')).toBeInTheDocument();
     });
 
     it('shows the Eye Tracking emotion panels: EmScore, moods, action units, micro-expressions and participants', async () => {

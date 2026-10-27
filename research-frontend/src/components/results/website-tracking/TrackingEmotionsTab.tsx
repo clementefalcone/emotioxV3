@@ -6,6 +6,7 @@ import type { TrackingEmotionData } from '../../../services/tracking.service';
 import type { EkmanEmotion } from '../../../services/analytics.service';
 import { EmotionPanel } from '../eye-tracking/EmotionPanel';
 import { EMOTION_LABELS } from '../eye-tracking/shared';
+import { TrackingCaptureEmptyState } from './TrackingCaptureEmptyState';
 
 const EMOTION_HEX: Record<EkmanEmotion, string> = {
     neutral: '#94a3b8', joy: '#22c55e', sadness: '#3b82f6',
@@ -57,13 +58,13 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
 
     if (!data || data.emotions.totalSamples === 0) {
         return (
-            <div className="bg-white rounded-xl border border-gray-200 flex items-center justify-center py-20">
-                <div className="text-center">
-                    <SmilePlus className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">No emotion data collected yet</p>
-                    <p className="text-xs text-gray-300 mt-1">Enable "Capture Emotions" in tracking config</p>
-                </div>
-            </div>
+            <TrackingCaptureEmptyState
+                researchId={researchId}
+                icon={SmilePlus}
+                title="No emotion data collected yet"
+                captureSetting="captureEmotions"
+                toggleLabel="Emotions"
+            />
         );
     }
 

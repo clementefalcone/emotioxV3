@@ -9,6 +9,7 @@ import { TrackingAttentionTab } from '../TrackingAttentionTab';
 
 vi.mock('../../../../services/tracking.service', () => ({
     getTrackingGaze: vi.fn(),
+    getTrackingConfig: vi.fn(),
 }));
 
 import * as trackingService from '../../../../services/tracking.service';
@@ -59,6 +60,8 @@ const mockGazeData = {
     ],
 };
 
+const EMPTY_DATA = { ...mockGazeData, totalSamples: 0 };
+
 const renderComponent = (props: { researchId: string; selectedPageUrl?: string }) => {
     const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -73,6 +76,7 @@ const renderComponent = (props: { researchId: string; selectedPageUrl?: string }
 describe('TrackingAttentionTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ captureGaze: false } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
     });
 
     it('renders loading state with pulse skeletons', () => {
@@ -92,6 +96,15 @@ describe('TrackingAttentionTab', () => {
         await waitFor(() => {
             expect(screen.getByText('No attention data collected yet')).toBeInTheDocument();
         });
+        expect(await screen.findByText('Enable "Gaze Tracking" in tracking config')).toBeInTheDocument();
+    });
+
+    it('explains that capture is on but no visitor finished the camera step', async () => {
+        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ captureGaze: true } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
+        vi.mocked(trackingService.getTrackingGaze).mockResolvedValue(EMPTY_DATA);
+        renderComponent({ researchId: 'r1' });
+
+        expect(await screen.findByText('Capture is on — no visitor has accepted the camera and finished calibration yet')).toBeInTheDocument();
     });
 
     it('renders 3x3 quadrant grid with percentage labels', async () => {
