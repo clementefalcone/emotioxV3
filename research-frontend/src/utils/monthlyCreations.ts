@@ -11,8 +11,9 @@ const COUNTED_STATUSES: Record<string, CountedStatus> = { draft: 'draft', active
 
 const monthIndex = (date: Date) => date.getFullYear() * 12 + date.getMonth();
 
-const monthLabel = (index: number) =>
-    new Date(Math.floor(index / 12), index % 12, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const monthLabel = (index: number) => `${MONTH_NAMES[index % 12]} ${String(Math.floor(index / 12) % 100).padStart(2, '0')}`;
 
 export const buildMonthlyCreations = (researches: Array<{ created_at: string; status: string }>, now: Date): MonthlyCreations[] => {
     if (researches.length === 0) return [];
