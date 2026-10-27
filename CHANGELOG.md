@@ -1,3 +1,12 @@
+## v0.99.24 — Website Tracking: camera only when the visitor opts in (2026-10-27)
+
+### feat(tracking): footer notice + side tab instead of an automatic camera prompt
+- **Why.** The camera consent opened as soon as a page loaded; it felt invasive.
+- **Change.** The camera never starts on its own. First visit: a footer notice (Spanish or English by page language) says what is recorded and offers "Activar cámara" / "Entendido". Afterwards a side tab, like a feedback tab, turns the camera on ("Ayúdanos con tu cámara") or off ("Cámara activa · desactivar"). The choice is remembered across pages (`_ecx_cam_<id>`); a visitor who turned it on goes straight to the Eye Tracking screens on the next page (calibration reused 10 min). With consent required, the banner adds "Aceptar y activar cámara". Declining the camera screens records `camera-skipped` and turns the choice off. The previous 10-minute skip window is gone. Copy is escaped to ASCII like `eye.js`.
+- **Check.** Chromium with a recorded face as camera: first visit shows the footer and no camera; "Activar cámara" opens the consent screens and the tab turns green; reload keeps it; "No acepto · Saltar" turns it off (`camera-skipped` sent) and the tab offers it again; reload after that shows only the tab. A server without `charset` garbled the accents before the escaping.
+- **Research.** Emotions and Gaze toggle descriptions and the `camera-skipped` badge describe the opt-in.
+- **Tests.** Backend 636 → 642 (7 for the invite, tab and choice; 1 skip-window test removed), research-frontend 683, 0 failing.
+
 ## v0.99.23 — Surveys embeddable in other sites (2026-10-27)
 
 ### fix(participant): allow the survey inside an iframe on HTTPS sites
