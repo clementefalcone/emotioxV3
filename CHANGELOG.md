@@ -5,8 +5,8 @@
 - **Root cause.** The choice was stored on the click, before the camera ran.
 - **Fix.** The choice is stored when the camera actually runs (calibration finished, or camera open when only emotions are captured). Later pages resume only while the stored calibration is under 10 minutes old, with no screens; otherwise the choice is cleared and the pill offers the camera again. The tab is now a bottom-right pill, bold 13px, white on #1e40af / #166534.
 - **Check.** Chromium with a recorded face: click, reload without finishing → no screens, pill "Ayúdanos con tu cámara"; finish calibration → pill "Cámara activa · desactivar"; reload → resumes without screens, 137 emotion and 25 gaze samples in 15 s.
-- **Seen, not changed.** Reloading while face-api models load reports `face-models-failed` for that page.
-- **Tests.** Backend 642 → 644, 0 failing.
+- **False `face-models-failed`.** Reloading or leaving while face-api models loaded aborted the download and recorded the error. Failures after `pagehide` are no longer reported (`pageshow` re-arms it for back-forward cache). Same reload run: no error, capture unchanged (117 emotion, 23 gaze samples).
+- **Tests.** Backend 642 → 645, 0 failing.
 
 ## v0.99.24 — Website Tracking: camera only when the visitor opts in (2026-10-27)
 
