@@ -150,8 +150,7 @@ ssh $SSH_OPTS "$SSH_HOST" "cat > $REMOTE_PARTICIPANT_DIR/.htaccess" << 'HTACCESS
 
 # Security headers
 <IfModule mod_headers.c>
-  # Prevent clickjacking
-  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Content-Security-Policy "frame-ancestors 'self' https:"
   
   # XSS Protection
   Header always set X-XSS-Protection "1; mode=block"
