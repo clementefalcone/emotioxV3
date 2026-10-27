@@ -1,44 +1,45 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-10-26 · Versión: v0.99.18 · Producción = `main` (backend y research desplegados hoy; participant sin cambios).
+Actualizado: 2026-10-27 · Versión: v0.99.25 · Producción = `main` local (backend, research y participant desplegados hoy). `main` va 28 commits por delante de `origin/main`: falta `git push`.
 
 ## Estado actual
 
-- **Website Tracking (v0.99.18):** revisión forense completa, 16 correcciones medidas en producción (ver CHANGELOG). Integridad (visitas, lock de lotes, tope rrweb 16 MB, snapshots con URL normalizada), acceso por estudio, botón "Saltar" en cámara, mirada solo con Gaze Tracking, emociones sin WebGL. Webcam video, mouse-attention y rutas sin uso eliminados. Proxies en `proxy-rewrite.ts`.
-- **Eye Tracking — unidad de la mirada:** fijaciones y mirada en video se guardan en % del estímulo (`fixationUnit` / `gazeTimelineUnit: 'stimulus-percent'`). El backend lee respuestas viejas con la conversión anterior; las líneas de tiempo de video viejas ya no se muestran.
-- **Shelf:** sin recorte, misma góndola en teléfono y escritorio, una regla de columnas compartida (`shelfLayout` en participant y research), barajado una vez por participante guardado en `shelfColumnOrder` y reubicado en el backend.
-- **Resultados ET:** AOIs y promedios se calculan con el grupo en pantalla (`?moduleId=&participants=`). Margen de AOI por eje y fijaciones repartidas entre AOIs cercanas (suma ≤ 100%). Aviso cuando todos quedan excluidos por calibración.
-- **Evaluación de emociones (fase 1):** `/test/expression-capture` graba con instrucciones y tiempos exactos; `/test/expression-eval?dataset=<carpeta>` puntúa face-api y MediaPipe blendshapes por unidad de acción. Probado con un video real, sin grabación etiquetada todavía.
+- **Website Tracking — cámara opt-in (v0.99.24–25):** la cámara nunca arranca sola. Primera visita: footer (es/en según la página) con "Activar cámara" / "Entendido"; después una píldora abajo a la derecha la enciende o apaga. La elección (`_ecx_cam_<id>`) se guarda solo cuando la cámara funciona; en páginas siguientes se retoma sin pantallas solo si la calibración tiene < 10 min. Con consentimiento obligatorio, el banner suma "Aceptar y activar cámara". Textos escapados a ASCII. Fallos de carga de face-api tras `pagehide` no se reportan.
+- **Website Tracking — calibración de Eye Tracking en sitios (v0.99.19):** el snippet carga `participant/embed/eye.js` (mismas pantallas que el módulo ET, en shadow root). Selector 5/9 puntos eliminado.
+- **Website Tracking — medidas de mirada (v0.99.20–21):** cuadrante desde la mirada calibrada (3×3 de la ventana), fijaciones a 20 Hz. Visitas con calibración "low" fuera de la cuadrícula de cuadrantes y zonas (misma regla `dropLowQuality` en `tracking-gaze.analytics.ts`); aviso en la pestaña Attention.
+- **Eye Tracking — calibración a pantalla completa (v0.99.22):** los puntos cubrían solo el área bajo las instrucciones y el centro de la calibración caía debajo del estímulo en teléfonos (12/12 respuestas de teléfono con 49–100% en la fila inferior; `kiosk-13` con 0 fijaciones → LOW). Ahora cubren toda la pantalla; las instrucciones flotan en la mitad opuesta al punto.
+- **Encuestas en iframe (v0.99.23):** participant responde `frame-ancestors 'self' https:` (antes `X-Frame-Options: SAMEORIGIN` bloqueaba el iframe del cliente). Escrito por `deploy-participant-frontend-cpanel.sh`.
+- **Otros:** etiquetas de mes de History sin depender del locale; `deploy-backend-cpanel.sh` avisa si el build remoto muere.
 
 ## Qué falta
 
-- **Website Tracking:** (a) resuelto: envío en tandas de 50 y sin mezclar visitas (pendiente de deploy si no se hizo); (b) `url( "…" )` con espacios en CSS proxificado no se reescribe; (c) emociones y mirada nunca se activaron en estudios reales — activar en uno para tener datos; (d) prueba real en producción con cámara (el test forense fue local).
-1. **Grabación etiquetada** con `/test/expression-capture` (6 min). Guardar en `participant-frontend/eval/datasets/expressions-<fecha>/` (`video.webm`, `ground-truth.json`, `metadata.json`) y abrir `/test/expression-eval?dataset=expressions-<fecha>`.
-2. **Decidir face-api vs blendshapes** con esos números.
-3. **Fase 2 (20 personas):** cambiar la captura para procesar en el navegador y guardar solo cambios respecto a la cara neutra (no video); revisión legal del consentimiento.
-4. **Prueba real con cámara** (Shelf y video) con el link del estudio, no vista previa: confirmar que la respuesta trae `fixationUnit`, `shelfColumnOrder`, `gazeTimelineUnit`, y que la góndola no cambia al final en teléfono.
-5. **Calificación de calibración:** el umbral de 200 px excluye a todos (error real 214–649 px). Pendiente calificar por tamaño de AOI.
-
-**Decisión (2026-10-24):** no usar tecnología ni datos que requieran licencia de terceros (DISFA, AM-FED+, SEWA, AffectNet, etc.). La referencia para calibrar emociones son grabaciones propias con consentimiento.
+1. **Prueba real de Pamela** (teléfono y computador, link de participante sin `?preview=true`, navegador nuevo o tras 10 min) para confirmar que v0.99.22 saca a los teléfonos de LOW.
+2. **Precisión en computadores:** errores de calibración 214–649 px (solo `kiosk-7` bajo 200). El arreglo de hoy corrige dónde cae la mirada, no el error.
+3. **Shelf con 3 puntos de mirada** (`kiosk-13`, integridad 0,03): causa desconocida.
+4. **Umbral de 200 px** igual para monitor y teléfono (157 px = 40% de un teléfono de 390 px).
+5. **Congelamiento de 2,8 s al cerrar la calibración** (medido con GPU; probable `trainRidge`). Afecta ET y Website Tracking.
+6. **Website Tracking:** mirada ~600 px a la izquierda de los clics en `c23d9543` (ver con sesión nueva); hueco de 8 s al iniciar captura en producción no reproducido; sesiones antiguas aún usan `quadrantProbs` (iris sin calibrar).
+7. **Encuesta desde el snippet** (no construido): disparador, tope por visitante, `ECX=<visitor_id>`, cierre con `postMessage` al terminar.
+8. **Infra:** el deploy de participant vacía la carpeta remota antes de copiar 121 MB (sitio a medio subir unos minutos); causa del build remoto muerto (límites LVE) sin confirmar.
 
 ## Ficheros clave
 
 | Tema | Archivo |
 |---|---|
+| Snippet Website Tracking | `backend/src/modules/tracking/tracking-snippet.ts` (cámara opt-in, `viewportQuadrant`, `sampleFixation`, `reportModelFailure`) |
+| Analítica mirada / zonas | `backend/src/modules/tracking/tracking-gaze.analytics.ts`, `tracking-zones.analytics.ts` |
+| Embed calibración | `participant-frontend/src/embed/` (`eye.tsx`, `EyeCalibrationFlow.tsx`, `eyeSession.ts`), `vite.embed.config.ts` |
+| Calibración ET | `participant-frontend/src/components/renderers/eye-tracking/CalibrationPhase.tsx`, `useCalibrationSequence.ts` |
 | Captura ET participante | `participant-frontend/src/components/renderers/EyeTrackingRenderer.tsx` |
-| Góndola | `participant-frontend/src/components/renderers/eye-tracking/ShelfGrid.tsx`, `.../shelfLayout.ts`, `research-frontend/src/utils/shelfLayout.ts` |
-| Analítica ET | `backend/src/modules/analytics/eye-tracking.analytics.ts` (`placeInShelfColumn`, `computeEyeTrackingMetrics`) |
-| AOIs | `backend/src/modules/analytics/aoi-metrics.ts` (`softAoiWeight`, reparto) |
-| Resultados ET | `research-frontend/src/components/results/eye-tracking/StimulusCard.tsx`, `useScopedEyeTrackingStimulus.ts`, `AllExcludedNotice.tsx`, `VideoGazePlayer.tsx` |
-| Evaluación emociones | `participant-frontend/src/lib/expressionEval/` (`protocol.ts`, `metrics.ts`, `blendshapeActionUnits.ts`), `src/pages/ExpressionCapturePage.tsx`, `ExpressionEvalPage.tsx` |
-| Consentimiento | `docs/consentimiento-captura-expresiones.md` |
-| Website Tracking | `backend/src/modules/tracking/` (`tracking.controller.ts`, `tracking.service.ts`, `tracking-snippet.ts`, `proxy-rewrite.ts`, `public-fetch.ts`) |
+| Analítica ET | `backend/src/modules/analytics/eye-tracking.analytics.ts` (`classifyQuality`, umbral 200 px) |
+| Pestaña Attention | `research-frontend/src/components/results/website-tracking/TrackingAttentionTab.tsx` |
+| Deploy | `scripts/deploy-*-cpanel.sh` (participant escribe el `.htaccess`) |
 
 ## Preguntas abiertas
 
-- ¿Se activan emociones/mirada en `d3e0822b` o `1d673c9f`? Hoy están apagadas, por eso hay 0 datos.
-- ¿Qué umbral de calidad de calibración se considera aceptable para mostrar resultados por defecto?
-- ¿Las 17 respuestas Shelf de prueba (sin orden de columnas ni unidad) se borran o se dejan?
-- Estudio archivado `0f300142`: 9 productos en 3 columnas (6 nunca se mostraron). ¿Se corrige o se deja?
-- ¿Se quiere vender "esfuerzo mental"? Con webcam no es viable; requeriría eye tracker infrarrojo.
-- Orden de despliegue: backend siempre antes que participant cuando cambia el formato de respuesta.
+- ¿El texto del footer de cámara debe ser configurable por estudio/cliente? Hoy es fijo en el snippet.
+- ¿Umbral de calidad relativo al tamaño de pantalla en vez de 200 px fijos?
+- ¿El iframe se restringe a los dominios del estudio (requiere cabecera desde el backend) o queda abierto a cualquier HTTPS?
+- ¿La encuesta en modal desde el snippet se cobra con Website Tracking o aparte?
+- `docs/emociones.jpeg`, `docs/net.jpeg`, `docs/problema1.jpeg` sin commitear: ¿van al repo?
+- Con la cámara opt-in llegarán muchos menos datos de emociones y mirada: ¿se acepta para los estudios activos?
