@@ -12,49 +12,6 @@
 type Matrix = number[][];
 type Vector = number[];
 
-function transpose(m: Matrix): Matrix {
-  const rows = m.length;
-  const cols = m[0].length;
-  const result: Matrix = Array.from({ length: cols }, () => new Array(rows));
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      result[j][i] = m[i][j];
-    }
-  }
-  return result;
-}
-
-function multiply(a: Matrix, b: Matrix): Matrix {
-  const aRows = a.length;
-  const aCols = a[0].length;
-  const bCols = b[0].length;
-  const result: Matrix = Array.from({ length: aRows }, () => new Array(bCols).fill(0));
-  for (let i = 0; i < aRows; i++) {
-    for (let j = 0; j < bCols; j++) {
-      let sum = 0;
-      for (let k = 0; k < aCols; k++) {
-        sum += a[i][k] * b[k][j];
-      }
-      result[i][j] = sum;
-    }
-  }
-  return result;
-}
-
-function identity(n: number): Matrix {
-  const m: Matrix = Array.from({ length: n }, () => new Array(n).fill(0));
-  for (let i = 0; i < n; i++) m[i][i] = 1;
-  return m;
-}
-
-function addMatrices(a: Matrix, b: Matrix): Matrix {
-  return a.map((row, i) => row.map((val, j) => val + b[i][j]));
-}
-
-function scaleMatrix(m: Matrix, s: number): Matrix {
-  return m.map(row => row.map(val => val * s));
-}
-
 /** Gauss-Jordan inversion for small matrices */
 function invert(m: Matrix): Matrix {
   const n = m.length;
@@ -202,25 +159,46 @@ function medianPairwiseDistance(rows: Matrix): number {
 // Core solver — shared by train() and LOOCV
 // ---------------------------------------------------------------------------
 
-function solveRidge(X: Matrix, yx: Vector, yy: Vector, lambda: number): {
-  weightsX: Vector;
-  weightsY: Vector;
-} {
+interface Gram {
+  xtx: Matrix;
+  xtyx: Vector;
+  xtyy: Vector;
+}
+
+function addToGram(gram: Gram, row: Vector, yx: number, yy: number, sign: 1 | -1): void {
+  for (let i = 0; i < row.length; i++) {
+    const weighted = row[i] * sign;
+    const xtxRow = gram.xtx[i];
+    for (let j = 0; j < row.length; j++) xtxRow[j] += weighted * row[j];
+    gram.xtyx[i] += weighted * yx;
+    gram.xtyy[i] += weighted * yy;
+  }
+}
+
+function buildGram(X: Matrix, yx: Vector, yy: Vector): Gram {
   const n = X[0].length;
-  const Xt = transpose(X);
-  const XtX = multiply(Xt, X);
-  const reg = scaleMatrix(identity(n), lambda);
-  const XtX_reg = addMatrices(XtX, reg);
-  const inv = invert(XtX_reg);
-  const XtInv = multiply(inv, Xt);
+  const gram: Gram = {
+    xtx: Array.from({ length: n }, () => new Array(n).fill(0)),
+    xtyx: new Array(n).fill(0),
+    xtyy: new Array(n).fill(0),
+  };
+  X.forEach((row, i) => addToGram(gram, row, yx[i], yy[i], 1));
+  return gram;
+}
 
-  const yxMat: Matrix = yx.map(v => [v]);
-  const yyMat: Matrix = yy.map(v => [v]);
+function cloneGram(gram: Gram): Gram {
+  return { xtx: gram.xtx.map(row => [...row]), xtyx: [...gram.xtyx], xtyy: [...gram.xtyy] };
+}
 
-  const wx = multiply(XtInv, yxMat).map(r => r[0]);
-  const wy = multiply(XtInv, yyMat).map(r => r[0]);
+function solveGram(gram: Gram, lambda: number): { weightsX: Vector; weightsY: Vector } {
+  const regularized = gram.xtx.map((row, i) => row.map((value, j) => (i === j ? value + lambda : value)));
+  const inverse = invert(regularized);
+  return { weightsX: multiplyMV(inverse, gram.xtyx), weightsY: multiplyMV(inverse, gram.xtyy) };
+}
 
-  return { weightsX: wx, weightsY: wy };
+interface FoldError {
+  sumSq: number;
+  count: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -354,9 +332,9 @@ export class RidgeRegression {
       this.rffState = buildRffState(normedRows[0].length, D, Math.max(sigma, 1e-6), seed);
     }
 
-    // Transform all samples
     const X: Matrix = this.samplesX.map(row => this.transform(row));
-    const { weightsX, weightsY } = solveRidge(X, this.samplesYx, this.samplesYy, lambda);
+    const gram = buildGram(X, this.samplesYx, this.samplesYy);
+    const { weightsX, weightsY } = solveGram(gram, lambda);
     this.weightsX = weightsX;
     this.weightsY = weightsY;
 
@@ -364,22 +342,13 @@ export class RidgeRegression {
     this.stretchY = null;
     this.computeCalibrationStretch();
 
-    // LOOCV
-    this.cvRmsePx = this.computeLoocv(lambda);
-
-    // Diagnostics
-    this.computeDiagnostics(lambda);
+    const groups = this.groupByTarget();
+    const foldErrors = this.computeFoldErrors(X, gram, groups, lambda);
+    this.cvRmsePx = groups.size < 3 ? null : this.pooledRmse(foldErrors);
+    this.computeDiagnostics(foldErrors);
   }
 
-  // -- Diagnostics --
-
-  private computeDiagnostics(lambda: number): void {
-    if (!this.weightsX || !this.weightsY || !this.featureMean || !this.featureStd) {
-      this.diagnostics = null;
-      return;
-    }
-
-    // Group samples by calibration point
+  private groupByTarget(): Map<string, number[]> {
     const groups = new Map<string, number[]>();
     for (let i = 0; i < this.sampleTargets.length; i++) {
       const [tx, ty] = this.sampleTargets[i];
@@ -387,9 +356,51 @@ export class RidgeRegression {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(i);
     }
+    return groups;
+  }
 
-    // Per-point: predict centroid, compute residual
-    const cvErrors = this.computeLoocvPerPoint(lambda);
+  private computeFoldErrors(X: Matrix, gram: Gram, groups: Map<string, number[]>, lambda: number): Map<string, FoldError> {
+    const foldErrors = new Map<string, FoldError>();
+    for (const [key, heldOutIndices] of groups) {
+      if (X.length - heldOutIndices.length < 2) continue;
+      const trainGram = cloneGram(gram);
+      for (const idx of heldOutIndices) addToGram(trainGram, X[idx], this.samplesYx[idx], this.samplesYy[idx], -1);
+      let weights: { weightsX: Vector; weightsY: Vector };
+      try {
+        weights = solveGram(trainGram, lambda);
+      } catch {
+        continue;
+      }
+      let sumSq = 0;
+      for (const idx of heldOutIndices) {
+        const dx = multiplyMV([weights.weightsX], X[idx])[0] - this.samplesYx[idx];
+        const dy = multiplyMV([weights.weightsY], X[idx])[0] - this.samplesYy[idx];
+        sumSq += dx * dx + dy * dy;
+      }
+      foldErrors.set(key, { sumSq, count: heldOutIndices.length });
+    }
+    return foldErrors;
+  }
+
+  private pooledRmse(foldErrors: Map<string, FoldError>): number | null {
+    let sumSq = 0;
+    let count = 0;
+    for (const fold of foldErrors.values()) {
+      sumSq += fold.sumSq;
+      count += fold.count;
+    }
+    return count > 0 ? Math.sqrt(sumSq / count) : null;
+  }
+
+  // -- Diagnostics --
+
+  private computeDiagnostics(foldErrors: Map<string, FoldError>): void {
+    if (!this.weightsX || !this.weightsY || !this.featureMean || !this.featureStd) {
+      this.diagnostics = null;
+      return;
+    }
+
+    const groups = this.groupByTarget();
     const perPoint: NonNullable<typeof this.diagnostics>['perPoint'] = [];
 
     for (const [, indices] of groups) {
@@ -419,7 +430,7 @@ export class RidgeRegression {
         residualY,
         errorPx: Math.sqrt(residualX * residualX + residualY * residualY),
         sampleCount: indices.length,
-        cvErrorPx: cvErrors.get(key) ?? null,
+        cvErrorPx: foldErrors.has(key) ? Math.sqrt(foldErrors.get(key)!.sumSq / foldErrors.get(key)!.count) : null,
       });
     }
 
@@ -460,104 +471,6 @@ export class RidgeRegression {
       biasY: meanPredY - meanTargetY,
       totalSamples: this.samplesX.length,
     };
-  }
-
-  /** LOOCV error per calibration point. */
-  private computeLoocvPerPoint(lambda: number): Map<string, number> {
-    const result = new Map<string, number>();
-    const groups = new Map<string, number[]>();
-    for (let i = 0; i < this.sampleTargets.length; i++) {
-      const [tx, ty] = this.sampleTargets[i];
-      const key = `${Math.round(tx / 10) * 10},${Math.round(ty / 10) * 10}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(i);
-    }
-
-    for (const [key, heldOutIndices] of groups) {
-      const heldOutSet = new Set(heldOutIndices);
-      const trainX: Matrix = [];
-      const trainYx: Vector = [];
-      const trainYy: Vector = [];
-      for (let i = 0; i < this.samplesX.length; i++) {
-        if (heldOutSet.has(i)) continue;
-        trainX.push(this.transform(this.samplesX[i]));
-        trainYx.push(this.samplesYx[i]);
-        trainYy.push(this.samplesYy[i]);
-      }
-      if (trainX.length < 2) continue;
-      try {
-        const { weightsX: wx, weightsY: wy } = solveRidge(trainX, trainYx, trainYy, lambda);
-        let sumSq = 0;
-        for (const idx of heldOutIndices) {
-          const f = this.transform(this.samplesX[idx]);
-          const px = multiplyMV([wx], f)[0];
-          const py = multiplyMV([wy], f)[0];
-          const dx = px - this.samplesYx[idx];
-          const dy = py - this.samplesYy[idx];
-          sumSq += dx * dx + dy * dy;
-        }
-        result.set(key, Math.sqrt(sumSq / heldOutIndices.length));
-      } catch { continue; }
-    }
-    return result;
-  }
-
-  // -- LOOCV (leave-one-calibration-point-out) --
-
-  /**
-   * Group samples by target screen position (calibration point).
-   * Hold out all samples from each group, train on rest, measure error on held-out.
-   */
-  private computeLoocv(lambda: number): number | null {
-    // Group sample indices by target (round to nearest 10px to cluster)
-    const groups = new Map<string, number[]>();
-    for (let i = 0; i < this.sampleTargets.length; i++) {
-      const [tx, ty] = this.sampleTargets[i];
-      const key = `${Math.round(tx / 10) * 10},${Math.round(ty / 10) * 10}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(i);
-    }
-
-    if (groups.size < 3) return null; // need ≥3 points for meaningful CV
-
-    let totalSqErr = 0;
-    let totalCount = 0;
-
-    for (const [, heldOutIndices] of groups) {
-      const heldOutSet = new Set(heldOutIndices);
-      const trainX: Matrix = [];
-      const trainYx: Vector = [];
-      const trainYy: Vector = [];
-
-      for (let i = 0; i < this.samplesX.length; i++) {
-        if (heldOutSet.has(i)) continue;
-        trainX.push(this.transform(this.samplesX[i]));
-        trainYx.push(this.samplesYx[i]);
-        trainYy.push(this.samplesYy[i]);
-      }
-
-      if (trainX.length < 2) continue;
-
-      try {
-        const { weightsX: wx, weightsY: wy } = solveRidge(trainX, trainYx, trainYy, lambda);
-
-        // Predict held-out samples
-        for (const idx of heldOutIndices) {
-          const transformed = this.transform(this.samplesX[idx]);
-          const predX = multiplyMV([wx], transformed)[0];
-          const predY = multiplyMV([wy], transformed)[0];
-          const dx = predX - this.samplesYx[idx];
-          const dy = predY - this.samplesYy[idx];
-          totalSqErr += dx * dx + dy * dy;
-          totalCount++;
-        }
-      } catch {
-        // Singular matrix on fold — skip
-        continue;
-      }
-    }
-
-    return totalCount > 0 ? Math.sqrt(totalSqErr / totalCount) : null;
   }
 
   // -- Predict --
