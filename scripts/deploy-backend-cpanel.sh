@@ -128,7 +128,10 @@ echo ""
 
 # Paso 5: Compilar TypeScript
 echo -e "${BLUE}🔨 Compilando TypeScript...${NC}"
-run_remote "cd $REMOTE_BACKEND_DIR && npm run build"
+if ! run_remote "cd $REMOTE_BACKEND_DIR && npm run build"; then
+    echo -e "${RED}❌ npm run build falló en $SSH_HOST:$REMOTE_BACKEND_DIR; dist/ conserva la compilación anterior. Sin error de tsc arriba = proceso terminado por el servidor: reintenta el deploy.${NC}"
+    exit 1
+fi
 echo -e "${GREEN}✅ Compilación completada${NC}"
 echo ""
 
