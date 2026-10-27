@@ -505,13 +505,18 @@ function showConsent(){
     var shadow=C.cPos==="top"?"box-shadow:0 2px 10px rgba(0,0,0,0.15);":"box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
     var d=document.createElement("div");d.id="_ecx_consent";
     d.style.cssText="position:fixed;"+pos+"left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:14px;z-index:2147483647;display:flex;align-items:center;justify-content:space-between;"+shadow;
-    d.innerHTML='<span>'+C.cText+'</span><div><button id="_ecx_accept" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+C.cAccept+'</button><button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+C.cDecline+'</button></div>';
+    var cameraButton=hasCameraFeatures()?'<button id="_ecx_accept_camera" style="background:#16a34a;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+cameraCopy().acceptWithCamera+'</button>':'';
+    d.innerHTML='<span>'+C.cText+'</span><div><button id="_ecx_accept" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+C.cAccept+'</button>'+cameraButton+'<button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+C.cDecline+'</button></div>';
     document.body.appendChild(d);
-    document.getElementById("_ecx_accept").onclick=function(){
+    var accept=function(isCameraOn){
         consented=true;d.remove();
         store("_ecx_consent_"+C.rid,"1");
+        store(CAMERA_INVITE_KEY,"1");
+        if(isCameraOn)store(CAMERA_CHOICE_KEY,"1");
         startSession();
     };
+    document.getElementById("_ecx_accept").onclick=function(){accept(false);};
+    if(cameraButton)document.getElementById("_ecx_accept_camera").onclick=function(){accept(true);};
     document.getElementById("_ecx_reject").onclick=function(){
         d.remove();
         store("_ecx_consent_"+C.rid,"0");
@@ -524,6 +529,7 @@ function startSession(){
     vid=getVid();
     startCapture();
     createSession();
+    showCameraInvite();
 }
 
 // ─── Emotion + Gaze Recognition (MediaPipe FaceLandmarker) ──────────
@@ -581,15 +587,55 @@ function feedFixation(x,y,ts){
     fixState={cx:x,cy:y,startT:ts,sumX:x,sumY:y,count:1,active:true};
 }
 
-var CAMERA_SKIP_KEY="_ecx_cam_skip_"+C.rid,CAMERA_SKIP_MS=600000;
-function isCameraSkipped(){
-    var skippedAt=Number(load(CAMERA_SKIP_KEY));
-    return skippedAt>0&&Date.now()-skippedAt<CAMERA_SKIP_MS;
+var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid;
+var CAMERA_COPY={
+    es:{invite:"Este sitio registra c\\u00f3mo se navega (clics, scroll y recorrido) para mejorar la experiencia. Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
+    en:{invite:"This site records how it is browsed (clicks, scroll and path) to improve the experience. Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
+};
+function cameraCopy(){return CAMERA_COPY[pageLanguage()];}
+function hasCameraFeatures(){return !!(C.emotions||C.gaze);}
+function isCameraChosen(){return load(CAMERA_CHOICE_KEY)==="1";}
+function activateCameraCapture(){
+    store(CAMERA_CHOICE_KEY,"1");store(CAMERA_INVITE_KEY,"1");
+    removeElement("_ecx_cam_invite");renderCameraTab();
+    startCameraCapture();
+}
+function stopCameraByChoice(){
+    store(CAMERA_CHOICE_KEY,"0");
+    stopEmotionCapture();releaseCamera();renderCameraTab();
 }
 function skipCameraCapture(){
-    store(CAMERA_SKIP_KEY,String(Date.now()));
     reportCaptureError("camera-skipped");
-    stopEmotionCapture();releaseCamera();
+    stopCameraByChoice();
+}
+function removeElement(id){var el=document.getElementById(id);if(el)el.remove();}
+function renderCameraTab(){
+    removeElement("_ecx_cam_tab");
+    if(!hasCameraFeatures())return;
+    var isOn=isCameraChosen();
+    var tab=document.createElement("button");tab.id="_ecx_cam_tab";tab.type="button";
+    tab.textContent="\\ud83d\\udcf7 "+(isOn?cameraCopy().tabOn:cameraCopy().tabOff);
+    tab.style.cssText="position:fixed;right:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:"+(isOn?"#16a34a":"#2563eb")+";color:#fff;border:none;border-radius:0 8px 8px 0;padding:14px 8px;font-family:-apple-system,sans-serif;font-size:12px;cursor:pointer;z-index:2147483646;box-shadow:-2px 0 8px rgba(0,0,0,0.15);";
+    tab.onclick=function(){if(isCameraChosen())stopCameraByChoice();else activateCameraCapture();};
+    document.body.appendChild(tab);
+}
+function showCameraInvite(){
+    if(!hasCameraFeatures())return;
+    if(isCameraChosen()||load(CAMERA_INVITE_KEY)==="1"){renderCameraTab();return;}
+    var copy=cameraCopy();
+    var bar=document.createElement("div");bar.id="_ecx_cam_invite";
+    bar.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:13px;line-height:1.4;z-index:2147483647;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
+    var text=document.createElement("span");text.style.cssText="flex:1 1 280px;";text.textContent=copy.invite;
+    var activate=document.createElement("button");activate.type="button";activate.textContent=copy.activate;
+    activate.style.cssText="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;";
+    var dismiss=document.createElement("button");dismiss.type="button";dismiss.textContent=copy.dismiss;
+    dismiss.style.cssText="background:transparent;color:#cbd5e1;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;";
+    activate.onclick=activateCameraCapture;
+    dismiss.onclick=function(){store(CAMERA_INVITE_KEY,"1");bar.remove();renderCameraTab();};
+    var actions=document.createElement("div");actions.style.cssText="display:flex;gap:8px;";
+    actions.appendChild(activate);actions.appendChild(dismiss);
+    bar.appendChild(text);bar.appendChild(actions);
+    document.body.appendChild(bar);
 }
 // FACS Action Units from face-api 68 landmarks (same formulas as the Eye Tracking module)
 var AU_BASELINE_SAMPLES=10;
@@ -744,7 +790,7 @@ function startEyeTracking(){
 }
 
 function startCameraCapture(){
-    if(!(C.emotions||C.gaze)||isCameraSkipped())return;
+    if(!hasCameraFeatures()||!isCameraChosen())return;
     if(C.gaze){startEyeTracking();return;}
     withCamera(function(){loadFaceApi(beginCapture);});
 }

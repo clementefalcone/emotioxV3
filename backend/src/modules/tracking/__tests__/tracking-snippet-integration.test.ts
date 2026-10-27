@@ -262,17 +262,6 @@ describe('generateTrackingSnippet — why a page has no camera data', () => {
     it('reports nothing on unload when no camera screen is open', () => {
         expect(runUnload(false)).not.toHaveBeenCalled();
     });
-
-    it('reports camera-skipped when the visitor skips the camera step', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
-        const source = js.slice(js.indexOf('function skipCameraCapture(){'), js.indexOf('// FACS Action Units'));
-        const reportCaptureError = vi.fn();
-        const noop = () => undefined;
-        new Function('store', 'CAMERA_SKIP_KEY', 'reportCaptureError', 'stopEmotionCapture', 'releaseCamera', `${source}skipCameraCapture();`)(
-            noop, 'key', reportCaptureError, noop, noop);
-
-        expect(reportCaptureError).toHaveBeenCalledWith('camera-skipped');
-    });
 });
 
 interface FakeEyeOptions {
@@ -284,7 +273,7 @@ interface FakeEyeOptions {
     onCameraDenied: () => void;
 }
 
-function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isSkipped = false, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isSkipped?: boolean; pageLang?: string } = {}) {
+function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isChosen = true, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isChosen?: boolean; pageLang?: string } = {}) {
     const js = generateTrackingSnippet({ ...defaultConfig, captureGaze, captureEmotions });
     const source = js.slice(js.indexOf('var eyeSession=null,isEyeFlowOpen=false;'), js.indexOf('function loadFaceApi(cb){'));
     const starts: FakeEyeOptions[] = [];
@@ -294,10 +283,10 @@ function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isS
     const loadFaceApi = vi.fn((cb: () => void) => cb());
     const skipCameraCapture = vi.fn();
     const reportCaptureError = vi.fn();
-    const api = new Function('C', 'window', 'document', 'navigator', 'withCamera', 'beginCapture', 'loadFaceApi', 'skipCameraCapture', 'reportCaptureError', 'isCameraSkipped',
+    const api = new Function('C', 'window', 'document', 'navigator', 'withCamera', 'beginCapture', 'loadFaceApi', 'skipCameraCapture', 'reportCaptureError', 'isCameraChosen', 'hasCameraFeatures',
         `var emoVideo=null,emoStream=null;${source}return {startCameraCapture:startCameraCapture,state:function(){return {eyeSession:eyeSession,emoVideo:emoVideo,isEyeFlowOpen:isEyeFlowOpen};}};`,
     )({ gaze: captureGaze, emotions: captureEmotions, rid: 'r', eyeUrl: 'https://eye' }, window, { documentElement: { lang: pageLang } }, { language: 'en-US' },
-        withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError, () => isSkipped) as {
+        withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError, () => isChosen, () => captureGaze || captureEmotions) as {
         startCameraCapture: () => void;
         state: () => { eyeSession: object | null; emoVideo: object | null; isEyeFlowOpen: boolean };
     };
@@ -357,11 +346,117 @@ describe('generateTrackingSnippet — camera screens are the Eye Tracking module
         expect(beginCapture).toHaveBeenCalledTimes(1);
     });
 
-    it('does not ask for the camera again after the visitor skipped', () => {
-        const { startCameraCapture, starts, withCamera } = runStartCameraCapture({ isSkipped: true });
+    it('does not open the camera until the visitor turns it on', () => {
+        const { startCameraCapture, starts, withCamera } = runStartCameraCapture({ isChosen: false });
         startCameraCapture();
         expect(starts).toHaveLength(0);
         expect(withCamera).not.toHaveBeenCalled();
+    });
+});
+
+interface FakeElement {
+    id: string;
+    type: string;
+    textContent: string;
+    style: Record<string, string>;
+    children: FakeElement[];
+    onclick: (() => void) | null;
+    appendChild: (child: FakeElement) => void;
+    remove: () => void;
+}
+
+function runCameraChoice({ stored = {}, captureGaze = true, captureEmotions = true }: { stored?: Record<string, string>; captureGaze?: boolean; captureEmotions?: boolean } = {}) {
+    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze, captureEmotions });
+    const source = js.slice(js.indexOf('var CAMERA_CHOICE_KEY='), js.indexOf('// FACS Action Units'));
+    const storage: Record<string, string> = { ...stored };
+    const attached = new Map<string, FakeElement>();
+    const createElement = (): FakeElement => {
+        const element: FakeElement = {
+            id: '', type: '', textContent: '', style: {}, children: [], onclick: null,
+            appendChild: (child) => { element.children.push(child); },
+            remove: () => { attached.delete(element.id); },
+        };
+        return element;
+    };
+    const document = {
+        createElement,
+        getElementById: (id: string) => attached.get(id) ?? null,
+        body: { appendChild: (element: FakeElement) => { attached.set(element.id, element); } },
+    };
+    const startCameraCapture = vi.fn();
+    const stopEmotionCapture = vi.fn();
+    const releaseCamera = vi.fn();
+    const reportCaptureError = vi.fn();
+    const api = new Function('C', 'document', 'store', 'load', 'pageLanguage', 'startCameraCapture', 'stopEmotionCapture', 'releaseCamera', 'reportCaptureError',
+        `${source}return {showCameraInvite:showCameraInvite,skipCameraCapture:skipCameraCapture};`,
+    )({ gaze: captureGaze, emotions: captureEmotions, rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, (key: string) => storage[key] ?? null, () => 'es',
+        startCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError) as { showCameraInvite: () => void; skipCameraCapture: () => void };
+    const invite = () => attached.get('_ecx_cam_invite');
+    const inviteButton = (label: string) => invite()?.children[1].children.find((button) => button.textContent === label);
+    return { ...api, storage, invite, inviteButton, tab: () => attached.get('_ecx_cam_tab'), startCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError };
+}
+
+describe('generateTrackingSnippet — camera only when the visitor turns it on', () => {
+    it('invites first-time visitors in the footer, in Spanish, without opening the camera', () => {
+        const { showCameraInvite, invite, tab, startCameraCapture } = runCameraChoice();
+        showCameraInvite();
+        expect(invite()?.children[0].textContent).toContain('Opcional: ayúdanos midiendo tu atención y emociones con la cámara');
+        expect(tab()).toBeUndefined();
+        expect(startCameraCapture).not.toHaveBeenCalled();
+    });
+
+    it('turns the camera on from the footer and remembers it', () => {
+        const { showCameraInvite, inviteButton, invite, tab, storage, startCameraCapture } = runCameraChoice();
+        showCameraInvite();
+        inviteButton('Activar cámara')?.onclick?.();
+        expect(startCameraCapture).toHaveBeenCalledTimes(1);
+        expect(storage).toMatchObject({ _ecx_cam_r: '1', _ecx_cam_invite_r: '1' });
+        expect(invite()).toBeUndefined();
+        expect(tab()?.textContent).toBe('📷 Cámara activa · desactivar');
+    });
+
+    it('leaves a side tab to turn it on later when the visitor dismisses the footer', () => {
+        const { showCameraInvite, inviteButton, invite, tab, storage, startCameraCapture } = runCameraChoice();
+        showCameraInvite();
+        inviteButton('Entendido')?.onclick?.();
+        expect(startCameraCapture).not.toHaveBeenCalled();
+        expect(storage._ecx_cam_invite_r).toBe('1');
+        expect(invite()).toBeUndefined();
+        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+        tab()?.onclick?.();
+        expect(startCameraCapture).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows only the tab on later pages', () => {
+        const { showCameraInvite, invite, tab } = runCameraChoice({ stored: { _ecx_cam_invite_r: '1' } });
+        showCameraInvite();
+        expect(invite()).toBeUndefined();
+        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+    });
+
+    it('turns the camera off from the tab', () => {
+        const { showCameraInvite, tab, storage, stopEmotionCapture, releaseCamera } = runCameraChoice({ stored: { _ecx_cam_r: '1' } });
+        showCameraInvite();
+        tab()?.onclick?.();
+        expect(storage._ecx_cam_r).toBe('0');
+        expect(stopEmotionCapture).toHaveBeenCalledTimes(1);
+        expect(releaseCamera).toHaveBeenCalledTimes(1);
+        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+    });
+
+    it('records camera-skipped and turns the camera off when the visitor declines the camera screens', () => {
+        const { skipCameraCapture, storage, reportCaptureError, releaseCamera } = runCameraChoice({ stored: { _ecx_cam_r: '1' } });
+        skipCameraCapture();
+        expect(reportCaptureError).toHaveBeenCalledWith('camera-skipped');
+        expect(storage._ecx_cam_r).toBe('0');
+        expect(releaseCamera).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows nothing when the study captures neither emotions nor gaze', () => {
+        const { showCameraInvite, invite, tab } = runCameraChoice({ captureGaze: false, captureEmotions: false });
+        showCameraInvite();
+        expect(invite()).toBeUndefined();
+        expect(tab()).toBeUndefined();
     });
 });
 
