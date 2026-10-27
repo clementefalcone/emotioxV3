@@ -31,6 +31,7 @@ import {
 import type { HybridCalibrationResidual } from '../../lib/eyeTracking';
 import type { RidgeRegression } from '../../lib/eyeTracking/ridgeRegression';
 import { recallCalibration, rememberCalibration } from './eye-tracking/calibrationCache';
+import { CALIBRATION_POINT_MS, useCalibrationSequence, type CalibrationDot } from './eye-tracking/useCalibrationSequence';
 
 // V2 zone pipeline
 import { ZoneRegistry, generateGrid } from '../../lib/eyeTracking/zoneRegistry';
@@ -120,12 +121,10 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const viewingRectRef = useRef<DOMRect | null>(null);
 
     /** 9-point calibration on stimulus image (3x3 grid) + IDW field. */
-    const [calibrationIndex, setCalibrationIndex] = useState(0);
     const calibrationResidualsRef = useRef<HybridCalibrationResidual[]>(cachedCalibration?.residuals ?? []);
     const calibrationRmsePxRef = useRef<number | null>(cachedCalibration?.rmsePx ?? null);
     const gazePosRef = useRef<[number, number]>([0, 0]);
     const [lowResWarning, setLowResWarning] = useState(false);
-    const [calibrationInterruptions, setCalibrationInterruptions] = useState(0);
     const calibrationDistancesCmRef = useRef<number[]>([]);
 
     // --- Gaze engines (both hooks always called — React rules — only active engine is started) ---
@@ -584,7 +583,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }
 
         const timer = setTimeout(() => {
-            setCalibrationIndex(0);
+            calibrationSequence.restartSequence();
             calibrationResidualsRef.current = [];
             calibrationRmsePxRef.current = null;
             setPhase('calibration');
@@ -678,7 +677,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 fixationMethod: 'idt',
                 gazePipeline: 'hybrid-zone-idt',
                 calibrationRmsePx: calibrationRmsePxRef.current,
-                calibrationInterruptions,
+                calibrationInterruptions: calibrationSequence.interruptionCount,
                 faceDistanceCm: calibrationDistancesCmRef.current.length > 0
                     ? Math.round(calibrationDistancesCmRef.current.reduce((sum, d) => sum + d, 0) / calibrationDistancesCmRef.current.length)
                     : null,
@@ -796,24 +795,10 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         return imgRef.current;
     }, [isShelf, isVideo]);
 
-    const CALIBRATION_POINT_MS = 2500;
-    const CALIBRATION_SETTLE_MS = 500;
     const CALIBRATE_CALLS_PER_POINT = 3;
-    const calibrationTimerRef = useRef(0);
-    const calibrationSettleTimerRef = useRef(0);
-    const [dwellStartedAt, setDwellStartedAt] = useState<number | null>(null);
 
-    const getCalibrationDot = (idx: number) => {
-        const rect = calibrationAreaRef.current?.getBoundingClientRect();
-        const point = HYBRID_IMAGE_CALIBRATION_POINTS[idx];
-        if (!rect || rect.width <= 0 || !point) return null;
-        const [ipx, ipy] = point;
-        return { rect, ipx, ipy, x: rect.left + (ipx / 100) * rect.width, y: rect.top + (ipy / 100) * rect.height };
-    };
-
-    const recordCalibrationPoint = (idx: number, avgX: number, avgY: number) => {
-        const dot = getCalibrationDot(idx);
-        if (!dot) return;
+    const recordCalibrationPoint = (dot: CalibrationDot) => {
+        const [avgX, avgY] = gazePosRef.current;
         const distanceCm = estimateFaceDistanceCm(mpGaze.lastLandmarksRef.current, { width: videoRef.current?.videoWidth ?? 0, height: videoRef.current?.videoHeight ?? 0 });
         if (distanceCm !== null) calibrationDistancesCmRef.current.push(distanceCm);
         calibrationResidualsRef.current.push({
@@ -829,12 +814,9 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 gaze.calibrate(normX, normY);
             }
         }
+    };
 
-        if (idx + 1 < HYBRID_IMAGE_CALIBRATION_POINTS.length) {
-            setCalibrationIndex(idx + 1);
-            return;
-        }
-
+    const finishCalibration = () => {
         const afterTrain = () => {
             const predictor = mpGaze.predictorRef.current;
             const trainedPoints = (predictor.diagnostics as RidgeRegression['diagnostics'])?.perPoint;
@@ -856,37 +838,14 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         }
     };
 
-    useEffect(() => {
-        if (phase !== 'calibration') return;
-
-        const holdPoint = () => {
-            setDwellStartedAt(performance.now());
-            mpGaze.collectCalibrationSamples(null);
-            calibrationSettleTimerRef.current = window.setTimeout(() => {
-                const dot = getCalibrationDot(calibrationIndex);
-                if (useMP && dot) mpGaze.collectCalibrationSamples([dot.x, dot.y]);
-            }, CALIBRATION_SETTLE_MS);
-            calibrationTimerRef.current = window.setTimeout(() => {
-                if (gazeStateRef.current !== 'open' || !getCalibrationDot(calibrationIndex)) {
-                    if (gazeStateRef.current !== 'open') setCalibrationInterruptions(count => count + 1);
-                    holdPoint();
-                    return;
-                }
-                setDwellStartedAt(null);
-                mpGaze.collectCalibrationSamples(null);
-                const [gx, gy] = gazePosRef.current;
-                recordCalibrationPoint(calibrationIndex, gx, gy);
-            }, CALIBRATION_POINT_MS);
-        };
-
-        holdPoint();
-        return () => {
-            window.clearTimeout(calibrationTimerRef.current);
-            window.clearTimeout(calibrationSettleTimerRef.current);
-            mpGaze.collectCalibrationSamples(null);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- recordCalibrationPoint reads refs only
-    }, [phase, calibrationIndex, viewingDuration]);
+    const calibrationSequence = useCalibrationSequence({
+        isActive: phase === 'calibration',
+        calibrationAreaRef,
+        gazeStateRef,
+        collectCalibrationSamples: mpGaze.collectCalibrationSamples,
+        onPointRecorded: recordCalibrationPoint,
+        onSequenceComplete: finishCalibration,
+    });
 
     const handleConsentAccept = useCallback(async () => {
         const isCameraOn = await startCamera();
@@ -977,13 +936,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     </div>
                 )}
                 <CalibrationPhase
-                    calibrationIndex={calibrationIndex}
-                    dwellStartedAt={dwellStartedAt}
+                    calibrationIndex={calibrationSequence.calibrationIndex}
+                    dwellStartedAt={calibrationSequence.dwellStartedAt}
                     dwellDurationMs={CALIBRATION_POINT_MS}
                     cameraRef={videoRef}
                     calibrationAreaRef={calibrationAreaRef}
                     isFaceInZone={gaze.gazeState === 'open'}
-                    interruptionCount={calibrationInterruptions}
+                    interruptionCount={calibrationSequence.interruptionCount}
                 />
             </>
         );
