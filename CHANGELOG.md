@@ -1,3 +1,13 @@
+## v0.99.22 — Eye Tracking: calibration over the whole screen (2026-10-27)
+
+### fix(eye-tracking): phones graded low, gaze piled at the bottom
+- **Report.** A tester's phone run this morning (`edee0a59` `kiosk-13`, 390×699) graded LOW again.
+- **Why low.** Not the calibration error (157 px, under the 200 px limit): 0 fixations. Image module: 72 gaze points, all in the bottom row, every fixation outside the image and dropped by `mapFixationsToImageCoords`. Shelf module: 3 gaze points in the whole viewing (integrity 0.03), cause not identified.
+- **Root cause.** Calibration dots lived in the area below the instructions (y 188–699 on that phone, dots y 249–638, centre y≈443), while the stimulus is centred on the whole screen (image y≈262–436). Webcam gaze shrinks toward the centre of the calibration points, which fell below the image and in the shelf's bottom third. All 12 phone responses of the study put 49–100% of gaze in the bottom row; desktops with acceptable error read mostly the middle row.
+- **Fix.** `CalibrationPhase` places the dots over the whole screen (centre = stimulus centre) and floats the instructions on the half away from the current dot. Same component in the Website Tracking embed (`eye.js`). Checked in Chromium at 390×699: dots y 84–615, centre y 350, never under the instructions.
+- **Not changed.** The 200 px limit is the same for a 1680 px monitor and a 390 px phone (157 px = 40% of that phone's width). Calibrations cached in the last 10 minutes keep the old dots.
+- **Tests.** `CalibrationPhase.test.tsx` (3, fail on the old layout). Participant 1142 → 1145, 0 failing.
+
 ## v0.99.21 — Website Tracking: low-quality gaze out of the zone grid (2026-10-27)
 
 ### fix(tracking): one low-quality rule for zones and the gaze grid
