@@ -398,19 +398,20 @@ describe('generateTrackingSnippet — emotion sampling like the Eye Tracking mod
         const js = generateTrackingSnippet(defaultConfig);
         const source = js.slice(js.indexOf('function startSampling(){'), js.indexOf('function beginCapture('));
         const setInterval = vi.fn(() => 1);
-        new Function('C', 'setInterval', 'sampleEmotion', 'sampleGaze', 'eyeSession', 'faceApiReady',
-            `var emoRunning=false,emoStartTime=0,emoInterval=null,gazeInterval=null,EMO_SAMPLE_MS=50,GAZE_SAMPLE_MS=500;${source}startSampling();`,
-        )(config, setInterval, 'sampleEmotion', 'sampleGaze', {}, isFaceApiReady);
+        new Function('C', 'setInterval', 'sampleEmotion', 'sampleGaze', 'sampleFixation', 'eyeSession', 'faceApiReady',
+            `var emoRunning=false,emoStartTime=0,emoInterval=null,gazeInterval=null,fixationInterval=null,EMO_SAMPLE_MS=50,GAZE_SAMPLE_MS=500,FIXATION_SAMPLE_MS=50;${source}startSampling();`,
+        )(config, setInterval, 'sampleEmotion', 'sampleGaze', 'sampleFixation', {}, isFaceApiReady);
         return setInterval.mock.calls as unknown as Array<[string, number]>;
     };
+    const gazeIntervals = [['sampleGaze', 500], ['sampleFixation', 50]];
 
-    it('samples emotions 20 times per second and gaze twice per second', () => {
-        expect(startSamplingWith({ emotions: true }, true)).toEqual([['sampleGaze', 500], ['sampleEmotion', 50]]);
+    it('samples emotions 20 times per second, gaze twice per second and fixations 20 times per second', () => {
+        expect(startSamplingWith({ emotions: true }, true)).toEqual([...gazeIntervals, ['sampleEmotion', 50]]);
     });
 
     it('does not sample emotions when captureEmotions is off or face-api failed', () => {
-        expect(startSamplingWith({ emotions: false }, true)).toEqual([['sampleGaze', 500]]);
-        expect(startSamplingWith({ emotions: true }, false)).toEqual([['sampleGaze', 500]]);
+        expect(startSamplingWith({ emotions: false }, true)).toEqual(gazeIntervals);
+        expect(startSamplingWith({ emotions: true }, false)).toEqual(gazeIntervals);
     });
 
     it('waits for the running detection instead of piling up detections on slow devices', async () => {
@@ -600,7 +601,7 @@ describe('generateTrackingSnippet — emotion timestamps across tab switches', (
 });
 
 describe('generateTrackingSnippet — gaze from the calibrated Eye Tracking session', () => {
-    const runSampler = (sampler: 'sampleGaze', session: object) => {
+    const runSampler = (sampler: 'sampleGaze' | 'sampleFixation', session: object) => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
         const source = js.slice(js.indexOf('var HEAD_DIST_DEG='), js.indexOf('// I-DT fixation detection')) +
             js.slice(js.indexOf('function captureElapsedMs(){'), js.indexOf('function startSampling(){')) +
@@ -621,9 +622,8 @@ describe('generateTrackingSnippet — gaze from the calibrated Eye Tracking sess
     });
 
     it('records the calibrated gaze point in page coordinates with its quality', () => {
-        const { gazeBuf, feedFixation } = runSampler('sampleGaze', sessionLookingAt(300, 200));
+        const { gazeBuf } = runSampler('sampleGaze', sessionLookingAt(300, 200));
         expect(gazeBuf).toHaveLength(1);
-        expect(feedFixation).toHaveBeenCalledWith(300, 600, expect.any(Number));
         expect(gazeBuf[0]).toMatchObject({ pageX: 300, pageY: 600, attention: 'engaged', score: 1, gazeQuality: 'good', gazeRmse: 70, cursorX: 5, cursorY: 6 });
     });
 
@@ -643,6 +643,12 @@ describe('generateTrackingSnippet — gaze from the calibrated Eye Tracking sess
     it('records nothing while the face is not detected', () => {
         const { gazeBuf } = runSampler('sampleGaze', { ...sessionLookingAt(300, 200), readLandmarks: () => null });
         expect(gazeBuf).toHaveLength(0);
+    });
+
+    it('feeds fixation detection with the calibrated gaze in page coordinates, only with open eyes', () => {
+        expect(runSampler('sampleFixation', sessionLookingAt(300, 200)).feedFixation).toHaveBeenCalledWith(300, 600, expect.any(Number));
+        expect(runSampler('sampleFixation', sessionLookingAt(300, 200, false)).feedFixation).not.toHaveBeenCalled();
+        expect(runSampler('sampleGaze', sessionLookingAt(300, 200)).feedFixation).not.toHaveBeenCalled();
     });
 });
 

@@ -695,14 +695,14 @@ function releaseCamera(){
     eyeSession=null;emoStream=null;emoVideo=null;isCaptureStarted=false;
 }
 
-var EMO_SAMPLE_MS=50,GAZE_SAMPLE_MS=500;
-var gazeInterval=null,isDetectingEmotion=false,faceApiReady=false,isCaptureStarted=false;
+var EMO_SAMPLE_MS=50,GAZE_SAMPLE_MS=500,FIXATION_SAMPLE_MS=50;
+var gazeInterval=null,fixationInterval=null,isDetectingEmotion=false,faceApiReady=false,isCaptureStarted=false;
 function captureElapsedMs(){return emoActiveMs+(Date.now()-emoStartTime);}
 function startSampling(){
     if(emoRunning)return;
     emoRunning=true;
     emoStartTime=Date.now();
-    if(eyeSession)gazeInterval=setInterval(sampleGaze,GAZE_SAMPLE_MS);
+    if(eyeSession){gazeInterval=setInterval(sampleGaze,GAZE_SAMPLE_MS);fixationInterval=setInterval(sampleFixation,FIXATION_SAMPLE_MS);}
     if(C.emotions&&faceApiReady)emoInterval=setInterval(sampleEmotion,EMO_SAMPLE_MS);
 }
 
@@ -792,7 +792,6 @@ function sampleGaze(){
     var pose=eyeSession.readHeadPose();
     var st=attnState(eyeSession.isEyeOpen(),pose.yaw,pose.pitch);
     var rmse=eyeSession.calibrationRmsePx||999;
-    var gpx=Math.round(gaze.x+window.scrollX),gpy=Math.round(gaze.y+window.scrollY);
     gazeBuf.push({
         timestamp:ts,
         quadrant:viewportQuadrant(gaze.x,gaze.y),
@@ -800,18 +799,24 @@ function sampleGaze(){
         score:attnScore(st),
         cursorX:Math.round(lastCursorX),
         cursorY:Math.round(lastCursorY),
-        pageX:gpx,
-        pageY:gpy,
+        pageX:Math.round(gaze.x+window.scrollX),
+        pageY:Math.round(gaze.y+window.scrollY),
         gazeQuality:rateGaze(rmse),
         gazeRmse:Math.round(rmse)
     });
-    feedFixation(gpx,gpy,ts);
+}
+function sampleFixation(){
+    if(!emoRunning||paused||!eyeSession||!eyeSession.isEyeOpen())return;
+    var gaze=eyeSession.readGaze();
+    if(!gaze)return;
+    feedFixation(Math.round(gaze.x+window.scrollX),Math.round(gaze.y+window.scrollY),captureElapsedMs());
 }
 
 function stopEmotionCapture(){
     emoRunning=false;
     if(emoInterval){clearInterval(emoInterval);emoInterval=null;}
     if(gazeInterval){clearInterval(gazeInterval);gazeInterval=null;}
+    if(fixationInterval){clearInterval(fixationInterval);fixationInterval=null;}
 }
 
 function flushEmotions(sync){
