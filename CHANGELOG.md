@@ -1,3 +1,13 @@
+## v0.99.26 — Eye Tracking: no freeze when calibration ends (2026-10-27)
+
+### perf(eye-tracking): ridge training without repeated work
+- **Symptom.** The page froze for 2.8–4.1 s right after the last calibration dot (Chromium with GPU, recorded face as camera), in the Eye Tracking module and in Website Tracking.
+- **Root cause.** `RidgeRegression.train()` ran leave-one-point-out twice (pooled error and per-point diagnostics), re-projected every sample through the RFF map in each of the 26 folds, and built `inv(XᵀX)·Xᵀ` (128 × N) instead of using `Xᵀy`.
+- **Fix.** Samples are projected once; `XᵀX` and `Xᵀy` are built once and each fold subtracts its held-out rows; one pass gives both the pooled and per-point errors.
+- **Check.** Bench (13 points, D=128): 390 samples 542 → 100 ms, 780 samples 967 → 117 ms; weights, predictions, LOOCV and per-point errors match to 3.7e-12. Browser with GPU: no long task above 200 ms at calibration end (was 2,830 ms); whole session 4 long tasks / 0.5 s (was 21–42 / 4.9–7.6 s).
+- **Seen, not changed.** First emotion batch arrived ~7 s after face-api models loaded in this run (3 s in an earlier one), with no long task; may relate to the 8 s gap seen in production.
+- **Tests.** Participant 1145, 0 failing (existing ridge tests cover the outputs).
+
 ## v0.99.25 — Website Tracking: camera choice only after it works (2026-10-27)
 
 ### fix(tracking): no forced consent, readable camera pill
