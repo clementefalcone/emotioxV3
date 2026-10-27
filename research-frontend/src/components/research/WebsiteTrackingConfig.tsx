@@ -243,11 +243,11 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                         <CompactToggle label="Consent" enabled={config.consentRequired} onToggle={() => handleToggle('consentRequired')} />
                         <CompactToggle label="Emotions" enabled={config.captureEmotions} onToggle={() => handleToggle('captureEmotions')} />
                         {config.captureEmotions && (
-                            <p className="text-[10px] text-gray-400 ml-9">Webcam-based facial expression estimation. Requires camera permission from visitors. Best for aggregate trends across sessions.</p>
+                            <p className="text-[10px] text-gray-400 ml-9">Webcam-based facial expression estimation, only for visitors who turn on the camera from the footer notice or the side tab. Best for aggregate trends across sessions.</p>
                         )}
                         <CompactToggle label="Gaze Tracking" enabled={config.captureGaze} onToggle={() => handleToggle('captureGaze')} />
                         {config.captureGaze && (
-                            <p className="text-[10px] text-gray-400 ml-9">Visitors go through the Eye Tracking consent, face position and 13-point calibration before browsing. Generates gaze heatmaps without cursor data.</p>
+                            <p className="text-[10px] text-gray-400 ml-9">Visitors who turn on the camera go through the Eye Tracking consent, face position and 13-point calibration. Generates gaze heatmaps without cursor data.</p>
                         )}
                     </div>
                 </div>
