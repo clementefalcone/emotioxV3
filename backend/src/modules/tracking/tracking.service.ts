@@ -84,7 +84,6 @@ interface TrackingConfig {
     funnels?: FunnelDefinition[];
     captureEmotions: boolean;
     captureGaze: boolean;
-    gazeCalibrationPoints: 5 | 9;
     zones: TrackingZone[];
 }
 
@@ -310,7 +309,6 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
         funnels: (trackingConfig.funnels as FunnelDefinition[]) || [],
         captureEmotions: trackingConfig.captureEmotions === true,
         captureGaze: trackingConfig.captureGaze === true,
-        gazeCalibrationPoints: trackingConfig.gazeCalibrationPoints === 5 ? 5 : 9,
         zones: Array.isArray(trackingConfig.zones) ? trackingConfig.zones.filter(isTrackingZone) : [],
     };
 };

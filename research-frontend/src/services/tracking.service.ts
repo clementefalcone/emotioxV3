@@ -40,7 +40,6 @@ export interface TrackingConfig {
     verified?: boolean;
     captureEmotions: boolean;
     captureGaze: boolean;
-    gazeCalibrationPoints: 5 | 9;
     zones: TrackingZone[];
 }
 
