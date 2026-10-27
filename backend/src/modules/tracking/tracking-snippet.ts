@@ -512,8 +512,8 @@ function showConsent(){
         consented=true;d.remove();
         store("_ecx_consent_"+C.rid,"1");
         store(CAMERA_INVITE_KEY,"1");
-        if(isCameraOn)store(CAMERA_CHOICE_KEY,"1");
         startSession();
+        if(isCameraOn)openCameraCapture();
     };
     document.getElementById("_ecx_accept").onclick=function(){accept(false);};
     if(cameraButton)document.getElementById("_ecx_accept_camera").onclick=function(){accept(true);};
@@ -587,7 +587,7 @@ function feedFixation(x,y,ts){
     fixState={cx:x,cy:y,startT:ts,sumX:x,sumY:y,count:1,active:true};
 }
 
-var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid;
+var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid,EYE_CALIBRATION_KEY="_ecx_eye_cal_"+C.rid,EYE_CALIBRATION_REUSE_MS=600000;
 var CAMERA_COPY={
     es:{invite:"Este sitio registra c\\u00f3mo se navega (clics, scroll y recorrido) para mejorar la experiencia. Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
     en:{invite:"This site records how it is browsed (clicks, scroll and path) to improve the experience. Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
@@ -596,9 +596,19 @@ function cameraCopy(){return CAMERA_COPY[pageLanguage()];}
 function hasCameraFeatures(){return !!(C.emotions||C.gaze);}
 function isCameraChosen(){return load(CAMERA_CHOICE_KEY)==="1";}
 function activateCameraCapture(){
-    store(CAMERA_CHOICE_KEY,"1");store(CAMERA_INVITE_KEY,"1");
+    store(CAMERA_INVITE_KEY,"1");
     removeElement("_ecx_cam_invite");renderCameraTab();
-    startCameraCapture();
+    openCameraCapture();
+}
+function markCameraOn(){
+    store(CAMERA_CHOICE_KEY,"1");
+    renderCameraTab();
+}
+function hasFreshCalibration(){
+    try{
+        var stored=JSON.parse(load(EYE_CALIBRATION_KEY)||"null");
+        return !!stored&&Date.now()-stored.savedAt<EYE_CALIBRATION_REUSE_MS;
+    }catch(e){return false;}
 }
 function stopCameraByChoice(){
     store(CAMERA_CHOICE_KEY,"0");
@@ -615,7 +625,7 @@ function renderCameraTab(){
     var isOn=isCameraChosen();
     var tab=document.createElement("button");tab.id="_ecx_cam_tab";tab.type="button";
     tab.textContent="\\ud83d\\udcf7 "+(isOn?cameraCopy().tabOn:cameraCopy().tabOff);
-    tab.style.cssText="position:fixed;right:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:"+(isOn?"#16a34a":"#2563eb")+";color:#fff;border:none;border-radius:0 8px 8px 0;padding:14px 8px;font-family:-apple-system,sans-serif;font-size:12px;cursor:pointer;z-index:2147483646;box-shadow:-2px 0 8px rgba(0,0,0,0.15);";
+    tab.style.cssText="position:fixed;right:16px;bottom:16px;background:"+(isOn?"#166534":"#1e40af")+";color:#fff;border:none;border-radius:999px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
     tab.onclick=function(){if(isCameraChosen())stopCameraByChoice();else activateCameraCapture();};
     document.body.appendChild(tab);
 }
@@ -775,11 +785,12 @@ function startEyeTracking(){
     loadEye(function(){
         window.EmotioxEye.start({
             lang:pageLanguage(),
-            storageKey:"_ecx_eye_cal_"+C.rid,
+            storageKey:EYE_CALIBRATION_KEY,
             hasEmotionRecognition:!!C.emotions,
             onReady:function(session){
                 isEyeFlowOpen=false;
                 eyeSession=session;emoVideo=session.video;emoStream=session.video.srcObject;
+                markCameraOn();
                 if(C.emotions){loadFaceApi(beginCapture);return;}
                 beginCapture();
             },
@@ -789,10 +800,16 @@ function startEyeTracking(){
     });
 }
 
+function openCameraCapture(){
+    if(!hasCameraFeatures())return;
+    if(C.gaze){startEyeTracking();return;}
+    withCamera(function(){markCameraOn();loadFaceApi(beginCapture);});
+}
+
 function startCameraCapture(){
     if(!hasCameraFeatures()||!isCameraChosen())return;
-    if(C.gaze){startEyeTracking();return;}
-    withCamera(function(){loadFaceApi(beginCapture);});
+    if(C.gaze&&!hasFreshCalibration()){store(CAMERA_CHOICE_KEY,"0");renderCameraTab();return;}
+    openCameraCapture();
 }
 
 function loadFaceApi(cb){

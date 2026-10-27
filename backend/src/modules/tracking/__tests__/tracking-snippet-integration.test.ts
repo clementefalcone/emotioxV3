@@ -273,7 +273,7 @@ interface FakeEyeOptions {
     onCameraDenied: () => void;
 }
 
-function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isChosen = true, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isChosen?: boolean; pageLang?: string } = {}) {
+function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isChosen = true, isCalibrationFresh = true, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isChosen?: boolean; isCalibrationFresh?: boolean; pageLang?: string } = {}) {
     const js = generateTrackingSnippet({ ...defaultConfig, captureGaze, captureEmotions });
     const source = js.slice(js.indexOf('var eyeSession=null,isEyeFlowOpen=false;'), js.indexOf('function loadFaceApi(cb){'));
     const starts: FakeEyeOptions[] = [];
@@ -283,14 +283,19 @@ function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isC
     const loadFaceApi = vi.fn((cb: () => void) => cb());
     const skipCameraCapture = vi.fn();
     const reportCaptureError = vi.fn();
+    const markCameraOn = vi.fn();
+    const store = vi.fn();
+    const renderCameraTab = vi.fn();
     const api = new Function('C', 'window', 'document', 'navigator', 'withCamera', 'beginCapture', 'loadFaceApi', 'skipCameraCapture', 'reportCaptureError', 'isCameraChosen', 'hasCameraFeatures',
+        'markCameraOn', 'hasFreshCalibration', 'store', 'renderCameraTab', 'EYE_CALIBRATION_KEY', 'CAMERA_CHOICE_KEY',
         `var emoVideo=null,emoStream=null;${source}return {startCameraCapture:startCameraCapture,state:function(){return {eyeSession:eyeSession,emoVideo:emoVideo,isEyeFlowOpen:isEyeFlowOpen};}};`,
     )({ gaze: captureGaze, emotions: captureEmotions, rid: 'r', eyeUrl: 'https://eye' }, window, { documentElement: { lang: pageLang } }, { language: 'en-US' },
-        withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError, () => isChosen, () => captureGaze || captureEmotions) as {
+        withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError, () => isChosen, () => captureGaze || captureEmotions,
+        markCameraOn, () => isCalibrationFresh, store, renderCameraTab, '_ecx_eye_cal_r', '_ecx_cam_r') as {
         startCameraCapture: () => void;
         state: () => { eyeSession: object | null; emoVideo: object | null; isEyeFlowOpen: boolean };
     };
-    return { ...api, starts, withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError };
+    return { ...api, starts, withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError, markCameraOn, store, renderCameraTab };
 }
 
 describe('generateTrackingSnippet — camera screens are the Eye Tracking module', () => {
@@ -312,10 +317,12 @@ describe('generateTrackingSnippet — camera screens are the Eye Tracking module
     });
 
     it('captures emotions and gaze on the calibrated session camera once calibration ends', () => {
-        const { startCameraCapture, starts, beginCapture, loadFaceApi, state } = runStartCameraCapture();
+        const { startCameraCapture, starts, beginCapture, loadFaceApi, state, markCameraOn } = runStartCameraCapture();
         startCameraCapture();
+        expect(markCameraOn).not.toHaveBeenCalled();
         const video = { srcObject: { id: 'stream' } };
         starts[0].onReady({ video });
+        expect(markCameraOn).toHaveBeenCalledTimes(1);
 
         expect(loadFaceApi).toHaveBeenCalledTimes(1);
         expect(beginCapture).toHaveBeenCalledTimes(1);
@@ -338,12 +345,25 @@ describe('generateTrackingSnippet — camera screens are the Eye Tracking module
     });
 
     it('captures emotions right away on a small camera when gaze is off', () => {
-        const { startCameraCapture, starts, withCamera, beginCapture } = runStartCameraCapture({ captureGaze: false });
+        const { startCameraCapture, starts, withCamera, beginCapture, markCameraOn } = runStartCameraCapture({ captureGaze: false });
         startCameraCapture();
 
+        expect(markCameraOn).toHaveBeenCalledTimes(1);
         expect(starts).toHaveLength(0);
         expect(withCamera).toHaveBeenCalledTimes(1);
         expect(beginCapture).toHaveBeenCalledTimes(1);
+    });
+
+    it('resumes on the next page without screens only while the calibration is fresh', () => {
+        const stale = runStartCameraCapture({ isCalibrationFresh: false });
+        stale.startCameraCapture();
+        expect(stale.starts).toHaveLength(0);
+        expect(stale.store).toHaveBeenCalledWith('_ecx_cam_r', '0');
+        expect(stale.renderCameraTab).toHaveBeenCalledTimes(1);
+
+        const fresh = runStartCameraCapture({ isCalibrationFresh: true });
+        fresh.startCameraCapture();
+        expect(fresh.starts).toHaveLength(1);
     });
 
     it('does not open the camera until the visitor turns it on', () => {
@@ -383,48 +403,62 @@ function runCameraChoice({ stored = {}, captureGaze = true, captureEmotions = tr
         getElementById: (id: string) => attached.get(id) ?? null,
         body: { appendChild: (element: FakeElement) => { attached.set(element.id, element); } },
     };
-    const startCameraCapture = vi.fn();
+    const openCameraCapture = vi.fn();
     const stopEmotionCapture = vi.fn();
     const releaseCamera = vi.fn();
     const reportCaptureError = vi.fn();
-    const api = new Function('C', 'document', 'store', 'load', 'pageLanguage', 'startCameraCapture', 'stopEmotionCapture', 'releaseCamera', 'reportCaptureError',
-        `${source}return {showCameraInvite:showCameraInvite,skipCameraCapture:skipCameraCapture};`,
+    const api = new Function('C', 'document', 'store', 'load', 'pageLanguage', 'openCameraCapture', 'stopEmotionCapture', 'releaseCamera', 'reportCaptureError',
+        `${source}return {showCameraInvite:showCameraInvite,skipCameraCapture:skipCameraCapture,markCameraOn:markCameraOn,hasFreshCalibration:hasFreshCalibration};`,
     )({ gaze: captureGaze, emotions: captureEmotions, rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, (key: string) => storage[key] ?? null, () => 'es',
-        startCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError) as { showCameraInvite: () => void; skipCameraCapture: () => void };
+        openCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError) as { showCameraInvite: () => void; skipCameraCapture: () => void; markCameraOn: () => void; hasFreshCalibration: () => boolean };
     const invite = () => attached.get('_ecx_cam_invite');
     const inviteButton = (label: string) => invite()?.children[1].children.find((button) => button.textContent === label);
-    return { ...api, storage, invite, inviteButton, tab: () => attached.get('_ecx_cam_tab'), startCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError };
+    return { ...api, storage, invite, inviteButton, tab: () => attached.get('_ecx_cam_tab'), openCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError };
 }
 
 describe('generateTrackingSnippet — camera only when the visitor turns it on', () => {
     it('invites first-time visitors in the footer, in Spanish, without opening the camera', () => {
-        const { showCameraInvite, invite, tab, startCameraCapture } = runCameraChoice();
+        const { showCameraInvite, invite, tab, openCameraCapture } = runCameraChoice();
         showCameraInvite();
         expect(invite()?.children[0].textContent).toContain('Opcional: ayúdanos midiendo tu atención y emociones con la cámara');
         expect(tab()).toBeUndefined();
-        expect(startCameraCapture).not.toHaveBeenCalled();
+        expect(openCameraCapture).not.toHaveBeenCalled();
     });
 
-    it('turns the camera on from the footer and remembers it', () => {
-        const { showCameraInvite, inviteButton, invite, tab, storage, startCameraCapture } = runCameraChoice();
+    it('opens the camera screens from the footer and remembers the camera only once it is on', () => {
+        const { showCameraInvite, inviteButton, invite, tab, storage, openCameraCapture, markCameraOn } = runCameraChoice();
         showCameraInvite();
         inviteButton('Activar cámara')?.onclick?.();
-        expect(startCameraCapture).toHaveBeenCalledTimes(1);
-        expect(storage).toMatchObject({ _ecx_cam_r: '1', _ecx_cam_invite_r: '1' });
+        expect(openCameraCapture).toHaveBeenCalledTimes(1);
+        expect(storage).toEqual({ _ecx_cam_invite_r: '1' });
         expect(invite()).toBeUndefined();
+        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+
+        markCameraOn();
+        expect(storage._ecx_cam_r).toBe('1');
         expect(tab()?.textContent).toBe('📷 Cámara activa · desactivar');
     });
 
+    it('treats a calibration saved in the last 10 minutes as fresh', () => {
+        const recent = runCameraChoice({ stored: { _ecx_eye_cal_r: JSON.stringify({ savedAt: Date.now() - 60_000, samples: [] }) } });
+        const old = runCameraChoice({ stored: { _ecx_eye_cal_r: JSON.stringify({ savedAt: Date.now() - 700_000, samples: [] }) } });
+        const broken = runCameraChoice({ stored: { _ecx_eye_cal_r: '{' } });
+        expect(recent.hasFreshCalibration()).toBe(true);
+        expect(old.hasFreshCalibration()).toBe(false);
+        expect(broken.hasFreshCalibration()).toBe(false);
+        expect(runCameraChoice().hasFreshCalibration()).toBe(false);
+    });
+
     it('leaves a side tab to turn it on later when the visitor dismisses the footer', () => {
-        const { showCameraInvite, inviteButton, invite, tab, storage, startCameraCapture } = runCameraChoice();
+        const { showCameraInvite, inviteButton, invite, tab, storage, openCameraCapture } = runCameraChoice();
         showCameraInvite();
         inviteButton('Entendido')?.onclick?.();
-        expect(startCameraCapture).not.toHaveBeenCalled();
+        expect(openCameraCapture).not.toHaveBeenCalled();
         expect(storage._ecx_cam_invite_r).toBe('1');
         expect(invite()).toBeUndefined();
         expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
         tab()?.onclick?.();
-        expect(startCameraCapture).toHaveBeenCalledTimes(1);
+        expect(openCameraCapture).toHaveBeenCalledTimes(1);
     });
 
     it('shows only the tab on later pages', () => {
