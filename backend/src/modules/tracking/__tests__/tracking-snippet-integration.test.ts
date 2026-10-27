@@ -7,11 +7,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generateTrackingSnippet } from '../tracking-snippet';
 import {
-    computeIrisDisplacement,
-    estimateGazeDirection,
     estimateAttentionState,
-    classifyGazeQuadrant,
-    gazeMatchesCursorArea,
     computeAttentionScore,
 } from '../tracking-gaze-logic';
 
@@ -68,10 +64,8 @@ describe('generateTrackingSnippet — JS validity', () => {
 
     it('contains gaze functions when emotions enabled', () => {
         const js = generateTrackingSnippet(defaultConfig);
-        expect(js).toContain('irisDisp');
-        expect(js).toContain('gazeDir');
         expect(js).toContain('attnState');
-        expect(js).toContain('gazeQuad');
+        expect(js).toContain('viewportQuadrant');
         expect(js).toContain('attnScore');
         expect(js).toContain('gazeBuf');
         expect(js).toContain('flushGaze');
@@ -196,19 +190,6 @@ describe('data contract — gaze sample format', () => {
         expect(isValid(sampleFromSnippet)).toBe(true);
     });
 
-    it('all possible quadrant values from gaze logic are strings', () => {
-        const directions = [
-            { horizontal: 'left' as const, vertical: 'up' as const },
-            { horizontal: 'center' as const, vertical: 'center' as const },
-            { horizontal: 'right' as const, vertical: 'down' as const },
-        ];
-        for (const d of directions) {
-            const q = classifyGazeQuadrant(d);
-            expect(typeof q).toBe('string');
-            expect(q.length).toBeGreaterThan(0);
-        }
-    });
-
     it('all attention states from logic are in analytics validation set', () => {
         const ALL_ATTENTION = ['engaged', 'distracted', 'away'];
         expect(ALL_ATTENTION).toContain(estimateAttentionState(true, 0, 0));
@@ -242,34 +223,6 @@ describe('data contract — gaze sample format', () => {
             Number.isFinite(s.timestamp);
 
         expect(isValid(sampleFromSnippet)).toBe(true);
-    });
-});
-
-// ---------------------------------------------------------------------------
-// 5. Iris landmark indices match between snippet and constants
-// ---------------------------------------------------------------------------
-
-describe('iris landmark indices', () => {
-    it('snippet uses correct MediaPipe indices for iris and eye corners', () => {
-        const js = generateTrackingSnippet(defaultConfig);
-        // Left iris center = 468, Right iris center = 473
-        expect(js).toContain('lm[468]');
-        expect(js).toContain('lm[473]');
-        // Left eye: outer=33, inner=133, top=159, bottom=145
-        expect(js).toContain('lm[33]');
-        expect(js).toContain('lm[133]');
-        expect(js).toContain('lm[159]');
-        expect(js).toContain('lm[145]');
-        // Right eye: outer=263, inner=362, top=386, bottom=374
-        expect(js).toContain('lm[263]');
-        expect(js).toContain('lm[362]');
-        expect(js).toContain('lm[386]');
-        expect(js).toContain('lm[374]');
-    });
-
-    it('snippet checks the iris landmarks exist before accessing them', () => {
-        const js = generateTrackingSnippet(defaultConfig);
-        expect(js).toContain('if(!lm||lm.length<=473||!gaze)return;');
     });
 });
 
@@ -647,52 +600,48 @@ describe('generateTrackingSnippet — emotion timestamps across tab switches', (
 });
 
 describe('generateTrackingSnippet — gaze from the calibrated Eye Tracking session', () => {
-    const runSampleGaze = (session: object) => {
+    const runSampler = (sampler: 'sampleGaze', session: object) => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
-        const source = js.slice(js.indexOf('var GAZE_H_THRESH='), js.indexOf('// I-DT fixation detection')) +
+        const source = js.slice(js.indexOf('var HEAD_DIST_DEG='), js.indexOf('// I-DT fixation detection')) +
             js.slice(js.indexOf('function captureElapsedMs(){'), js.indexOf('function startSampling(){')) +
             js.slice(js.indexOf('function rateGaze('), js.indexOf('function stopEmotionCapture(){'));
         const feedFixation = vi.fn();
         const gazeBuf = new Function('eyeSession', 'feedFixation', 'window',
-            `var emoRunning=true,paused=false,EMO_MAX_MS=300000,gazeBuf=[],emoActiveMs=1000,emoStartTime=Date.now(),lastCursorX=5,lastCursorY=6;${source}sampleGaze();return gazeBuf;`,
-        )(session, feedFixation, { scrollX: 0, scrollY: 400 }) as Array<Record<string, unknown>>;
+            `var emoRunning=true,paused=false,EMO_MAX_MS=300000,gazeBuf=[],emoActiveMs=1000,emoStartTime=Date.now(),lastCursorX=5,lastCursorY=6;${source}${sampler}();return gazeBuf;`,
+        )(session, feedFixation, { scrollX: 0, scrollY: 400, innerWidth: 1500, innerHeight: 900 }) as Array<Record<string, unknown>>;
         return { gazeBuf, feedFixation };
     };
     const landmarks = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
+    const sessionLookingAt = (x: number, y: number, isEyeOpen = true) => ({
+        readLandmarks: () => landmarks,
+        readGaze: () => ({ x, y }),
+        readHeadPose: () => ({ pitch: 0, yaw: 0 }),
+        isEyeOpen: () => isEyeOpen,
+        calibrationRmsePx: isEyeOpen ? 70 : 200,
+    });
 
     it('records the calibrated gaze point in page coordinates with its quality', () => {
-        const { gazeBuf, feedFixation } = runSampleGaze({
-            readLandmarks: () => landmarks,
-            readGaze: () => ({ x: 300, y: 200 }),
-            readHeadPose: () => ({ pitch: 0, yaw: 0 }),
-            isEyeOpen: () => true,
-            calibrationRmsePx: 70,
-        });
-
+        const { gazeBuf, feedFixation } = runSampler('sampleGaze', sessionLookingAt(300, 200));
         expect(gazeBuf).toHaveLength(1);
-        expect(gazeBuf[0]).toMatchObject({ pageX: 300, pageY: 600, attention: 'engaged', score: 1, gazeQuality: 'good', gazeRmse: 70, cursorX: 5, cursorY: 6 });
         expect(feedFixation).toHaveBeenCalledWith(300, 600, expect.any(Number));
+        expect(gazeBuf[0]).toMatchObject({ pageX: 300, pageY: 600, attention: 'engaged', score: 1, gazeQuality: 'good', gazeRmse: 70, cursorX: 5, cursorY: 6 });
+    });
+
+    it('takes the quadrant from the calibrated gaze on the viewport', () => {
+        expect(runSampler('sampleGaze', sessionLookingAt(300, 200)).gazeBuf[0].quadrant).toBe('top-left');
+        expect(runSampler('sampleGaze', sessionLookingAt(750, 450)).gazeBuf[0].quadrant).toBe('center');
+        expect(runSampler('sampleGaze', sessionLookingAt(1400, 450)).gazeBuf[0].quadrant).toBe('center-right');
+        expect(runSampler('sampleGaze', sessionLookingAt(750, 850)).gazeBuf[0].quadrant).toBe('bottom-center');
+        expect(runSampler('sampleGaze', sessionLookingAt(300, 200)).gazeBuf[0]).not.toHaveProperty('quadrantProbs');
     });
 
     it('marks the visitor away when the session cannot see their eyes', () => {
-        const { gazeBuf } = runSampleGaze({
-            readLandmarks: () => landmarks,
-            readGaze: () => ({ x: 300, y: 200 }),
-            readHeadPose: () => ({ pitch: 0, yaw: 0 }),
-            isEyeOpen: () => false,
-            calibrationRmsePx: 200,
-        });
+        const { gazeBuf } = runSampler('sampleGaze', sessionLookingAt(300, 200, false));
         expect(gazeBuf[0]).toMatchObject({ attention: 'away', score: 0, gazeQuality: 'low' });
     });
 
     it('records nothing while the face is not detected', () => {
-        const { gazeBuf } = runSampleGaze({
-            readLandmarks: () => null,
-            readGaze: () => ({ x: 300, y: 200 }),
-            readHeadPose: () => ({ pitch: 0, yaw: 0 }),
-            isEyeOpen: () => true,
-            calibrationRmsePx: 70,
-        });
+        const { gazeBuf } = runSampler('sampleGaze', { ...sessionLookingAt(300, 200), readLandmarks: () => null });
         expect(gazeBuf).toHaveLength(0);
     });
 });

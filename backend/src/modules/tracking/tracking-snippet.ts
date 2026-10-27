@@ -534,37 +534,16 @@ var EMO_MAX_MS=300000; // 5 min cap
 var emoInterval=null;
 var EXPRESSION_MAP={happy:"joy",sad:"sadness",angry:"anger",surprised:"surprise",disgusted:"disgust",fearful:"fear",neutral:"neutral"};
 
-// Gaze logic (inlined from tracking-gaze-logic.ts)
-var GAZE_H_THRESH=0.08,GAZE_V_THRESH=0.06,HEAD_DIST_DEG=30;
-function irisDisp(ix,iy,ox,oy,nx,ny,ty,by){
-    var ew=Math.abs(nx-ox),eh=Math.abs(ty-by);
-    if(ew<1e-5||eh<1e-5)return{rx:0,ry:0};
-    return{rx:(ix-(nx+ox)/2)/ew,ry:(iy-(ty+by)/2)/eh};
-}
-function gazeDir(l,r){
-    var ax=(l.rx+r.rx)/2,ay=(l.ry+r.ry)/2;
-    return{
-        h:ax<-GAZE_H_THRESH?"left":ax>GAZE_H_THRESH?"right":"center",
-        v:ay<-GAZE_V_THRESH?"up":ay>GAZE_V_THRESH?"down":"center"
-    };
-}
+var HEAD_DIST_DEG=30;
 function attnState(vis,yaw,pitch){
     if(!vis)return"away";
     if(Math.abs(yaw)>HEAD_DIST_DEG||Math.abs(pitch)>HEAD_DIST_DEG)return"distracted";
     return"engaged";
 }
-function gazeQuad(d){
-    if(d.v==="center"&&d.h==="center")return"center";
-    var vp=d.v==="up"?"top":d.v==="down"?"bottom":"center";
-    return vp+"-"+d.h;
-}
-function quadProbs(l,r){
-    var ax=(l.rx+r.rx)/2,ay=(l.ry+r.ry)/2;
-    var QC=[[-0.16,-0.12,"top-left"],[0,-0.12,"top-center"],[0.16,-0.12,"top-right"],[-0.16,0,"center-left"],[0,0,"center"],[0.16,0,"center-right"],[-0.16,0.12,"bottom-left"],[0,0.12,"bottom-center"],[0.16,0.12,"bottom-right"]];
-    var SX=GAZE_H_THRESH,SY=GAZE_V_THRESH,t=0,w={};
-    for(var i=0;i<9;i++){var dx=ax-QC[i][0],dy=ay-QC[i][1];var v=Math.exp(-(dx*dx)/(2*SX*SX)-(dy*dy)/(2*SY*SY));w[QC[i][2]]=v;t+=v;}
-    var p={};for(var k in w)p[k]=t>0?Math.round(w[k]/t*1000)/1000:0;
-    return p;
+function viewportQuadrant(x,y){
+    var col=x<window.innerWidth/3?"left":x>window.innerWidth*2/3?"right":"center";
+    var row=y<window.innerHeight/3?"top":y>window.innerHeight*2/3?"bottom":"center";
+    return row==="center"&&col==="center"?"center":row+"-"+col;
 }
 function attnScore(st){return st==="away"?0:st==="distracted"?0.3:1;}
 
@@ -808,19 +787,15 @@ function sampleGaze(){
     if(!emoRunning||paused||!eyeSession)return;
     var ts=captureElapsedMs();
     if(ts>EMO_MAX_MS){stopEmotionCapture();return;}
-    var lm=eyeSession.readLandmarks(),gaze=eyeSession.readGaze();
-    if(!lm||lm.length<=473||!gaze)return;
-    var li=lm[468],ri=lm[473];
-    var ld=irisDisp(li.x,li.y,lm[33].x,lm[33].y,lm[133].x,lm[133].y,lm[159].y,lm[145].y);
-    var rd=irisDisp(ri.x,ri.y,lm[263].x,lm[263].y,lm[362].x,lm[362].y,lm[386].y,lm[374].y);
+    var gaze=eyeSession.readGaze();
+    if(!eyeSession.readLandmarks()||!gaze)return;
     var pose=eyeSession.readHeadPose();
     var st=attnState(eyeSession.isEyeOpen(),pose.yaw,pose.pitch);
     var rmse=eyeSession.calibrationRmsePx||999;
     var gpx=Math.round(gaze.x+window.scrollX),gpy=Math.round(gaze.y+window.scrollY);
     gazeBuf.push({
         timestamp:ts,
-        quadrant:gazeQuad(gazeDir(ld,rd)),
-        quadrantProbs:quadProbs(ld,rd),
+        quadrant:viewportQuadrant(gaze.x,gaze.y),
         attention:st,
         score:attnScore(st),
         cursorX:Math.round(lastCursorX),
