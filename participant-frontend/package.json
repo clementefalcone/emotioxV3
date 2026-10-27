@@ -8,7 +8,7 @@
     "sync-runtime-config": "node scripts/sync-runtime-config.mjs",
     "dev": "npm run sync-runtime-config && vite",
     "dev:local": "vite --mode development",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build -c vite.embed.config.ts",
     "type-check": "tsc -b --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
