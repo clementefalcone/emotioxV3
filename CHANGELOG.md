@@ -1,3 +1,12 @@
+## v0.99.21 — Website Tracking: low-quality gaze out of the zone grid (2026-10-27)
+
+### fix(tracking): one low-quality rule for zones and the gaze grid
+- **Root cause.** Researcher zones dropped visits whose calibration graded low (error > 150 px), falling back to all when every visit was low, like Eye Tracking. The gaze endpoint (quadrant grid, focus zone, fixations) used every visit; since v0.99.20 the quadrant comes from the calibrated gaze, so a 259 px calibration skews it.
+- **Fix.** `hasLowQualityGaze` + `dropLowQuality` live in `tracking-gaze.analytics.ts` and both endpoints use them. Attention state and score keep every visit (they come from open eyes and head pose, not gaze position). The response adds `dataSource.lowQualitySessions` and `excludedLowQualitySessions`.
+- **UI.** Attention tab notes how many low-quality visits were left out of the grid, or warns that every visit is low quality and the grid may be off. The grid description no longer mentions iris uncertainty.
+- **Deploy script.** `deploy-backend-cpanel.sh` now says when the remote build dies (on Oct 27 it was killed mid-run with no output and the stale `dist/` looked deployed).
+- **Tests.** Backend 635 → 636, research-frontend 681 → 683, 0 failing.
+
 ## v0.99.20 — Website Tracking: gaze measures from the calibrated model (2026-10-27)
 
 ### Review of the first calibrated session (`eeca0023`, session `c23d9543`, MacBook Chrome 1470×714)
@@ -14,7 +23,7 @@
 
 ### Not changed
 - **Main-thread freeze at the end of calibration.** Local run (Chromium with GPU, recorded face as fake camera): a 2.8 s long task (1.7 s without GPU) while the last calibration dot is on screen, before face-api loads; face-api's first inference costs 383 + 216 ms. The 8 s gap after capture start seen in production (emotions 60 ms → 8.4 s, 8 clicks dispatched within 2 ms) does not reproduce.
-- **Low calibration quality.** Session RMSE 259 px ("low") and gaze ~600 px left of the clicks; low-quality gaze still feeds the heatmap (pending decision: exclude like Eye Tracking or show flagged).
+- **Low calibration quality.** Session RMSE 259 px ("low") and gaze ~600 px left of the clicks (handled in v0.99.21).
 - **Tests.** Backend 675 → 635 (40 iris helper tests removed with the code; quadrant and fixation sampler tests added), 0 failing.
 
 ## v0.99.19 — Website Tracking: Eye Tracking calibration on sites (2026-10-27)
