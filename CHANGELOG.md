@@ -1,3 +1,11 @@
+## v0.99.23 — Surveys embeddable in other sites (2026-10-27)
+
+### fix(participant): allow the survey inside an iframe on HTTPS sites
+- **Why.** A client asked to show an Emotio survey in a modal on their site with an iframe; the participant site answered `X-Frame-Options: SAMEORIGIN`, so browsers refused to display it.
+- **Change.** `deploy-participant-frontend-cpanel.sh` writes `Content-Security-Policy: frame-ancestors 'self' https:` instead (any HTTPS site, not plain HTTP). Applied to the live `.htaccess` without a full redeploy.
+- **Check.** Chromium, a page served as `https://tienda-cliente.example/` with a modal iframe to `participant/research/edee0a59…?preview=true`: the welcome screen renders, no frame errors. Studies using the camera need `allow="camera"` on the iframe.
+- **Not built yet.** Opening the survey from the Website Tracking script (trigger, frequency cap, `ECX=<visitor_id>` link to the session, close on finish).
+
 ## v0.99.22 — Eye Tracking: calibration over the whole screen (2026-10-27)
 
 ### fix(eye-tracking): phones graded low, gaze piled at the bottom
