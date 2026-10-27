@@ -1,3 +1,22 @@
+## v0.99.20 — Website Tracking: gaze measures from the calibrated model (2026-10-27)
+
+### Review of the first calibrated session (`eeca0023`, session `c23d9543`, MacBook Chrome 1470×714)
+- **Emotions measure correctly.** AUs range 0–0.47 (66 distinct samples), no 0/1 saturation as in Eye Tracking before v0.99.13; ~11 samples/s. Expressions 100% neutral, consistent with the low AUs.
+- **Short data is real.** ~50 s of calibration, then ~14 s of browsing until the visitor left (66.8 s active).
+
+### fix(tracking): gaze quadrant from calibrated gaze
+- **Root cause.** `quadrant` and `quadrantProbs` came from the iris position inside the eye with fixed thresholds, never from the calibrated model: 11 of 14 samples read "center" while the calibrated gaze sat in the left third (x 189–551 of 1470).
+- **Fix.** The quadrant places the calibrated gaze on a 3×3 viewport grid (`viewportQuadrant`); `quadrantProbs` and the iris helpers (snippet and test-only mirror `tracking-gaze-logic.ts`) are removed. Analytics already falls back to `quadrant`.
+
+### fix(tracking): detect fixations at 20 Hz
+- **Root cause.** Fixations were fed from the 2 Hz stored samples, so each sample became its own ~500 ms "fixation" (457–539 ms).
+- **Fix.** `sampleFixation` reads the calibrated gaze every 50 ms with open eyes, like the Eye Tracking module; stored samples stay at 2 Hz.
+
+### Not changed
+- **Main-thread freeze at the end of calibration.** Local run (Chromium with GPU, recorded face as fake camera): a 2.8 s long task (1.7 s without GPU) while the last calibration dot is on screen, before face-api loads; face-api's first inference costs 383 + 216 ms. The 8 s gap after capture start seen in production (emotions 60 ms → 8.4 s, 8 clicks dispatched within 2 ms) does not reproduce.
+- **Low calibration quality.** Session RMSE 259 px ("low") and gaze ~600 px left of the clicks; low-quality gaze still feeds the heatmap (pending decision: exclude like Eye Tracking or show flagged).
+- **Tests.** Backend 675 → 635 (40 iris helper tests removed with the code; quadrant and fixation sampler tests added), 0 failing.
+
 ## v0.99.19 — Website Tracking: Eye Tracking calibration on sites (2026-10-27)
 
 ### feat(tracking): same calibration as the Eye Tracking module
