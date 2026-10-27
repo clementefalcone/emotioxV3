@@ -638,8 +638,30 @@ describe('generateTrackingSnippet — one shared camera', () => {
     it('reports model load failures for the gaze bundle and face-api and keeps going', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: true });
         expect(js).toContain('sc.onerror=function(){isEyeFlowOpen=false;reportCaptureError("mediapipe-failed");};');
-        expect(js).toContain('function(){reportCaptureError("face-models-failed");cb();});');
-        expect(js).toContain('sc.onerror=function(){reportCaptureError("face-models-failed");cb();};');
+        expect(js).toContain('function(){reportModelFailure(cb);});');
+        expect(js).toContain('sc.onerror=function(){reportModelFailure(cb);};');
+    });
+
+    it('does not report face-api failures caused by leaving the page while models load', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: true });
+        const source = js.slice(js.indexOf('var isPageLeaving=false;'), js.indexOf('var cameraWaiters=null;'));
+        const listeners: Record<string, () => void> = {};
+        const window = { addEventListener: (type: string, listener: () => void) => { listeners[type] = listener; } };
+        const reportCaptureError = vi.fn();
+        const reportModelFailure = new Function('window', 'reportCaptureError', `${source}return reportModelFailure;`)(window, reportCaptureError) as (cb: () => void) => void;
+        const cb = vi.fn();
+
+        reportModelFailure(cb);
+        expect(reportCaptureError).toHaveBeenCalledTimes(1);
+
+        listeners.pagehide();
+        reportModelFailure(cb);
+        expect(reportCaptureError).toHaveBeenCalledTimes(1);
+
+        listeners.pageshow();
+        reportModelFailure(cb);
+        expect(reportCaptureError).toHaveBeenCalledTimes(2);
+        expect(cb).toHaveBeenCalledTimes(3);
     });
 
     it('releases the camera 30s after the tab hides and on return after a long absence', () => {

@@ -717,6 +717,14 @@ function reportCaptureError(kind,sync){
     }catch(e){}
 }
 
+var isPageLeaving=false;
+window.addEventListener("pagehide",function(){isPageLeaving=true;});
+window.addEventListener("pageshow",function(){isPageLeaving=false;});
+function reportModelFailure(cb){
+    if(!isPageLeaving)reportCaptureError("face-models-failed");
+    cb();
+}
+
 var cameraWaiters=null;
 function withCamera(cb){
     if(emoVideo){cb(emoStream);return;}
@@ -822,15 +830,16 @@ function loadFaceApi(cb){
                 faceapi.nets.faceLandmark68Net.loadFromUri(C.emoModelUrl),
                 faceapi.nets.faceExpressionNet.loadFromUri(C.emoModelUrl)
             ]);
-        }).then(function(){faceApiReady=true;cb();},function(){reportCaptureError("face-models-failed");cb();});
+        }).then(function(){faceApiReady=true;cb();},function(){reportModelFailure(cb);});
     };
     if(window.faceapi){onModels();return;}
     var sc=document.createElement("script");
     sc.src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js";
     sc.onload=onModels;
-    sc.onerror=function(){reportCaptureError("face-models-failed");cb();};
+    sc.onerror=function(){reportModelFailure(cb);};
     document.head.appendChild(sc);
 }
+
 
 function sampleEmotion(){
     if(!emoRunning||paused||isDetectingEmotion||!emoVideo||emoVideo.readyState<2)return;
