@@ -621,4 +621,8 @@ export class RidgeRegression {
   get sampleCount(): number {
     return this.samplesX.length;
   }
+
+  get samples(): Array<{ features: number[]; target: [number, number] }> {
+    return this.samplesX.map((row, i) => ({ features: row.slice(0, -1), target: this.sampleTargets[i] }));
+  }
 }

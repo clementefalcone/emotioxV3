@@ -523,3 +523,18 @@ describe('RidgeRegression — accuracy sanity', () => {
     }
   });
 });
+
+describe('RidgeRegression — samples round trip', () => {
+  it('rebuilds the same RFF model from its exported samples', () => {
+    const original = new RidgeRegression({ rff: { D: 64, sigma: 'auto', seed: 42 } });
+    addGridCalibration(original);
+    original.train(1);
+
+    const rebuilt = new RidgeRegression({ rff: { D: 64, sigma: 'auto', seed: 42 } });
+    for (const { features, target } of original.samples) rebuilt.addSample(features, target);
+    rebuilt.train(1);
+
+    expect(rebuilt.samples).toEqual(original.samples);
+    expect(rebuilt.predict([0.3, 0.7])).toEqual(original.predict([0.3, 0.7]));
+  });
+});

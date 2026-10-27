@@ -107,4 +107,8 @@ export class RidgeGazePredictor implements GazePredictor {
   get diagnostics(): unknown {
     return this.ridge.diagnostics;
   }
+
+  get calibrationSamples(): Array<{ features: number[]; target: [number, number] }> {
+    return this.ridge.samples;
+  }
 }
