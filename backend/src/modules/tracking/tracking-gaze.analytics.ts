@@ -65,6 +65,8 @@ export interface TrackingGazeData {
         cursor: number;
         calibratedGaze: number;
         qualityBreakdown: { good: number; fair: number; low: number };
+        lowQualitySessions: number;
+        excludedLowQualitySessions: number;
     };
     fixations: Array<{ x: number; y: number; duration: number; timestamp: number }>;
 }
@@ -82,6 +84,18 @@ function isFixationEvent(raw: unknown): raw is GazeFixation {
     const s = raw as Record<string, unknown>;
     return s.type === 'fixation' && Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.duration);
 }
+
+export const hasLowQualityGaze = (samples: unknown[]): boolean => {
+    const qualities = samples
+        .map((sample) => (sample && typeof sample === 'object' ? (sample as Record<string, unknown>).gazeQuality : undefined))
+        .filter((quality): quality is string => typeof quality === 'string');
+    return qualities.length > 0 && qualities[qualities.length - 1] === 'low';
+};
+
+export const dropLowQuality = <T extends { isLowQuality: boolean }>(sessions: T[]): T[] => {
+    const usable = sessions.filter((session) => !session.isLowQuality);
+    return usable.length > 0 ? usable : sessions;
+};
 
 function isValidGazeSample(raw: unknown): raw is GazeSample {
     if (!raw || typeof raw !== 'object') return false;
@@ -133,20 +147,24 @@ export async function getTrackingGazeData(
     const allFixations: GazeFixation[] = [];
     const perSession: TrackingGazeData['perSession'] = [];
 
-    for (const session of sessions) {
-        let samples: GazeSample[] = [];
+    const parsedSessions = sessions.map((session) => {
+        let raw: unknown[] = [];
         try {
-            const raw = typeof session.gaze_samples === 'string'
-                ? JSON.parse(session.gaze_samples)
-                : session.gaze_samples;
-            if (Array.isArray(raw)) {
-                samples = raw.filter(isValidGazeSample);
-                const sessionFix = raw.filter(isFixationEvent);
-                allFixations.push(...sessionFix);
-            }
-        } catch { samples = []; }
+            const parsed = typeof session.gaze_samples === 'string' ? JSON.parse(session.gaze_samples) : session.gaze_samples;
+            raw = Array.isArray(parsed) ? parsed : [];
+        } catch { raw = []; }
+        return { session, samples: raw.filter(isValidGazeSample), fixations: raw.filter(isFixationEvent), isLowQuality: hasLowQualityGaze(raw) };
+    }).filter(({ samples }) => samples.length > 0);
+    const positionSessions = new Set(dropLowQuality(parsedSessions));
+    let positionSamples = 0;
 
-        if (samples.length === 0) continue;
+    for (const parsedSession of parsedSessions) {
+        const { session, samples } = parsedSession;
+        const isPositionSession = positionSessions.has(parsedSession);
+        if (isPositionSession) {
+            allFixations.push(...parsedSession.fixations);
+            positionSamples += samples.length;
+        }
 
         const sessionQuadrants: Record<string, number> = {};
         let sessionScore = 0;
@@ -154,11 +172,11 @@ export async function getTrackingGazeData(
             if (s.quadrantProbs && typeof s.quadrantProbs === 'object') {
                 for (const q of ALL_QUADRANTS) {
                     const p = s.quadrantProbs[q] || 0;
-                    quadrantCounts[q] += p;
+                    if (isPositionSession) quadrantCounts[q] += p;
                     sessionQuadrants[q] = (sessionQuadrants[q] || 0) + p;
                 }
             } else if ((ALL_QUADRANTS as string[]).includes(s.quadrant)) {
-                quadrantCounts[s.quadrant as GazeQuadrant]++;
+                if (isPositionSession) quadrantCounts[s.quadrant as GazeQuadrant]++;
                 sessionQuadrants[s.quadrant] = (sessionQuadrants[s.quadrant] || 0) + 1;
             }
             attentionCounts[s.attention]++;
@@ -188,14 +206,14 @@ export async function getTrackingGazeData(
     }
 
     const quadrantDistribution = Object.fromEntries(
-        ALL_QUADRANTS.map(q => [q, totalSamples > 0 ? Math.round(quadrantCounts[q] / totalSamples * 1000) / 10 : 0])
+        ALL_QUADRANTS.map(q => [q, positionSamples > 0 ? Math.round(quadrantCounts[q] / positionSamples * 1000) / 10 : 0])
     ) as Record<GazeQuadrant, number>;
 
     const attentionDistribution = Object.fromEntries(
         ALL_ATTENTION.map(a => [a, totalSamples > 0 ? Math.round(attentionCounts[a] / totalSamples * 1000) / 10 : 0])
     ) as Record<AttentionState, number>;
 
-    const dominantQuadrant: GazeQuadrant = totalSamples === 0
+    const dominantQuadrant: GazeQuadrant = positionSamples === 0
         ? 'center'
         : (Object.entries(quadrantCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as GazeQuadrant) || 'center';
 
@@ -229,7 +247,13 @@ export async function getTrackingGazeData(
         avgAttentionScore: totalSamples > 0 ? Math.round(totalScore / totalSamples * 100) / 100 : 0,
         timeline,
         perSession,
-        dataSource: { cursor: cursorSamples, calibratedGaze: gazeSamples, qualityBreakdown: qualityCounts },
+        dataSource: {
+            cursor: cursorSamples,
+            calibratedGaze: gazeSamples,
+            qualityBreakdown: qualityCounts,
+            lowQualitySessions: parsedSessions.filter(({ isLowQuality }) => isLowQuality).length,
+            excludedLowQualitySessions: parsedSessions.length - positionSessions.size,
+        },
         fixations: allFixations.map(f => ({ x: f.x, y: f.y, duration: f.duration, timestamp: f.timestamp })),
     };
 }

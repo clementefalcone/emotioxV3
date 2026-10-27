@@ -2,6 +2,7 @@ import pool from '../../config/database';
 import { computeAoiMetrics, type AoiFixation, type AoiMetrics, type AoiRect } from '../analytics/aoi-metrics';
 import type { EmotionSample } from '../analytics/emotion-metrics';
 import { parseSessionSamples } from './tracking-emotion.analytics';
+import { dropLowQuality, hasLowQualityGaze } from './tracking-gaze.analytics';
 import { getTrackingConfig, type TrackingZone } from './tracking.service';
 
 export interface TrackingZoneMetrics extends TrackingZone, AoiMetrics {
@@ -64,21 +65,13 @@ const parseSessionGaze = (row: { id: string; page_url: string; gaze_samples: str
     } catch {
         samples = [];
     }
-    const qualities = samples
-        .map((sample) => (sample && typeof sample === 'object' ? (sample as Record<string, unknown>).gazeQuality : undefined))
-        .filter((quality): quality is string => typeof quality === 'string');
     return {
         sessionId: row.id,
         pagePath: toPagePath(row.page_url),
         fixations: samples.flatMap((sample) => toZoneFixation(sample, row.id) ?? []),
-        isLowQuality: qualities.length > 0 && qualities[qualities.length - 1] === 'low',
+        isLowQuality: hasLowQualityGaze(samples),
         emotions: parseSessionSamples(row.emotion_samples),
     };
-};
-
-const dropLowQuality = (sessions: SessionGaze[]): SessionGaze[] => {
-    const usable = sessions.filter((session) => !session.isLowQuality);
-    return usable.length > 0 ? usable : sessions;
 };
 
 export async function getTrackingZoneData(researchId: string): Promise<{ zones: TrackingZoneMetrics[] }> {

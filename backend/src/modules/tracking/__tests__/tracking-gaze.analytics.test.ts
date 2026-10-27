@@ -9,7 +9,7 @@ import { getTrackingGazeData } from '../tracking-gaze.analytics';
 
 function sessionRow(
     id: string,
-    samples: Array<{ timestamp: number; quadrant: string; attention: string; score: number; cursorX?: number; cursorY?: number; quadrantProbs?: Record<string, number> }>,
+    samples: Array<{ timestamp: number; quadrant: string; attention: string; score: number; cursorX?: number; cursorY?: number; quadrantProbs?: Record<string, number>; gazeQuality?: string }>,
     overrides: Partial<{ visitor_id: string; page_url: string }> = {},
 ) {
     return {
@@ -181,5 +181,28 @@ describe('getTrackingGazeData', () => {
         expect(result.quadrantDistribution['center']).toBeGreaterThan(0);
         expect(result.quadrantDistribution['center-right']).toBeGreaterThan(0);
         expect(result.quadrantDistribution['top-left']).toBeGreaterThan(0);
+    });
+
+    it('places gaze only from usable calibrations unless every visit was low quality', async () => {
+        const good = sessionRow('good', [
+            { timestamp: 0, quadrant: 'top-left', attention: 'engaged', score: 1, gazeQuality: 'fair' },
+            { timestamp: 500, quadrant: 'top-left', attention: 'engaged', score: 1, gazeQuality: 'fair' },
+        ]);
+        const low = sessionRow('low', [
+            { timestamp: 0, quadrant: 'bottom-right', attention: 'away', score: 0, gazeQuality: 'low' },
+            { timestamp: 500, quadrant: 'bottom-right', attention: 'away', score: 0, gazeQuality: 'low' },
+        ]);
+        mockQuery.mockResolvedValueOnce({ rows: [good, low] });
+        const mixed = await getTrackingGazeData('r1');
+        expect(mixed.quadrantDistribution['top-left']).toBe(100);
+        expect(mixed.quadrantDistribution['bottom-right']).toBe(0);
+        expect(mixed.attentionDistribution.away).toBe(50);
+        expect(mixed.totalSessions).toBe(2);
+        expect(mixed.dataSource).toMatchObject({ lowQualitySessions: 1, excludedLowQualitySessions: 1 });
+
+        mockQuery.mockResolvedValueOnce({ rows: [low] });
+        const allLow = await getTrackingGazeData('r1');
+        expect(allLow.quadrantDistribution['bottom-right']).toBe(100);
+        expect(allLow.dataSource).toMatchObject({ lowQualitySessions: 1, excludedLowQualitySessions: 0 });
     });
 });
