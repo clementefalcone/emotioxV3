@@ -524,6 +524,7 @@ function showConsent(){
         d.remove();
         store("_ecx_consent_"+C.rid,"0");
         showNotice(copy.declined);
+        renderResumePill();
     };
 }
 
@@ -547,16 +548,28 @@ function startSession(){
     showCameraInvite();
 }
 
+var PILL_STYLE="position:fixed;left:16px;bottom:16px;display:flex;align-items:center;gap:10px;background:#1e293b;color:#fff;border-radius:999px;padding:8px 8px 8px 14px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
+var PILL_BUTTON_STYLE="background:#fff;color:#1e293b;border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;";
+function renderPill(id,text,action,onAction){
+    removeElement(id);
+    var pill=document.createElement("div");pill.id=id;pill.setAttribute("role","status");
+    pill.style.cssText=PILL_STYLE;
+    var label=document.createElement("span");label.textContent=text;
+    var button=document.createElement("button");button.type="button";button.textContent=action;
+    button.style.cssText=PILL_BUTTON_STYLE;
+    button.onclick=onAction;
+    pill.appendChild(label);pill.appendChild(button);
+    document.body.appendChild(pill);
+}
+
+function renderResumePill(){
+    var copy=visitorCopy();
+    renderPill("_ecx_off","\u25cb "+copy.off,copy.resume,function(){removeElement("_ecx_off");showConsent();});
+}
+
 function renderRecordingPill(){
     var copy=visitorCopy();
-    var pill=document.createElement("div");pill.id="_ecx_rec";pill.setAttribute("role","status");
-    pill.style.cssText="position:fixed;left:16px;bottom:16px;display:flex;align-items:center;gap:10px;background:#1e293b;color:#fff;border-radius:999px;padding:8px 8px 8px 14px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
-    var label=document.createElement("span");label.textContent="\u25cf "+copy.recording;
-    var stop=document.createElement("button");stop.type="button";stop.textContent=copy.stop;
-    stop.style.cssText="background:#fff;color:#1e293b;border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;";
-    stop.onclick=stopTrackingByChoice;
-    pill.appendChild(label);pill.appendChild(stop);
-    document.body.appendChild(pill);
+    renderPill("_ecx_rec","\u25cf "+copy.recording,copy.stop,stopTrackingByChoice);
 }
 
 function stopTrackingByChoice(){
@@ -564,10 +577,10 @@ function stopTrackingByChoice(){
     consented=false;
     store("_ecx_consent_"+C.rid,"0");
     if(rrwebStopFn){try{rrwebStopFn();}catch(e){}rrwebStopFn=null;}
-    clearInterval(timer);
     stopCameraByChoice();
     removeElement("_ecx_rec");removeElement("_ecx_cam_tab");removeElement("_ecx_cam_invite");
     showNotice(visitorCopy().stopped);
+    renderResumePill();
 }
 
 // ─── Emotion + Gaze Recognition (MediaPipe FaceLandmarker) ──────────
@@ -627,8 +640,8 @@ function feedFixation(x,y,ts){
 
 var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid,EYE_CALIBRATION_KEY="_ecx_eye_cal_"+C.rid,EYE_CALIBRATION_REUSE_MS=600000;
 var VISITOR_COPY={
-    es:{title:"Este sitio participa en un estudio de experiencia de usuario.",acceptLead:"Si aceptas, guardamos c\\u00f3mo usas la p\\u00e1gina: ",activeLead:"Este sitio guarda c\\u00f3mo usas la p\\u00e1gina: ",clicks:"clics",scroll:"scroll",mouse:"movimiento del rat\\u00f3n",screen:"una grabaci\\u00f3n de la pantalla de este sitio",and:" y ",notRecorded:"No guardamos lo que escribes en formularios, tu nombre ni tu IP.",cameraOptional:"La c\\u00e1mara es aparte y opcional: solo se activa si la eliges, y sus im\\u00e1genes no salen de tu dispositivo.",declineInfo:"Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",invite:"Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
-    en:{title:"This site is part of a user experience study.",acceptLead:"If you accept, we save how you use the page: ",activeLead:"This site saves how you use the page: ",clicks:"clicks",scroll:"scroll",mouse:"mouse movement",screen:"a screen recording of this site",and:" and ",notRecorded:"We do not save what you type in forms, your name or your IP.",cameraOptional:"The camera is separate and optional: it only turns on if you choose it, and its images never leave your device.",declineInfo:"If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",invite:"Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
+    es:{title:"Este sitio participa en un estudio de experiencia de usuario.",acceptLead:"Si aceptas, guardamos c\\u00f3mo usas la p\\u00e1gina: ",activeLead:"Este sitio guarda c\\u00f3mo usas la p\\u00e1gina: ",clicks:"clics",scroll:"scroll",mouse:"movimiento del rat\\u00f3n",screen:"una grabaci\\u00f3n de la pantalla de este sitio",and:" y ",notRecorded:"No guardamos lo que escribes en formularios, tu nombre ni tu IP.",cameraOptional:"La c\\u00e1mara es aparte y opcional: solo se activa si la eliges, y sus im\\u00e1genes no salen de tu dispositivo.",declineInfo:"Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",off:"Registro desactivado",resume:"Activar",invite:"Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
+    en:{title:"This site is part of a user experience study.",acceptLead:"If you accept, we save how you use the page: ",activeLead:"This site saves how you use the page: ",clicks:"clicks",scroll:"scroll",mouse:"mouse movement",screen:"a screen recording of this site",and:" and ",notRecorded:"We do not save what you type in forms, your name or your IP.",cameraOptional:"The camera is separate and optional: it only turns on if you choose it, and its images never leave your device.",declineInfo:"If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",off:"Recording off",resume:"Turn on",invite:"Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
 };
 function visitorCopy(){return VISITOR_COPY[pageLanguage()];}
 function describeRecording(lead){
@@ -992,7 +1005,7 @@ function init(){
     }
     loadRrweb(function(){
         var prev=load("_ecx_consent_"+C.rid);
-        if(prev==="0")return;
+        if(prev==="0"){renderResumePill();return;}
         if(prev==="1"||!C.consent){consented=true;startSession();}
         else showConsent();
     });

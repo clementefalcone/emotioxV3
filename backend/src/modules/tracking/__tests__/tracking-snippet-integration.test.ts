@@ -853,7 +853,7 @@ function generateZoneConfig(js: string): unknown {
 describe('generateTrackingSnippet — visitor sees and controls the recording', () => {
     function runRecordingPill() {
         const js = generateTrackingSnippet(defaultConfig);
-        const source = js.slice(js.indexOf('function renderRecordingPill(){'), js.indexOf('// ─── Emotion + Gaze'));
+        const source = js.slice(js.indexOf('var PILL_STYLE='), js.indexOf('// ─── Emotion + Gaze'));
         const attached = new Map<string, FakeElement & { setAttribute: () => void }>();
         const document = {
             createElement: () => {
@@ -872,12 +872,13 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         const rrwebStop = vi.fn();
         const stopCameraByChoice = vi.fn();
         const showNotice = vi.fn();
-        const copy = { recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.' };
-        const api = new Function('C', 'document', 'store', 'flush', 'flushRrweb', 'flushEmotions', 'flushGaze', 'stopCameraByChoice', 'showNotice', 'visitorCopy', 'rrwebStopFn', 'timer', 'consented',
+        const showConsent = vi.fn();
+        const copy = { recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.', off: 'Registro desactivado', resume: 'Activar' };
+        const api = new Function('C', 'document', 'store', 'flush', 'flushRrweb', 'flushEmotions', 'flushGaze', 'stopCameraByChoice', 'showNotice', 'visitorCopy', 'rrwebStopFn', 'showConsent', 'consented',
             `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
-        )({ rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, null, true,
+        )({ rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, showConsent, true,
             (id: string) => attached.get(id) ?? null) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
-        return { ...api, pill: () => attached.get('_ecx_rec'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice };
+        return { ...api, pill: () => attached.get('_ecx_rec'), offPill: () => attached.get('_ecx_off'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice, showConsent };
     }
 
     it('shows a recording pill whose stop button flushes, stops capture and remembers the choice', () => {
@@ -894,6 +895,11 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         expect(run.storage).toEqual({ _ecx_consent_r: '0' });
         expect(run.pill()).toBeUndefined();
         expect(run.showNotice).toHaveBeenCalledWith('Dejamos de registrar tu navegación.');
+
+        expect(run.offPill()?.children[0].textContent).toBe('○ Registro desactivado');
+        run.offPill()?.children[1].onclick?.();
+        expect(run.offPill()).toBeUndefined();
+        expect(run.showConsent).toHaveBeenCalledTimes(1);
     });
 
     it('tells the visitor exactly what the study saves and what it does not', () => {
@@ -922,8 +928,8 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
     it('starts nothing on later pages once the visitor declined or stopped, even without required consent', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, consentRequired: false });
         const init = js.slice(js.indexOf('    loadRrweb(function(){'), js.indexOf('if(document.readyState'));
-        expect(init).toContain('if(prev==="0")return;');
-        expect(init.indexOf('if(prev==="0")return;')).toBeLessThan(init.indexOf('startSession()'));
+        expect(init).toContain('if(prev==="0"){renderResumePill();return;}');
+        expect(init.indexOf('if(prev==="0")')).toBeLessThan(init.indexOf('startSession()'));
     });
 
     it('never creates a session, records rrweb or sends the snapshot after the visitor stops', () => {
