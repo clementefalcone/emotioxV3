@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { extractGazeFeatures, averageFeatureVectors } from '../featureExtraction';
-import { GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from '../constants';
+import { EYE_LOOK_BLENDSHAPES, GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from '../constants';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 type Lm = { x: number; y: number; z: number; visibility?: number };
+
+const eyeLook = (scores: Partial<Record<(typeof EYE_LOOK_BLENDSHAPES)[number], number>> = {}) =>
+  EYE_LOOK_BLENDSHAPES.map((categoryName, index) => ({ categoryName, score: scores[categoryName] ?? 0, index, displayName: '' }));
 
 function makeLandmarks(count: number): Lm[] {
   return Array.from({ length: count }, () => ({ x: 0.5, y: 0.5, z: 0 }));
@@ -53,21 +56,21 @@ function withIrisAndEyes(landmarks: Lm[], opts: {
 describe('extractGazeFeatures', () => {
   it('returns null when landmarks array is too short', () => {
     const short = makeLandmarks(400); // need at least 474
-    expect(extractGazeFeatures(short, undefined)).toBeNull();
+    expect(extractGazeFeatures(short, undefined, eyeLook())).toBeNull();
   });
 
   it('returns null when iris landmarks have NaN coords', () => {
     const lm = withIrisAndEyes(makeLandmarks(478), {
       leftIris: { x: NaN, y: 0.5 },
     });
-    expect(extractGazeFeatures(lm, undefined)).toBeNull();
+    expect(extractGazeFeatures(lm, undefined, eyeLook())).toBeNull();
   });
 
   it('returns null when iris landmarks have Infinity coords', () => {
     const lm = withIrisAndEyes(makeLandmarks(478), {
       rightIris: { x: Infinity, y: 0.5 },
     });
-    expect(extractGazeFeatures(lm, undefined)).toBeNull();
+    expect(extractGazeFeatures(lm, undefined, eyeLook())).toBeNull();
   });
 
   it('returns null when IPD is degenerate (eyes at same position)', () => {
@@ -77,20 +80,32 @@ describe('extractGazeFeatures', () => {
       rightEyeInner: { x: 0.5, y: 0.5 },
       rightEyeOuter: { x: 0.5, y: 0.5 },
     });
-    expect(extractGazeFeatures(lm, undefined)).toBeNull();
+    expect(extractGazeFeatures(lm, undefined, eyeLook())).toBeNull();
   });
 
-  it('returns feature vector of length GAZE_FEATURE_DIMENSION (20)', () => {
+  it('returns null without the eyeLook blendshapes', () => {
     const lm = withIrisAndEyes(makeLandmarks(478));
-    const features = extractGazeFeatures(lm, undefined);
+    expect(extractGazeFeatures(lm, undefined, undefined)).toBeNull();
+    expect(extractGazeFeatures(lm, undefined, eyeLook().slice(1))).toBeNull();
+  });
+
+  it('appends the eyeLook scores after head pose, in EYE_LOOK_BLENDSHAPES order', () => {
+    const lm = withIrisAndEyes(makeLandmarks(478));
+    const features = extractGazeFeatures(lm, undefined, eyeLook({ eyeLookUpLeft: 0.7, eyeLookDownRight: 0.2, eyeLookOutRight: 0.4 }))!;
+    expect(features.slice(20)).toEqual([0.7, 0, 0, 0.2, 0, 0, 0, 0.4]);
+  });
+
+  it('returns feature vector of length GAZE_FEATURE_DIMENSION (28)', () => {
+    const lm = withIrisAndEyes(makeLandmarks(478));
+    const features = extractGazeFeatures(lm, undefined, eyeLook());
     expect(features).not.toBeNull();
     expect(features!.length).toBe(GAZE_FEATURE_DIMENSION);
-    expect(features!.length).toBe(20);
+    expect(features!.length).toBe(28);
   });
 
   it('all features are finite numbers', () => {
     const lm = withIrisAndEyes(makeLandmarks(478));
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     for (let i = 0; i < features.length; i++) {
       expect(Number.isFinite(features[i])).toBe(true);
     }
@@ -99,7 +114,7 @@ describe('extractGazeFeatures', () => {
   it('centered iris produces near-zero gaze displacement', () => {
     // Iris at eye center → avgRx ≈ 0, avgRy ≈ 0
     const lm = withIrisAndEyes(makeLandmarks(478));
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     // features[0] = avgRx, features[1] = avgRy
     expect(Math.abs(features[0])).toBeLessThan(0.01);
     expect(Math.abs(features[1])).toBeLessThan(0.01);
@@ -110,7 +125,7 @@ describe('extractGazeFeatures', () => {
       leftIris: { x: 0.36 },  // shifted right from center 0.33
       rightIris: { x: 0.70 }, // shifted right from center 0.67
     });
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     expect(features[0]).toBeGreaterThan(0); // avgRx positive = right gaze
   });
 
@@ -119,7 +134,7 @@ describe('extractGazeFeatures', () => {
       leftIris: { x: 0.30 },  // shifted left
       rightIris: { x: 0.64 }, // shifted left
     });
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     expect(features[0]).toBeLessThan(0); // avgRx negative = left gaze
   });
 
@@ -128,7 +143,7 @@ describe('extractGazeFeatures', () => {
       leftIris: { y: 0.48 },  // below eye center
       rightIris: { y: 0.48 },
     });
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     expect(features[1]).toBeGreaterThan(0); // avgRy positive = down gaze
   });
 
@@ -138,7 +153,7 @@ describe('extractGazeFeatures', () => {
       leftIris: { x: 0.36 },  // right of center
       rightIris: { x: 0.64 }, // left of center
     });
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     // features[6] = vergX = lrx - rrx
     const vergX = features[6];
     expect(vergX).not.toBe(0);
@@ -148,7 +163,7 @@ describe('extractGazeFeatures', () => {
     const lm = withIrisAndEyes(makeLandmarks(478), {
       noseTip: { x: 0.6, y: 0.4 },
     });
-    const features = extractGazeFeatures(lm, null)!;
+    const features = extractGazeFeatures(lm, null, eyeLook())!;
     // features[8..16] = rotation (identity = [1,0,0,0,1,0,0,0,1])
     expect(features[8]).toBe(1);  // R[0,0]
     expect(features[9]).toBe(0);  // R[0,1]
@@ -166,7 +181,7 @@ describe('extractGazeFeatures', () => {
       leftIris: { x: 0.35 },   // slightly right
       rightIris: { x: 0.67 },  // centered
     });
-    const features = extractGazeFeatures(lm, undefined)!;
+    const features = extractGazeFeatures(lm, undefined, eyeLook())!;
     // features[2] = lrx, features[4] = rrx — should differ
     expect(features[2]).not.toBeCloseTo(features[4], 3);
   });
@@ -202,11 +217,11 @@ describe('averageFeatureVectors', () => {
     expect(averageFeatureVectors([a, b])).toEqual([0, 0]);
   });
 
-  it('handles 20-element feature vectors (GAZE_FEATURE_DIMENSION)', () => {
-    const v1 = Array.from({ length: 20 }, (_, i) => i);
-    const v2 = Array.from({ length: 20 }, (_, i) => i * 2);
+  it('handles GAZE_FEATURE_DIMENSION-element feature vectors', () => {
+    const v1 = Array.from({ length: GAZE_FEATURE_DIMENSION }, (_, i) => i);
+    const v2 = Array.from({ length: GAZE_FEATURE_DIMENSION }, (_, i) => i * 2);
     const avg = averageFeatureVectors([v1, v2]);
-    expect(avg.length).toBe(20);
+    expect(avg.length).toBe(GAZE_FEATURE_DIMENSION);
     expect(avg[0]).toBe(0);    // (0+0)/2
     expect(avg[10]).toBe(15);  // (10+20)/2
     expect(avg[19]).toBe(28.5); // (19+38)/2

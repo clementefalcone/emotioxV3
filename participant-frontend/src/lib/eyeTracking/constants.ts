@@ -81,10 +81,19 @@ export const MIN_IRIS_LANDMARK_PASS_COUNT = 9;
 export const MIN_IRIS_CENTER_VISIBILITY = 0.08;
 
 /**
- * Length of the numeric vector returned by `extractGazeFeatures` (before ridge bias term).
- * 20 = 8 iris/vergence (IPD-normalized) + 9 rotation + 3 translation.
+ * MediaPipe gaze-direction blendshapes appended to the features, in this order.
+ * They carry the vertical gaze signal that iris-vs-eyelid ratios lose (the lids follow the eye).
  */
-export const GAZE_FEATURE_DIMENSION = 20;
+export const EYE_LOOK_BLENDSHAPES = [
+  'eyeLookUpLeft', 'eyeLookUpRight', 'eyeLookDownLeft', 'eyeLookDownRight',
+  'eyeLookInLeft', 'eyeLookInRight', 'eyeLookOutLeft', 'eyeLookOutRight',
+] as const;
+
+/**
+ * Length of the numeric vector returned by `extractGazeFeatures` (before ridge bias term).
+ * 28 = 8 iris/vergence (IPD-normalized) + 9 rotation + 3 translation + 8 eyeLook blendshapes.
+ */
+export const GAZE_FEATURE_DIMENSION = 28;
 
 /**
  * Ridge regularization strength. With z-score normalized features (unit variance),

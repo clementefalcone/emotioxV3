@@ -1,3 +1,4 @@
+import { GAZE_FEATURE_DIMENSION } from '../lib/eyeTracking/constants';
 export const CALIBRATION_REUSE_MS = 600_000;
 
 export interface EyeSession {
@@ -58,5 +59,6 @@ export const loadCalibration = (storageKey: string, now: number): StoredCalibrat
     if (!raw) return null;
     const stored = JSON.parse(raw) as StoredCalibration;
     const isFresh = now - stored.savedAt < CALIBRATION_REUSE_MS;
-    return isFresh && stored.samples.length > 0 ? stored : null;
+    const hasCurrentFeatures = stored.samples.every(({ features }) => features.length === GAZE_FEATURE_DIMENSION);
+    return isFresh && hasCurrentFeatures && stored.samples.length > 0 ? stored : null;
 };

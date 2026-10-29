@@ -1,5 +1,5 @@
-import type { Matrix, NormalizedLandmark } from '@mediapipe/tasks-vision';
-import { GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from './constants';
+import type { Category, Matrix, NormalizedLandmark } from '@mediapipe/tasks-vision';
+import { EYE_LOOK_BLENDSHAPES, GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from './constants';
 import { parseFacialTransformationMatrix } from './headPose';
 
 /** Normalized eye box span below this is treated as degenerate (extreme pose or bad frame). */
@@ -63,15 +63,17 @@ function buildFallbackHeadPose(landmarks: NormalizedLandmark[]): {
 }
 
 /**
- * Builds the gaze feature vector: iris-in-eye ratios, head pose from facial transform, polynomials, and iris×translation crosses.
+ * Builds the gaze feature vector: iris-in-eye ratios, head pose from facial transform, and MediaPipe eyeLook blendshapes.
  * Head pose uses the 4x4 matrix from MediaPipe (explicit rotation + translation) so the ridge mapper can separate gaze from head motion.
  * @param landmarks - Normalized landmarks for one face
  * @param facialMatrix - Optional 4x4 from `facialTransformationMatrixes[0]`; if missing or invalid, a nose-based fallback is used
- * @returns Fixed-length feature vector, or null if geometry or visibility is unusable
+ * @param blendshapes - `faceBlendshapes[0].categories`; required, the eyeLook scores carry the vertical gaze signal
+ * @returns Fixed-length feature vector, or null if geometry, visibility or blendshapes are unusable
  */
 export function extractGazeFeatures(
   landmarks: NormalizedLandmark[],
   facialMatrix: Matrix | undefined | null,
+  blendshapes: Category[] | undefined,
 ): number[] | null {
   const {
     leftIrisCenter: LI,
@@ -91,6 +93,12 @@ export function extractGazeFeatures(
   }
 
   if (!irisLandmarksHaveFiniteCoords(landmarks)) {
+    return null;
+  }
+
+  const scoreByName = new Map((blendshapes ?? []).map((category) => [category.categoryName, category.score]));
+  const eyeLook = EYE_LOOK_BLENDSHAPES.map((name) => scoreByName.get(name));
+  if (eyeLook.some((score) => score === undefined)) {
     return null;
   }
 
@@ -159,9 +167,11 @@ export function extractGazeFeatures(
     ...R,
     // Head position (translation — distance/position)
     tx, ty, tz,
+    // MediaPipe eyeLook blendshapes (vertical gaze signal)
+    ...(eyeLook as number[]),
   ];
 
-  // 8 iris/vergence + 9 rotation + 3 translation = 20
+  // 8 iris/vergence + 9 rotation + 3 translation + 8 eyeLook = 28
   if (out.length !== GAZE_FEATURE_DIMENSION) {
     return null;
   }

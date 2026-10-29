@@ -18,7 +18,7 @@ type EmbedPhase = 'restoring' | 'consent' | 'face' | 'preparing' | 'calibration'
 const PREPARING_MS = 2000;
 
 const buildPredictor = (stored: StoredCalibration | null): RidgeGazePredictor => {
-    const predictor = new RidgeGazePredictor(DEFAULT_RIDGE_LAMBDA, { rff: { D: 128, sigma: 'auto', seed: 42 } });
+    const predictor = new RidgeGazePredictor(DEFAULT_RIDGE_LAMBDA);
     stored?.samples.forEach(({ features, target }) => predictor.addCalibrationSample({ features }, target));
     return predictor;
 };

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useMediaPipeGaze } from '../useMediaPipeGaze';
+import { EYE_LOOK_BLENDSHAPES } from '../../lib/eyeTracking/constants';
 
 const face = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
 const eyes: Record<number, [number, number]> = {
@@ -11,7 +12,7 @@ for (const [index, [x, y]] of Object.entries(eyes)) face[Number(index)] = { x, y
 
 vi.mock('../../lib/eyeTracking/faceLandmarker', () => ({
     createFaceLandmarker: vi.fn(async () => ({
-        detectForVideo: () => ({ faceLandmarks: [face], facialTransformationMatrixes: [] }),
+        detectForVideo: () => ({ faceLandmarks: [face], facialTransformationMatrixes: [], faceBlendshapes: [{ categories: EYE_LOOK_BLENDSHAPES.map((categoryName, index) => ({ categoryName, score: 0, index, displayName: '' })) }] }),
         close: vi.fn(),
     })),
 }));

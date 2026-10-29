@@ -70,7 +70,7 @@ export interface MediaPipeGazeFrameStats {
  * MediaPipe Face Landmarker gaze pipeline.
  *
  * Camera frame → FaceLandmarker (478 landmarks + iris + 4×4 matrix)
- *   → extractGazeFeatures (27-dim) → RidgeRegression → head pose compensation
+ *   → extractGazeFeatures (28-dim) → RidgeRegression → head pose compensation
  *   → One-Euro filter → screen coords.
  *
  * Same external shape as useBlazeGaze — drop-in for comparison.
@@ -131,7 +131,7 @@ export function useMediaPipeGaze(
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      const lm = await createFaceLandmarker();
+      const lm = await createFaceLandmarker(true);
       if (cancelled) { lm.close(); return; }
       landmarkerRef.current = lm;
 
@@ -249,7 +249,7 @@ export function useMediaPipeGaze(
 
       // Extract features
       const facialMatrix = result.facialTransformationMatrixes?.[0] ?? null;
-      const features = extractGazeFeatures(landmarks, facialMatrix);
+      const features = extractGazeFeatures(landmarks, facialMatrix, result.faceBlendshapes?.[0]?.categories);
 
       if (!features) {
         frameStatsRef.current.noValidGazeFrames += 1;

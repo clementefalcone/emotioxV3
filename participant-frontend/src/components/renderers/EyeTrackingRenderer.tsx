@@ -137,7 +137,6 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const mpGaze = useMediaPipeGaze(videoRef, {
         oneEuroMinCutoff: 1.2,
         oneEuroBeta: 0.05,
-        rff: { D: 128, sigma: 'auto', seed: 42 },
         predictor: cachedCalibration?.predictor,
     });
     // Unified gaze interface — reads from whichever engine is active

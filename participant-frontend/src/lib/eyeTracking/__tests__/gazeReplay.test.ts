@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { extractGazeFeatures } from '../featureExtraction';
 import { RidgeRegression } from '../ridgeRegression';
-import { GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from '../constants';
+import { EYE_LOOK_BLENDSHAPES, GAZE_FEATURE_DIMENSION, LANDMARK_INDICES } from '../constants';
 import { extractActionUnits, classifyEmotion } from '../facsClassifier';
 
 import replayData from './fixtures/replayLandmarks.json';
@@ -68,6 +68,8 @@ function expandToFullLandmarks(sparse: Record<string, { x: number; y: number; z:
 // Fixture sanity
 // ---------------------------------------------------------------------------
 
+const NEUTRAL_EYE_LOOK = EYE_LOOK_BLENDSHAPES.map((categoryName, index) => ({ categoryName, score: 0, index, displayName: '' }));
+
 describe('replay fixture sanity', () => {
   it('has 9 calibration frames', () => {
     expect(calFrames).toHaveLength(9);
@@ -106,10 +108,10 @@ describe('replay fixture sanity', () => {
 // ---------------------------------------------------------------------------
 
 describe('feature extraction from real landmarks', () => {
-  it('all calibration frames produce valid 20-dim feature vectors', () => {
+  it('all calibration frames produce valid 28-dim feature vectors', () => {
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined);
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK);
       expect(features, `${f.label} should produce features`).not.toBeNull();
       expect(features!.length).toBe(GAZE_FEATURE_DIMENSION);
       for (let i = 0; i < features!.length; i++) {
@@ -121,7 +123,7 @@ describe('feature extraction from real landmarks', () => {
   it('all evaluation frames produce valid feature vectors', () => {
     for (const f of evalFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined);
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK);
       expect(features, `${f.label}`).not.toBeNull();
       expect(features!.length).toBe(GAZE_FEATURE_DIMENSION);
     }
@@ -131,7 +133,7 @@ describe('feature extraction from real landmarks', () => {
     const featuresByTarget: Map<string, number[]> = new Map();
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined)!;
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
       featuresByTarget.set(f.label, features);
     }
 
@@ -157,7 +159,7 @@ describe('Ridge regression replay pipeline', () => {
 
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined);
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK);
       if (!features) continue;
       ridge.addSample(features, [f.targetX * W, f.targetY * H]);
     }
@@ -168,7 +170,7 @@ describe('Ridge regression replay pipeline', () => {
 
     for (const f of evalFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined);
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK);
       if (!features) continue;
       const [px, py] = ridge.predict(features);
       expect(Number.isFinite(px), `${f.label} px`).toBe(true);
@@ -180,7 +182,7 @@ describe('Ridge regression replay pipeline', () => {
     const ridge = new RidgeRegression();
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined)!;
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
       ridge.addSample(features, [f.targetX * W, f.targetY * H]);
     }
     ridge.train(10);
@@ -192,7 +194,7 @@ describe('Ridge regression replay pipeline', () => {
     const ridge = new RidgeRegression();
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined)!;
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
       ridge.addSample(features, [f.targetX * W, f.targetY * H]);
     }
     ridge.train(10);
@@ -205,14 +207,14 @@ describe('Ridge regression replay pipeline', () => {
     const ridge = new RidgeRegression();
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined)!;
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
       ridge.addSample(features, [f.targetX * W, f.targetY * H]);
     }
     ridge.train(10);
 
     for (const f of evalFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined)!;
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
       const [px, py] = ridge.predict(features);
       // Allow 50% margin outside screen (webcam gaze can overshoot)
       expect(px).toBeGreaterThan(-W * 0.5);
@@ -226,14 +228,14 @@ describe('Ridge regression replay pipeline', () => {
     const ridge = new RidgeRegression();
     for (const f of calFrames) {
       const landmarks = expandToFullLandmarks(f.landmarks);
-      const features = extractGazeFeatures(landmarks, undefined)!;
+      const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
       ridge.addSample(features, [f.targetX * W, f.targetY * H]);
     }
     ridge.train(10);
 
     const center = evalFrames.find(f => f.label === 'eval-center')!;
     const landmarks = expandToFullLandmarks(center.landmarks);
-    const features = extractGazeFeatures(landmarks, undefined)!;
+    const features = extractGazeFeatures(landmarks, undefined, NEUTRAL_EYE_LOOK)!;
     const [px, py] = ridge.predict(features);
 
     // Center target = (960, 540). Allow 400px error for webcam-grade tracking.
