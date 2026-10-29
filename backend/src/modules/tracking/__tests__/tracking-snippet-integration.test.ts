@@ -407,10 +407,10 @@ function runCameraChoice({ stored = {}, captureGaze = true, captureEmotions = tr
     const stopEmotionCapture = vi.fn();
     const releaseCamera = vi.fn();
     const reportCaptureError = vi.fn();
-    const api = new Function('C', 'document', 'store', 'load', 'pageLanguage', 'openCameraCapture', 'stopEmotionCapture', 'releaseCamera', 'reportCaptureError',
+    const api = new Function('C', 'document', 'store', 'load', 'pageLanguage', 'openCameraCapture', 'stopEmotionCapture', 'releaseCamera', 'reportCaptureError', 'window',
         `${source}return {showCameraInvite:showCameraInvite,skipCameraCapture:skipCameraCapture,markCameraOn:markCameraOn,hasFreshCalibration:hasFreshCalibration};`,
     )({ gaze: captureGaze, emotions: captureEmotions, rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, (key: string) => storage[key] ?? null, () => 'es',
-        openCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError) as { showCameraInvite: () => void; skipCameraCapture: () => void; markCameraOn: () => void; hasFreshCalibration: () => boolean };
+        openCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError, { innerWidth: 1280 }) as { showCameraInvite: () => void; skipCameraCapture: () => void; markCameraOn: () => void; hasFreshCalibration: () => boolean };
     const invite = () => attached.get('_ecx_cam_invite');
     const inviteButton = (label: string) => invite()?.children[1].children.find((button) => button.textContent === label);
     return { ...api, storage, invite, inviteButton, tab: () => attached.get('_ecx_cam_tab'), openCameraCapture, stopEmotionCapture, releaseCamera, reportCaptureError };
@@ -432,11 +432,11 @@ describe('generateTrackingSnippet — camera only when the visitor turns it on',
         expect(openCameraCapture).toHaveBeenCalledTimes(1);
         expect(storage).toEqual({ _ecx_cam_invite_r: '1' });
         expect(invite()).toBeUndefined();
-        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+        expect(tab()?.children[1].textContent).toBe('Ayúdanos con tu cámara');
 
         markCameraOn();
         expect(storage._ecx_cam_r).toBe('1');
-        expect(tab()?.textContent).toBe('📷 Cámara activa · desactivar');
+        expect(tab()?.children[1].textContent).toBe('Cámara activa · desactivar');
     });
 
     it('treats a calibration saved in the last 10 minutes as fresh', () => {
@@ -456,7 +456,8 @@ describe('generateTrackingSnippet — camera only when the visitor turns it on',
         expect(openCameraCapture).not.toHaveBeenCalled();
         expect(storage._ecx_cam_invite_r).toBe('1');
         expect(invite()).toBeUndefined();
-        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+        expect(tab()?.children[1].textContent).toBe('Ayúdanos con tu cámara');
+        expect((tab()?.children[0] as unknown as { innerHTML: string }).innerHTML).toMatch(/^<svg [^>]*aria-hidden="true">/);
         tab()?.onclick?.();
         expect(openCameraCapture).toHaveBeenCalledTimes(1);
     });
@@ -465,7 +466,7 @@ describe('generateTrackingSnippet — camera only when the visitor turns it on',
         const { showCameraInvite, invite, tab } = runCameraChoice({ stored: { _ecx_cam_invite_r: '1' } });
         showCameraInvite();
         expect(invite()).toBeUndefined();
-        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+        expect(tab()?.children[1].textContent).toBe('Ayúdanos con tu cámara');
     });
 
     it('turns the camera off from the tab', () => {
@@ -475,7 +476,7 @@ describe('generateTrackingSnippet — camera only when the visitor turns it on',
         expect(storage._ecx_cam_r).toBe('0');
         expect(stopEmotionCapture).toHaveBeenCalledTimes(1);
         expect(releaseCamera).toHaveBeenCalledTimes(1);
-        expect(tab()?.textContent).toBe('📷 Ayúdanos con tu cámara');
+        expect(tab()?.children[1].textContent).toBe('Ayúdanos con tu cámara');
     });
 
     it('records camera-skipped and turns the camera off when the visitor declines the camera screens', () => {

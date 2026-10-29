@@ -683,13 +683,17 @@ function skipCameraCapture(){
     stopCameraByChoice();
 }
 function removeElement(id){var el=document.getElementById(id);if(el)el.remove();}
+var CAMERA_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg>';
 function renderCameraTab(){
     removeElement("_ecx_cam_tab");
     if(!hasCameraFeatures())return;
     var isOn=isCameraChosen();
     var tab=document.createElement("button");tab.id="_ecx_cam_tab";tab.type="button";
-    tab.textContent="\\ud83d\\udcf7 "+(isOn?visitorCopy().tabOn:visitorCopy().tabOff);
-    tab.style.cssText="position:fixed;right:16px;bottom:16px;background:"+(isOn?"#166534":"#1e40af")+";color:#fff;border:none;border-radius:999px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
+    var icon=document.createElement("span");icon.innerHTML=CAMERA_ICON_SVG;
+    icon.style.cssText="display:flex;width:16px;height:16px;";
+    var label=document.createElement("span");label.textContent=isOn?visitorCopy().tabOn:visitorCopy().tabOff;
+    tab.appendChild(icon);tab.appendChild(label);
+    tab.style.cssText="position:fixed;right:16px;bottom:"+(window.innerWidth<640?"68px":"16px")+";display:flex;align-items:center;gap:8px;background:"+(isOn?"#166534":"#1e40af")+";color:#fff;border:none;border-radius:999px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
     tab.onclick=function(){if(isCameraChosen())stopCameraByChoice();else activateCameraCapture();};
     document.body.appendChild(tab);
 }
