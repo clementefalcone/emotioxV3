@@ -7,7 +7,7 @@ describe('AllExcludedNotice', () => {
     const onIncludeAll = vi.fn();
     render(<AllExcludedNotice participantCount={5} onIncludeAll={onIncludeAll} />);
 
-    expect(screen.getByText(/Los 5 participantes quedaron excluidos/)).toBeTruthy();
+    expect(screen.getByText(/Los 5 participantes quedaron fuera del filtro de fiabilidad/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Incluir todos' }));
     expect(onIncludeAll).toHaveBeenCalledTimes(1);
   });

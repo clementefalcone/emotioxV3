@@ -412,24 +412,15 @@ const computeEyeTrackingMetrics = (
     } catch { /* skip malformed */ }
   }
 
-  // Quality gate: exclude low-quality participants from aggregate metrics
-  // Fallback: if excluding low-quality would leave 0 participants, keep all data
-  const lowQualityPidsCandidates = new Set(
-    Array.from(participantMap.entries())
-      .filter(([, data]) => data.qualityGrade === 'low')
-      .map(([pid]) => pid)
-  );
-  const wouldHaveParticipants = participantMap.size - lowQualityPidsCandidates.size > 0;
-  const lowQualityPids = wouldHaveParticipants ? lowQualityPidsCandidates : new Set<string>();
   const excludedPids = includedParticipantIds
     ? new Set(Array.from(participantMap.keys()).filter(pid => !includedParticipantIds.has(pid)))
-    : lowQualityPids;
+    : new Set<string>();
   const allFixations = allFixationsRaw.filter(f => !excludedPids.has(f.participantId));
 
   // Heatmap data: aggregate fixation positions with duration as weight
   const heatmapData = allFixations.map(f => ({ x: f.x, y: f.y, duration: f.duration }));
 
-  // Zone-based heatmap: aggregate zoneMass from quality-passing responses only
+  // Zone-based heatmap: aggregate zoneMass from the included responses
   const aggregatedZoneMass: Record<string, number> = {};
   for (const row of responses) {
     try {
@@ -468,7 +459,7 @@ const computeEyeTrackingMetrics = (
     total: participantMap.size,
     good: Array.from(participantMap.values()).filter(p => p.qualityGrade === 'good').length,
     fair: Array.from(participantMap.values()).filter(p => p.qualityGrade === 'fair').length,
-    low: lowQualityPids.size,
+    low: Array.from(participantMap.values()).filter(p => p.qualityGrade === 'low').length,
   };
 
   const emotions = computeEmotionMetrics(responses, hasEmotionRecognition);

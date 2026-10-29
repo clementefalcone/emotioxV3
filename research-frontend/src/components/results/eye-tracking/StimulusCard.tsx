@@ -19,6 +19,7 @@ import { PredictionPanel } from './PredictionPanel';
 import { HeatmapSettingsModal, DEFAULT_HEATMAP_SETTINGS } from './HeatmapSettingsModal';
 import { buildShelfColumns } from '../../../utils/shelfLayout';
 import { AllExcludedNotice } from './AllExcludedNotice';
+import { ReliabilityFilter } from './ReliabilityFilter';
 import { useScopedEyeTrackingStimulus } from './useScopedEyeTrackingStimulus';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 
@@ -43,9 +44,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   const [showSettings, setShowSettings] = useState(false);
   const [showAoiModal, setShowAoiModal] = useState(false);
   const [showQualityTable, setShowQualityTable] = useState(false);
-  const [excludedParticipants, setExcludedParticipants] = useState<Set<string>>(() => {
-    return new Set(stimulus.participants.filter(p => p.qualityGrade === 'low').map(p => p.participantId));
-  });
+  const [excludedParticipants, setExcludedParticipants] = useState<Set<string>>(() => new Set());
   const [stimulusSize, setStimulusSize] = useState<{ width: number; height: number } | null>(null);
   const scopedStimulus = useScopedEyeTrackingStimulus({
     researchId,
@@ -225,19 +224,27 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
       {/* Quality summary + participant table */}
       {stimulus.qualitySummary && (
         <div className="border-b border-amber-100">
-          <button
-            type="button"
-            onClick={() => setShowQualityTable(prev => !prev)}
-            className="flex items-center gap-2 w-full px-4 py-2 bg-amber-50 text-xs hover:bg-amber-100 transition-colors"
-          >
-            <ShieldCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-            <span className="text-amber-700 flex-1 text-left">
-              Quality gate: <span className="font-medium text-green-700">{stimulus.qualitySummary.good} good</span>
-              {stimulus.qualitySummary.fair > 0 && <>, <span className="font-medium text-amber-700">{stimulus.qualitySummary.fair} fair</span></>}
-              {stimulus.qualitySummary.low > 0 && <>, <span className="font-medium text-red-700">{stimulus.qualitySummary.low} excluded</span></>}
-            </span>
-            <span className="text-amber-500">{showQualityTable ? '▲' : '▼'}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-amber-50">
+            <button
+              type="button"
+              onClick={() => setShowQualityTable(prev => !prev)}
+              className="flex flex-1 items-center gap-2 text-xs text-left hover:opacity-80 transition-opacity"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span className="text-amber-700 flex-1">
+                Fiabilidad: <span className="font-medium text-green-700">{stimulus.qualitySummary.good} buena</span>
+                {' · '}<span className="font-medium text-amber-700">{stimulus.qualitySummary.fair} regular</span>
+                {' · '}<span className="font-medium text-red-700">{stimulus.qualitySummary.low} baja</span>
+                {' · '}se muestran {stimulus.qualitySummary.total - excludedParticipants.size} de {stimulus.qualitySummary.total}
+              </span>
+              <span className="text-amber-500">{showQualityTable ? '▲' : '▼'}</span>
+            </button>
+            <ReliabilityFilter
+              participants={stimulus.participants}
+              excludedParticipants={excludedParticipants}
+              onChange={setExcludedParticipants}
+            />
+          </div>
           {showQualityTable && stimulus.participants.length > 0 && (
             <div className="px-4 py-3 bg-white overflow-x-auto">
               <table className="w-full text-xs">

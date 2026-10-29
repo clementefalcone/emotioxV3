@@ -439,8 +439,8 @@ describe('getEyeTrackingResults', () => {
   // Quality gate — exclusion / fallback
   // -----------------------------------------------------------------------
 
-  describe('quality gate', () => {
-    it('excludes low-quality participants from heatmap and AOI aggregates', async () => {
+  describe('reliability', () => {
+    it('keeps low-quality participants in heatmap and AOI aggregates and counts them in the summary', async () => {
       const rows = [
         buildRow('p-good', {
           fixations: [
@@ -464,16 +464,14 @@ describe('getEyeTrackingResults', () => {
       const result = await getEyeTrackingResults('research-1');
       const s = result.stimuli[0];
 
-      // p-low excluded from aggregates
-      expect(s.heatmapData).toHaveLength(3);
+      expect(s.heatmapData).toHaveLength(4);
       expect(s.fixations).toHaveLength(4);
-      expect(s.uniqueParticipants).toBe(1); // only p-good
-      // But both appear in participants list
+      expect(s.uniqueParticipants).toBe(2);
       expect(s.participants).toHaveLength(2);
       expect(s.qualitySummary).toEqual({ total: 2, good: 1, fair: 0, low: 1 });
     });
 
-    it('keeps all participants when ALL are low quality (fallback)', async () => {
+    it('keeps all participants when all of them are low quality', async () => {
       const rows = [
         buildRow('p1', {
           fixations: [{ x: 10, y: 10, duration: 100, timestamp: 0 }],
@@ -491,7 +489,6 @@ describe('getEyeTrackingResults', () => {
       const result = await getEyeTrackingResults('research-1');
       const s = result.stimuli[0];
 
-      // Fallback: keep all because excluding would leave 0
       expect(s.heatmapData).toHaveLength(2);
       expect(s.fixations).toHaveLength(2);
       expect(s.uniqueParticipants).toBe(2);

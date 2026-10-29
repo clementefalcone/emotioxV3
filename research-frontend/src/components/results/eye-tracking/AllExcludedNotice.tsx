@@ -10,8 +10,7 @@ export function AllExcludedNotice({ participantCount, onIncludeAll }: AllExclude
     <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border-b border-red-100">
       <ShieldAlert className="h-4 w-4 text-red-600 shrink-0" />
       <p className="flex-1 text-sm text-red-800">
-        Los {participantCount} participantes quedaron excluidos por calibración baja (error mayor a 200 px), por eso las visualizaciones están vacías.
-        Si los incluyes, los resultados serán poco precisos.
+        Los {participantCount} participantes quedaron fuera del filtro de fiabilidad, por eso las visualizaciones están vacías.
       </p>
       <button
         type="button"
