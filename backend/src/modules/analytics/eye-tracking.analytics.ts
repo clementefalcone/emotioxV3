@@ -294,8 +294,10 @@ const computeEmotionMetrics = (
  * and excluded from aggregate metrics (heatmap, AOI, zones).
  */
 const ET_QUALITY_THRESHOLDS = {
-  /** Max acceptable calibration RMSE (px). Above = low quality. */
-  maxCalibrationRmsePx: 200,
+  /** Max calibration RMSE as a fraction of the screen width. Above = low quality. */
+  maxCalibrationErrorRatio: 0.2,
+  /** Calibration RMSE as a fraction of the screen width above which quality is only fair. */
+  fairCalibrationErrorRatio: 0.1,
   /** Min integrity score (0-1). Below = low quality. */
   minIntegrityScore: 0.4,
   /** Min fixation count. Below = insufficient data. */
@@ -306,7 +308,7 @@ type QualityGrade = 'good' | 'fair' | 'low';
 
 /** Classify participant tracking quality from calibration + data metrics. */
 function classifyQuality(
-  calibrationRmsePx: number | null,
+  calibrationErrorRatio: number | null,
   integrityScore: number,
   fixationCount: number,
   calibrationQuality?: string,
@@ -316,12 +318,12 @@ function classifyQuality(
 
   if (fixationCount < ET_QUALITY_THRESHOLDS.minFixationCount) return 'low';
   if (integrityScore < ET_QUALITY_THRESHOLDS.minIntegrityScore) return 'low';
-  if (calibrationRmsePx !== null && calibrationRmsePx > ET_QUALITY_THRESHOLDS.maxCalibrationRmsePx) return 'low';
+  if (calibrationErrorRatio !== null && calibrationErrorRatio > ET_QUALITY_THRESHOLDS.maxCalibrationErrorRatio) return 'low';
 
   if (isClickProxy) return 'fair';
 
   // Fair: borderline values
-  if (calibrationRmsePx !== null && calibrationRmsePx > ET_QUALITY_THRESHOLDS.maxCalibrationRmsePx * 0.7) return 'fair';
+  if (calibrationErrorRatio !== null && calibrationErrorRatio > ET_QUALITY_THRESHOLDS.fairCalibrationErrorRatio) return 'fair';
   if (integrityScore < ET_QUALITY_THRESHOLDS.minIntegrityScore * 1.5) return 'fair';
   return 'good';
 }
@@ -395,7 +397,9 @@ const computeEyeTrackingMetrics = (
         : typeof parsed?.integrityScore === 'string' ? parseFloat(parsed.integrityScore) || 0
         : 0;
       const calQuality = parsed?.calibrationQuality ?? 'unknown';
-      const grade = classifyQuality(rmsePx, integrity, fixations.length, calQuality);
+      const screenWidthPx = typeof parsed?.viewportWidth === 'number' && parsed.viewportWidth > 0 ? parsed.viewportWidth : null;
+      const calibrationErrorRatio = rmsePx !== null && screenWidthPx !== null ? rmsePx / screenWidthPx : null;
+      const grade = classifyQuality(calibrationErrorRatio, integrity, fixations.length, calQuality);
 
       participantMap.set(pid, {
         calibrationQuality: calQuality,

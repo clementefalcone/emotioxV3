@@ -284,7 +284,7 @@ describe('getEyeTrackingResults', () => {
   // -----------------------------------------------------------------------
 
   describe('quality classification', () => {
-    it('classifies as good: RMSE < 140, integrity > 0.6, fixations >= 3', async () => {
+    it('classifies as good: RMSE within 10% of the screen width, integrity > 0.6, fixations >= 3', async () => {
       const row = buildRow('p1', {
         fixations: [
           { x: 10, y: 10, duration: 100, timestamp: 0 },
@@ -292,6 +292,7 @@ describe('getEyeTrackingResults', () => {
           { x: 30, y: 30, duration: 100, timestamp: 200 },
         ],
         calibrationRmsePx: 80,
+        viewportWidth: 1680,
         integrityScore: 0.9,
         calibrationQuality: 'good',
       });
@@ -318,14 +319,15 @@ describe('getEyeTrackingResults', () => {
       expect(result.stimuli[0].participants[0].qualityGrade).toBe('fair');
     });
 
-    it('classifies as fair when RMSE is between 140 and 200', async () => {
+    it('classifies as fair when RMSE is between 10% and 20% of the screen width', async () => {
       const row = buildRow('p1', {
         fixations: [
           { x: 10, y: 10, duration: 100, timestamp: 0 },
           { x: 20, y: 20, duration: 100, timestamp: 100 },
           { x: 30, y: 30, duration: 100, timestamp: 200 },
         ],
-        calibrationRmsePx: 160, // 200 * 0.7 = 140; 160 > 140 => fair
+        calibrationRmsePx: 191,
+        viewportWidth: 1680,
         integrityScore: 0.9,
         calibrationQuality: 'good',
       });
@@ -352,20 +354,53 @@ describe('getEyeTrackingResults', () => {
       expect(result.stimuli[0].participants[0].qualityGrade).toBe('fair');
     });
 
-    it('classifies as low when RMSE > 200', async () => {
+    it('classifies as low when RMSE is above 20% of the screen width', async () => {
       const row = buildRow('p1', {
         fixations: [
           { x: 10, y: 10, duration: 100, timestamp: 0 },
           { x: 20, y: 20, duration: 100, timestamp: 100 },
           { x: 30, y: 30, duration: 100, timestamp: 200 },
         ],
-        calibrationRmsePx: 250,
+        calibrationRmsePx: 350,
+        viewportWidth: 1680,
         integrityScore: 0.9,
       });
       setupStandardMocks({ responses: [[row]] });
 
       const result = await getEyeTrackingResults('research-1');
       expect(result.stimuli[0].participants[0].qualityGrade).toBe('low');
+    });
+
+    it('grades the same RMSE by screen size: good on a desktop, low on a phone', async () => {
+      const fixations = [
+        { x: 10, y: 10, duration: 100, timestamp: 0 },
+        { x: 20, y: 20, duration: 100, timestamp: 100 },
+        { x: 30, y: 30, duration: 100, timestamp: 200 },
+      ];
+      setupStandardMocks({ responses: [[
+        buildRow('desktop', { fixations, calibrationRmsePx: 120, viewportWidth: 1680, integrityScore: 0.9 }),
+        buildRow('phone', { fixations, calibrationRmsePx: 120, viewportWidth: 402, integrityScore: 0.9 }),
+      ]] });
+
+      const result = await getEyeTrackingResults('research-1');
+      const grades = Object.fromEntries(result.stimuli[0].participants.map((p) => [p.participantId, p.qualityGrade]));
+      expect(grades).toEqual({ desktop: 'good', phone: 'low' });
+    });
+
+    it('does not judge the RMSE when the screen size was not recorded', async () => {
+      const row = buildRow('p1', {
+        fixations: [
+          { x: 10, y: 10, duration: 100, timestamp: 0 },
+          { x: 20, y: 20, duration: 100, timestamp: 100 },
+          { x: 30, y: 30, duration: 100, timestamp: 200 },
+        ],
+        calibrationRmsePx: 900,
+        integrityScore: 0.9,
+      });
+      setupStandardMocks({ responses: [[row]] });
+
+      const result = await getEyeTrackingResults('research-1');
+      expect(result.stimuli[0].participants[0].qualityGrade).toBe('good');
     });
 
     it('classifies as low when integrity < 0.4', async () => {
