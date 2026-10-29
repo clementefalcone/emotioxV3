@@ -1,3 +1,21 @@
+## v0.99.27 — Eye Tracking: calibration correction on the right spot (2026-10-29)
+
+### fix(eye-tracking): calibration field applied in screen coords
+- **Report.** New phone runs still poor; heatmap in Results scattered and bottom-heavy (`edee0a59` `kiosk-15`, 402×714: 86% of image gaze and 65% of shelf gaze in the bottom row, ~10 gaze points/s, 4 and 10 fixations).
+- **Root cause.** Since v0.99.22 the calibration dots cover the whole screen and the correction residuals are stored as fractions of the screen. The viewing loop read them as fractions of the stimulus rect, so on a phone the correction measured at the bottom dot (y≈615) was applied at the bottom edge of the image (y≈436), pushing gaze further down and out of it. Micro-recalibration residuals and the zone confidence weight had the same mix.
+- **Fix.** All three use screen coords.
+- **Check.** New renderer test fails on the old code (field rect 400×300 = stimulus instead of 1024×768 = screen); micro-recalibration test asserts screen coords. Not verified with a real person: the ridge model's pull toward the centre is untouched.
+- **Seen, not changed.** The V3 probabilistic heatmap mixes stimulus-relative LOOCV residuals with screen-relative in-sample residuals when fitting its uncertainty ellipses.
+- **Tests.** Participant 1145 → 1146, 0 failing.
+
+### fix(eye-tracking): participant dwell shown in seconds
+- **Report.** Results quality table showed `1851.0s` dwell for a 15 s viewing.
+- **Fix.** `totalDwellTime` is milliseconds; the column divides by 1000 like "Tiempo promedio". CSV unchanged (ms).
+- **Tests.** Research eye-tracking results 18 passing.
+
+### Desktop runs not saved
+- `kiosk-14` (17:43) and `kiosk-16` (18:56) on Oct 28 saved only the screener, no Eye Tracking. Reported as "does not sync, does not advance, cannot restart calibration"; no such text exists in the participant app. Cause not found yet; needs the exact screen and browser.
+
 ## v0.99.26 — Eye Tracking: no freeze when calibration ends (2026-10-27)
 
 ### perf(eye-tracking): ridge training without repeated work
