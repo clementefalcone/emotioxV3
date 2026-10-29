@@ -1,3 +1,11 @@
+## v0.99.31 — Website Tracking: modern camera widget icon (2026-10-29)
+
+### feat(tracking): viewfinder icon
+- **Change.** The camera widget ("Ayúdanos con tu cámara" / "Cámara activa · desactivar") replaces the 📷 emoji with an inline stroke icon (viewfinder corners + lens) drawn for the widget; it takes the text colour and renders the same on every OS. No icon library.
+- **Fix.** Below 640 px wide the camera widget sits above the recording pill; at phone widths they collided.
+- **Check.** Chromium screenshots: off (blue), on (green), dark page, 390 px. Live `script.js` serves the icon.
+- **Tests.** Backend 649 passing, 0 failing.
+
 ## v0.99.30 — Website Tracking: visitors can change their mind (2026-10-29)
 
 ### feat(tracking): turn recording back on
