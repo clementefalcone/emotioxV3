@@ -1,3 +1,13 @@
+## v0.99.29 — Website Tracking: banner says what is saved and what is not (2026-10-29)
+
+### fix(tracking): explicit consent copy
+- **Report.** Visitors still could not tell what accepting meant: what stays saved and what does not.
+- **Root cause.** The banner said "clicks, scroll and path", but the study also saves a replayable screen recording (rrweb), mouse movement when enabled, and page URL/title/screen/browser; it said nothing about what is not kept.
+- **Fix.** Default copy is built from the study's capture flags: title "Este sitio participa en un estudio de experiencia de usuario.", what is saved (clicks, scroll, mouse when enabled, screen recording of the site), what is not (form input — rrweb `maskAllInputs`, name, IP — used only for `excludedIPs`, never stored), the camera as separate and optional with images kept on the device (camera line only when the study captures emotions or gaze), and that declining saves nothing while accepting can be stopped any time. The camera invite in studies without required consent uses the same description. Researcher text still overrides.
+- **Check.** goyaledger.com live (API mocked, no sessions written): full text in Spanish, decline → 0 API calls, nothing on reload. Desktop and 390 px wide layouts read cleanly.
+- **Open.** A visitor who declines or presses Detener has no way to turn recording back on.
+- **Tests.** Backend 648 → 649, 0 failing.
+
 ## v0.99.28 — Website Tracking: visitors know what is recorded (2026-10-29)
 
 ### fix(tracking): visible recording, clear consent
