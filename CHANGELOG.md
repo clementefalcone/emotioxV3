@@ -1,3 +1,15 @@
+## v0.99.34 — Eye Tracking: honest reliability grade, everyone shown (2026-10-29)
+
+### fix(analytics): grade calibration by screen size
+- **Report.** The quality grade used a fixed 200 px RMSE limit for every device. Phones graded too well, desktops too badly: a phone at 87 px (22 % of 402 px) was "good", a desktop at 214 px (13 % of 1680 px) was "low".
+- **Fix.** Grade from RMSE / screen width: above 20 % low, above 10 % fair. Without a recorded width (12 BlazeGaze records from April) the RMSE is not judged; integrity and fixations still grade.
+
+### feat(eye-tracking): show everyone, filter by reliability
+- **Report.** Low-grade participants were silently dropped from heatmaps and AOI metrics. With the honest grade, 22 of 26 records in "IAT Bebidas - Eye Tracking Only" are low, so the aggregate would have come from two people.
+- **Change.** Results include every participant by default. The summary always counts all levels and how many are shown ("Fiabilidad: 0 buena · 2 regular · 11 baja · se muestran 13 de 13"); a `ReliabilityFilter` (Todos / Regular o mejor / Solo buena) narrows the aggregate; per-participant checkboxes still work and the active level is derived from them. The backend scopes aggregates only when a participant list is requested. CSV export already lists every participant with its grade.
+- **Check.** `getEyeTrackingResults` on the live study: summary good 0 / fair 2 / low 11 per module; aggregates from 11 and 12 participants (all with fixations). Not checked in the browser (Results needs a logged-in session).
+- **Tests.** Backend 649 → 651, research 683 → 686, 0 failing.
+
 ## v0.99.33 — Eye Tracking: vertical gaze from eyeLook blendshapes (2026-10-29)
 
 ### fix(eye-tracking): add eyeLook blendshapes to gaze features, linear ridge
