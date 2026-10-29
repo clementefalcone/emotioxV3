@@ -206,14 +206,14 @@ describe('hybridCalibrationRmsePx', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeMicroRecalibResidual', () => {
-  it('small drift returns weighted residual', () => {
+  it('small drift returns weighted residual placed in viewport coords like the calibration residuals', () => {
     // Target at u=0.5, v=0.5 => targetX = 100 + 0.5*800 = 500, targetY = 100 + 0.5*600 = 400
     // Gaze at (490, 395) => dx = 500-490 = 10, dy = 400-395 = 5
     // dist = sqrt(125) ~ 11.18 < 250
     const result = computeMicroRecalibResidual(0.5, 0.5, 490, 395, rect);
     expect(result).not.toBeNull();
-    expect(result!.u).toBe(0.5);
-    expect(result!.v).toBe(0.5);
+    expect(result!.u).toBeCloseTo(500 / window.innerWidth, 10);
+    expect(result!.v).toBeCloseTo(400 / window.innerHeight, 10);
     expect(result!.dx).toBeCloseTo(10 * MICRO_RECALIB_WEIGHT, 10);
     expect(result!.dy).toBeCloseTo(5 * MICRO_RECALIB_WEIGHT, 10);
   });

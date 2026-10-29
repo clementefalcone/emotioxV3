@@ -135,7 +135,7 @@ export const MICRO_RECALIB_POSITIONS: readonly [number, number][] = [
  * @param avgGazeX - Average gaze X (viewport px) during probe
  * @param avgGazeY - Average gaze Y (viewport px) during probe
  * @param rect - Stimulus bounding rect
- * @returns Residual to append to calibration samples, or null if drift too large (noise)
+ * @returns Residual in viewport coords (like the calibration residuals), or null if drift too large (noise)
  */
 export function computeMicroRecalibResidual(
     targetU: number,
@@ -151,8 +151,8 @@ export function computeMicroRecalibResidual(
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > MICRO_RECALIB_MAX_DRIFT_PX) return null; // noise, not drift
     return {
-        u: targetU,
-        v: targetV,
+        u: targetX / window.innerWidth,
+        v: targetY / window.innerHeight,
         dx: dx * MICRO_RECALIB_WEIGHT,
         dy: dy * MICRO_RECALIB_WEIGHT,
     };

@@ -393,7 +393,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             if (rect && rect.width > 0 && rect.height > 0 && gazeStateRef.current === 'open' && now - lastCollect >= GAZE_POLL_MS) {
                 // V1: IDW correction
                 const corrected = hybridApplyCalibrationField(
-                    gx, gy, rect,
+                    gx, gy, new DOMRect(0, 0, window.innerWidth, window.innerHeight),
                     calibrationResidualsRef.current,
                     HYBRID_CALIBRATION_FIELD_STRENGTH,
                 );
@@ -642,9 +642,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
             // Zone mass from expanded gaze points with calibration confidence
             for (const pt of expanded) {
-                const u = effectiveRect.width > 0 ? (pt.x - effectiveRect.left) / effectiveRect.width : 0;
-                const v = effectiveRect.height > 0 ? (pt.y - effectiveRect.top) / effectiveRect.height : 0;
-                const baseConf = hybridCalibrationConfidenceWeightUv(u, v, residuals);
+                const baseConf = hybridCalibrationConfidenceWeightUv(pt.x / window.innerWidth, pt.y / window.innerHeight, residuals);
                 const conf = pt.interpolated ? baseConf * HYBRID_GAP_FILL_SYNTHETIC_WEIGHT : baseConf;
                 const soft = hybridPointToSoftZoneWeights(pt.x, pt.y, effectiveRect);
                 for (const z of HYBRID_AOI_GRID) {

@@ -165,7 +165,7 @@ vi.mock('./eye-tracking/types', async () => {
 
 import { EyeTrackingRenderer } from './EyeTrackingRenderer';
 import { rememberCalibration } from './eye-tracking/calibrationCache';
-import { detectMicroExpressions, detectFixationsIDT, mapFixationsToImageCoords } from '../../lib/eyeTracking';
+import { detectMicroExpressions, detectFixationsIDT, mapFixationsToImageCoords, hybridApplyCalibrationField } from '../../lib/eyeTracking';
 
 const mockGetUserMedia = vi.fn();
 const trainedPredictor = { isReady: () => true } as unknown as GazePredictor;
@@ -306,6 +306,20 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(mockMPGaze.start).toHaveBeenCalled();
         expect(saved.trackingMethod).toBe('mediapipe-ridge');
         expect(saved.gazePointCount).toBeGreaterThan(0);
+    });
+
+    it('corrects gaze with the calibration field in screen coords, where the calibration dots were measured, not stimulus coords', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(1000); });
+
+        const fieldRect = vi.mocked(hybridApplyCalibrationField).mock.calls[0][2];
+        expect([fieldRect.left, fieldRect.top, fieldRect.width, fieldRect.height]).toEqual([0, 0, window.innerWidth, window.innerHeight]);
+        expect(fieldRect.width).not.toBe(STIMULUS_RECT.width);
     });
 
     it('consecutive module records gaze when the face is detected after viewing starts', async () => {
