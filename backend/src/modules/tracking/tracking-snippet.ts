@@ -509,7 +509,7 @@ function showConsent(){
     d.style.cssText="position:fixed;"+pos+"left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:14px;z-index:2147483647;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;"+shadow;
     var copy=visitorCopy();
     var cameraButton=hasCameraFeatures()?'<button id="_ecx_accept_camera" style="background:#16a34a;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+copy.acceptWithCamera+'</button>':'';
-    d.innerHTML='<span style="flex:1 1 280px;">'+(C.cText||copy.consentText)+'</span><div style="display:flex;flex-wrap:wrap;gap:8px;"><button id="_ecx_accept" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cAccept||copy.accept)+'</button>'+cameraButton+'<button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cDecline||copy.decline)+'</button></div>';
+    d.innerHTML='<span style="flex:1 1 280px;line-height:1.45;">'+(C.cText||describeConsent())+'</span><div style="display:flex;flex-wrap:wrap;gap:8px;"><button id="_ecx_accept" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cAccept||copy.accept)+'</button>'+cameraButton+'<button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cDecline||copy.decline)+'</button></div>';
     document.body.appendChild(d);
     var accept=function(isCameraOn){
         consented=true;d.remove();
@@ -627,10 +627,23 @@ function feedFixation(x,y,ts){
 
 var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid,EYE_CALIBRATION_KEY="_ecx_eye_cal_"+C.rid,EYE_CALIBRATION_REUSE_MS=600000;
 var VISITOR_COPY={
-    es:{consentText:"Este sitio registra c\\u00f3mo navegas (clics, scroll y recorrido) para un estudio de experiencia de usuario. Puedes seguir usando el sitio aceptes o no.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",invite:"Este sitio registra c\\u00f3mo se navega (clics, scroll y recorrido) para mejorar la experiencia. Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
-    en:{consentText:"This site records how you browse (clicks, scroll and path) for a user experience study. You can keep using the site whether you accept or not.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",invite:"This site records how it is browsed (clicks, scroll and path) to improve the experience. Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
+    es:{title:"Este sitio participa en un estudio de experiencia de usuario.",acceptLead:"Si aceptas, guardamos c\\u00f3mo usas la p\\u00e1gina: ",activeLead:"Este sitio guarda c\\u00f3mo usas la p\\u00e1gina: ",clicks:"clics",scroll:"scroll",mouse:"movimiento del rat\\u00f3n",screen:"una grabaci\\u00f3n de la pantalla de este sitio",and:" y ",notRecorded:"No guardamos lo que escribes en formularios, tu nombre ni tu IP.",cameraOptional:"La c\\u00e1mara es aparte y opcional: solo se activa si la eliges, y sus im\\u00e1genes no salen de tu dispositivo.",declineInfo:"Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",invite:"Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
+    en:{title:"This site is part of a user experience study.",acceptLead:"If you accept, we save how you use the page: ",activeLead:"This site saves how you use the page: ",clicks:"clicks",scroll:"scroll",mouse:"mouse movement",screen:"a screen recording of this site",and:" and ",notRecorded:"We do not save what you type in forms, your name or your IP.",cameraOptional:"The camera is separate and optional: it only turns on if you choose it, and its images never leave your device.",declineInfo:"If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",invite:"Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
 };
 function visitorCopy(){return VISITOR_COPY[pageLanguage()];}
+function describeRecording(lead){
+    var copy=visitorCopy(),items=[];
+    if(C.clicks)items.push(copy.clicks);
+    if(C.scroll)items.push(copy.scroll);
+    if(C.mouse)items.push(copy.mouse);
+    items.push(copy.screen);
+    var listed=items.length>1?items.slice(0,-1).join(", ")+copy.and+items[items.length-1]:items[0];
+    return lead+listed+". "+copy.notRecorded;
+}
+function describeConsent(){
+    var copy=visitorCopy();
+    return "<strong>"+copy.title+"</strong><br>"+describeRecording(copy.acceptLead)+" "+(hasCameraFeatures()?copy.cameraOptional+" ":"")+copy.declineInfo;
+}
 function hasCameraFeatures(){return !!(C.emotions||C.gaze);}
 function isCameraChosen(){return load(CAMERA_CHOICE_KEY)==="1";}
 function activateCameraCapture(){
@@ -673,7 +686,7 @@ function showCameraInvite(){
     var copy=visitorCopy();
     var bar=document.createElement("div");bar.id="_ecx_cam_invite";
     bar.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:13px;line-height:1.4;z-index:2147483647;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
-    var text=document.createElement("span");text.style.cssText="flex:1 1 280px;";text.textContent=copy.invite;
+    var text=document.createElement("span");text.style.cssText="flex:1 1 280px;";text.textContent=describeRecording(copy.activeLead)+" "+copy.invite;
     var activate=document.createElement("button");activate.type="button";activate.textContent=copy.activate;
     activate.style.cssText="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;";
     var dismiss=document.createElement("button");dismiss.type="button";dismiss.textContent=copy.dismiss;

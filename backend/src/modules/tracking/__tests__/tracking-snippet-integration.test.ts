@@ -896,6 +896,29 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         expect(run.showNotice).toHaveBeenCalledWith('Dejamos de registrar tu navegación.');
     });
 
+    it('tells the visitor exactly what the study saves and what it does not', () => {
+        const describe = (config: Partial<typeof defaultConfig>, language: string) => {
+            const js = generateTrackingSnippet({ ...defaultConfig, ...config });
+            const source = js.slice(js.indexOf('var VISITOR_COPY='), js.indexOf('function isCameraChosen(){'));
+            const C = { clicks: config.captureClicks ?? true, scroll: config.captureScroll ?? true, mouse: config.captureMousemove ?? false, emotions: config.captureEmotions ?? true, gaze: false };
+            return new Function('C', 'pageLanguage', `${source}return describeConsent();`)(C, () => language) as string;
+        };
+
+        expect(describe({ captureMousemove: true }, 'es')).toBe(
+            '<strong>Este sitio participa en un estudio de experiencia de usuario.</strong><br>'
+            + 'Si aceptas, guardamos cómo usas la página: clics, scroll, movimiento del ratón y una grabación de la pantalla de este sitio. '
+            + 'No guardamos lo que escribes en formularios, tu nombre ni tu IP. '
+            + 'La cámara es aparte y opcional: solo se activa si la eliges, y sus imágenes no salen de tu dispositivo. '
+            + 'Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.',
+        );
+        expect(describe({ captureClicks: false, captureScroll: false, captureEmotions: false }, 'en')).toBe(
+            '<strong>This site is part of a user experience study.</strong><br>'
+            + 'If you accept, we save how you use the page: a screen recording of this site. '
+            + 'We do not save what you type in forms, your name or your IP. '
+            + 'If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.',
+        );
+    });
+
     it('starts nothing on later pages once the visitor declined or stopped, even without required consent', () => {
         const js = generateTrackingSnippet({ ...defaultConfig, consentRequired: false });
         const init = js.slice(js.indexOf('    loadRrweb(function(){'), js.indexOf('if(document.readyState'));
