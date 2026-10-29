@@ -200,6 +200,7 @@ function flushRrweb(useBeacon){
 // ─── Session Management ──────────────────────────────────────────────
 
 function createSession(){
+    if(!consented)return;
     if(pageStart&&Date.now()-pageStart<2000){
         push({eventType:"pageview",metadata:{friction:"speed-browsing"}});
     }
@@ -239,6 +240,7 @@ function createSession(){
         startCameraCapture();
         // Capture DOM snapshot with inlined CSS (self-contained backdrop)
         setTimeout(function(){
+            if(!consented)return;
             try{
                 var sheets=document.querySelectorAll('link[rel="stylesheet"],link[type="text/css"]');
                 var pending=sheets.length;
@@ -314,7 +316,7 @@ function createSession(){
 
 var rrwebActiveMs=0; // accumulated active rrweb recording time
 function startRrwebRecording(){
-    if(!window.rrweb||!window.rrweb.record)return;
+    if(!consented||!window.rrweb||!window.rrweb.record)return;
     rrwebStartTime=Date.now();
     rrwebStopFn=window.rrweb.record({
         emit:function(event){
@@ -504,9 +506,10 @@ function showConsent(){
     var pos=C.cPos==="top"?"top:0;":"bottom:0;";
     var shadow=C.cPos==="top"?"box-shadow:0 2px 10px rgba(0,0,0,0.15);":"box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
     var d=document.createElement("div");d.id="_ecx_consent";
-    d.style.cssText="position:fixed;"+pos+"left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:14px;z-index:2147483647;display:flex;align-items:center;justify-content:space-between;"+shadow;
-    var cameraButton=hasCameraFeatures()?'<button id="_ecx_accept_camera" style="background:#16a34a;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+cameraCopy().acceptWithCamera+'</button>':'';
-    d.innerHTML='<span>'+C.cText+'</span><div><button id="_ecx_accept" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+C.cAccept+'</button>'+cameraButton+'<button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;margin-left:8px;font-size:13px;">'+C.cDecline+'</button></div>';
+    d.style.cssText="position:fixed;"+pos+"left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:14px;z-index:2147483647;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;"+shadow;
+    var copy=visitorCopy();
+    var cameraButton=hasCameraFeatures()?'<button id="_ecx_accept_camera" style="background:#16a34a;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+copy.acceptWithCamera+'</button>':'';
+    d.innerHTML='<span style="flex:1 1 280px;">'+(C.cText||copy.consentText)+'</span><div style="display:flex;flex-wrap:wrap;gap:8px;"><button id="_ecx_accept" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cAccept||copy.accept)+'</button>'+cameraButton+'<button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cDecline||copy.decline)+'</button></div>';
     document.body.appendChild(d);
     var accept=function(isCameraOn){
         consented=true;d.remove();
@@ -520,7 +523,18 @@ function showConsent(){
     document.getElementById("_ecx_reject").onclick=function(){
         d.remove();
         store("_ecx_consent_"+C.rid,"0");
+        showNotice(copy.declined);
     };
+}
+
+var NOTICE_MS=5000;
+function showNotice(text){
+    removeElement("_ecx_notice");
+    var notice=document.createElement("div");notice.id="_ecx_notice";notice.setAttribute("role","status");
+    notice.textContent=text;
+    notice.style.cssText="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:calc(100% - 32px);background:#1e293b;color:#fff;padding:10px 16px;border-radius:8px;font-family:-apple-system,sans-serif;font-size:13px;line-height:1.4;z-index:2147483647;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
+    document.body.appendChild(notice);
+    setTimeout(function(){notice.remove();},NOTICE_MS);
 }
 
 // ─── Start Session ───────────────────────────────────────────────────
@@ -529,7 +543,31 @@ function startSession(){
     vid=getVid();
     startCapture();
     createSession();
+    renderRecordingPill();
     showCameraInvite();
+}
+
+function renderRecordingPill(){
+    var copy=visitorCopy();
+    var pill=document.createElement("div");pill.id="_ecx_rec";pill.setAttribute("role","status");
+    pill.style.cssText="position:fixed;left:16px;bottom:16px;display:flex;align-items:center;gap:10px;background:#1e293b;color:#fff;border-radius:999px;padding:8px 8px 8px 14px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
+    var label=document.createElement("span");label.textContent="\u25cf "+copy.recording;
+    var stop=document.createElement("button");stop.type="button";stop.textContent=copy.stop;
+    stop.style.cssText="background:#fff;color:#1e293b;border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;";
+    stop.onclick=stopTrackingByChoice;
+    pill.appendChild(label);pill.appendChild(stop);
+    document.body.appendChild(pill);
+}
+
+function stopTrackingByChoice(){
+    flush();flushRrweb();flushEmotions();flushGaze();
+    consented=false;
+    store("_ecx_consent_"+C.rid,"0");
+    if(rrwebStopFn){try{rrwebStopFn();}catch(e){}rrwebStopFn=null;}
+    clearInterval(timer);
+    stopCameraByChoice();
+    removeElement("_ecx_rec");removeElement("_ecx_cam_tab");removeElement("_ecx_cam_invite");
+    showNotice(visitorCopy().stopped);
 }
 
 // ─── Emotion + Gaze Recognition (MediaPipe FaceLandmarker) ──────────
@@ -588,11 +626,11 @@ function feedFixation(x,y,ts){
 }
 
 var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid,EYE_CALIBRATION_KEY="_ecx_eye_cal_"+C.rid,EYE_CALIBRATION_REUSE_MS=600000;
-var CAMERA_COPY={
-    es:{invite:"Este sitio registra c\\u00f3mo se navega (clics, scroll y recorrido) para mejorar la experiencia. Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
-    en:{invite:"This site records how it is browsed (clicks, scroll and path) to improve the experience. Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
+var VISITOR_COPY={
+    es:{consentText:"Este sitio registra c\\u00f3mo navegas (clics, scroll y recorrido) para un estudio de experiencia de usuario. Puedes seguir usando el sitio aceptes o no.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",invite:"Este sitio registra c\\u00f3mo se navega (clics, scroll y recorrido) para mejorar la experiencia. Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
+    en:{consentText:"This site records how you browse (clicks, scroll and path) for a user experience study. You can keep using the site whether you accept or not.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",invite:"This site records how it is browsed (clicks, scroll and path) to improve the experience. Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
 };
-function cameraCopy(){return CAMERA_COPY[pageLanguage()];}
+function visitorCopy(){return VISITOR_COPY[pageLanguage()];}
 function hasCameraFeatures(){return !!(C.emotions||C.gaze);}
 function isCameraChosen(){return load(CAMERA_CHOICE_KEY)==="1";}
 function activateCameraCapture(){
@@ -624,7 +662,7 @@ function renderCameraTab(){
     if(!hasCameraFeatures())return;
     var isOn=isCameraChosen();
     var tab=document.createElement("button");tab.id="_ecx_cam_tab";tab.type="button";
-    tab.textContent="\\ud83d\\udcf7 "+(isOn?cameraCopy().tabOn:cameraCopy().tabOff);
+    tab.textContent="\\ud83d\\udcf7 "+(isOn?visitorCopy().tabOn:visitorCopy().tabOff);
     tab.style.cssText="position:fixed;right:16px;bottom:16px;background:"+(isOn?"#166534":"#1e40af")+";color:#fff;border:none;border-radius:999px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;z-index:2147483646;box-shadow:0 4px 14px rgba(0,0,0,0.25);";
     tab.onclick=function(){if(isCameraChosen())stopCameraByChoice();else activateCameraCapture();};
     document.body.appendChild(tab);
@@ -632,7 +670,7 @@ function renderCameraTab(){
 function showCameraInvite(){
     if(!hasCameraFeatures())return;
     if(isCameraChosen()||load(CAMERA_INVITE_KEY)==="1"){renderCameraTab();return;}
-    var copy=cameraCopy();
+    var copy=visitorCopy();
     var bar=document.createElement("div");bar.id="_ecx_cam_invite";
     bar.style.cssText="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#fff;padding:12px 20px;font-family:-apple-system,sans-serif;font-size:13px;line-height:1.4;z-index:2147483647;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;box-shadow:0 -2px 10px rgba(0,0,0,0.15);";
     var text=document.createElement("span");text.style.cssText="flex:1 1 280px;";text.textContent=copy.invite;
@@ -940,15 +978,10 @@ function init(){
         if(!sk){var sampled=Math.random()*100<C.sampling;store("_ecx_sample_"+C.rid,sampled?"1":"0");if(!sampled)return;}
     }
     loadRrweb(function(){
-        if(C.consent){
-            var prev=load("_ecx_consent_"+C.rid);
-            if(prev==="1"){consented=true;startSession();}
-            else if(prev==="0")return;
-            else showConsent();
-        }else{
-            consented=true;
-            startSession();
-        }
+        var prev=load("_ecx_consent_"+C.rid);
+        if(prev==="0")return;
+        if(prev==="1"||!C.consent){consented=true;startSession();}
+        else showConsent();
     });
 }
 

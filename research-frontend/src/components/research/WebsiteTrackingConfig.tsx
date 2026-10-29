@@ -34,9 +34,9 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
         flushIntervalMs: existingConfig.flushIntervalMs || 2000,
         maxEventsPerFlush: existingConfig.maxEventsPerFlush || 50,
         allowedDomains: existingConfig.allowedDomains || [],
-        consentText: existingConfig.consentText || 'This site uses interaction tracking for UX research.',
-        consentAcceptLabel: existingConfig.consentAcceptLabel || 'Accept',
-        consentDeclineLabel: existingConfig.consentDeclineLabel || 'Decline',
+        consentText: existingConfig.consentText || '',
+        consentAcceptLabel: existingConfig.consentAcceptLabel || '',
+        consentDeclineLabel: existingConfig.consentDeclineLabel || '',
         consentPosition: existingConfig.consentPosition || 'bottom',
         samplingRate: existingConfig.samplingRate ?? 100,
         excludedIPs: existingConfig.excludedIPs || [],
@@ -271,6 +271,7 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                             <input
                                 type="text"
                                 value={config.consentText}
+                                placeholder="Automatic (ES/EN by page language)"
                                 onChange={(e) => setConfig((prev) => ({ ...prev, consentText: e.target.value }))}
                                 className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
                             />
@@ -280,6 +281,7 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                             <input
                                 type="text"
                                 value={config.consentAcceptLabel}
+                                placeholder="Auto"
                                 onChange={(e) => setConfig((prev) => ({ ...prev, consentAcceptLabel: e.target.value }))}
                                 className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
                             />
@@ -289,6 +291,7 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                             <input
                                 type="text"
                                 value={config.consentDeclineLabel}
+                                placeholder="Auto"
                                 onChange={(e) => setConfig((prev) => ({ ...prev, consentDeclineLabel: e.target.value }))}
                                 className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
                             />

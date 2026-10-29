@@ -706,7 +706,7 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
             this.open = () => undefined; this.setRequestHeader = () => undefined; this.send = () => undefined;
         };
         const buffered = new Function('C', 'XMLHttpRequest', 'push', 'location', 'document', 'screen', 'navigator', 'window',
-            `var sid=null,buf=[{eventType:"mousemove",timestampMs:1},{eventType:"click",timestampMs:2}],pageStart=0,activeMs=0,activeStart=0,paused=false,rrwebStopFn=null,rrwebActiveMs=0,emoActiveMs=0,emoStartTime=0,vid="v";${source}\ncreateSession();return buf;`,
+            `var sid=null,buf=[{eventType:"mousemove",timestampMs:1},{eventType:"click",timestampMs:2}],pageStart=0,activeMs=0,activeStart=0,paused=false,rrwebStopFn=null,rrwebActiveMs=0,emoActiveMs=0,emoStartTime=0,vid="v",consented=true;${source}\ncreateSession();return buf;`,
         )({ api: 'https://api', rid: 'r' }, XMLHttpRequest, () => undefined, { href: 'https://site/' }, { title: '' }, {}, {}, { innerWidth: 1, innerHeight: 1 });
 
         expect(buffered).toEqual([]);
@@ -849,3 +849,64 @@ function generateZoneConfig(js: string): unknown {
     const config = js.slice(js.indexOf('var C=') + 'var C='.length, js.indexOf('};', js.indexOf('var C=')) + 1);
     return JSON.parse(config).zones;
 }
+
+describe('generateTrackingSnippet — visitor sees and controls the recording', () => {
+    function runRecordingPill() {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = js.slice(js.indexOf('function renderRecordingPill(){'), js.indexOf('// ─── Emotion + Gaze'));
+        const attached = new Map<string, FakeElement & { setAttribute: () => void }>();
+        const document = {
+            createElement: () => {
+                const element = {
+                    id: '', type: '', textContent: '', style: {}, children: [] as FakeElement[], onclick: null as (() => void) | null,
+                    setAttribute: () => undefined,
+                    appendChild: (child: FakeElement) => { element.children.push(child); },
+                    remove: () => { attached.delete(element.id); },
+                };
+                return element;
+            },
+            body: { appendChild: (element: FakeElement & { setAttribute: () => void }) => { attached.set(element.id, element); } },
+        };
+        const storage: Record<string, string> = {};
+        const flushes = vi.fn();
+        const rrwebStop = vi.fn();
+        const stopCameraByChoice = vi.fn();
+        const showNotice = vi.fn();
+        const copy = { recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.' };
+        const api = new Function('C', 'document', 'store', 'flush', 'flushRrweb', 'flushEmotions', 'flushGaze', 'stopCameraByChoice', 'showNotice', 'visitorCopy', 'rrwebStopFn', 'timer', 'consented',
+            `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
+        )({ rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, null, true,
+            (id: string) => attached.get(id) ?? null) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
+        return { ...api, pill: () => attached.get('_ecx_rec'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice };
+    }
+
+    it('shows a recording pill whose stop button flushes, stops capture and remembers the choice', () => {
+        const run = runRecordingPill();
+        run.renderRecordingPill();
+        expect(run.pill()?.children[0].textContent).toBe('● Registrando tu navegación');
+
+        run.pill()?.children[1].onclick?.();
+        expect(run.flushes).toHaveBeenCalledTimes(4);
+        expect(run.isConsented()).toBe(false);
+        expect(run.rrwebStop).toHaveBeenCalledTimes(1);
+        expect(run.hasRrweb()).toBe(false);
+        expect(run.stopCameraByChoice).toHaveBeenCalledTimes(1);
+        expect(run.storage).toEqual({ _ecx_consent_r: '0' });
+        expect(run.pill()).toBeUndefined();
+        expect(run.showNotice).toHaveBeenCalledWith('Dejamos de registrar tu navegación.');
+    });
+
+    it('starts nothing on later pages once the visitor declined or stopped, even without required consent', () => {
+        const js = generateTrackingSnippet({ ...defaultConfig, consentRequired: false });
+        const init = js.slice(js.indexOf('    loadRrweb(function(){'), js.indexOf('if(document.readyState'));
+        expect(init).toContain('if(prev==="0")return;');
+        expect(init.indexOf('if(prev==="0")return;')).toBeLessThan(init.indexOf('startSession()'));
+    });
+
+    it('never creates a session, records rrweb or sends the snapshot after the visitor stops', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        expect(js).toContain('function createSession(){\n    if(!consented)return;');
+        expect(js).toContain('if(!consented||!window.rrweb||!window.rrweb.record)return;');
+        expect(js).toContain('setTimeout(function(){\n            if(!consented)return;');
+    });
+});
