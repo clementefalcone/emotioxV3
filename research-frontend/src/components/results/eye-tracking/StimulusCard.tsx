@@ -284,7 +284,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                         <td className="text-center py-1.5 px-2 text-gray-500">{p.calibrationRmsePx != null ? `${Math.round(p.calibrationRmsePx)}px` : '—'}</td>
                         <td className="text-center py-1.5 px-2 text-gray-500">{Math.round(p.integrityScore * 100)}%</td>
                         <td className="text-center py-1.5 px-2 text-gray-500">{p.totalFixations}</td>
-                        <td className="text-center py-1.5 px-2 text-gray-500">{p.totalDwellTime.toFixed(1)}s</td>
+                        <td className="text-center py-1.5 px-2 text-gray-500">{(p.totalDwellTime / 1000).toFixed(1)}s</td>
                         <td className="text-center py-1.5 px-2">
                           <input
                             type="checkbox"
