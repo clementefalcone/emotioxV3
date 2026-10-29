@@ -1,3 +1,11 @@
+## v0.99.30 — Website Tracking: visitors can change their mind (2026-10-29)
+
+### feat(tracking): turn recording back on
+- **Report.** A visitor who declined or pressed Detener had no way to turn recording back on.
+- **Fix.** A bottom-left pill "○ Registro desactivado · Activar" stays on the page after declining, after Detener, and on later visits. Activar reopens the full consent banner, so the visitor decides with the same explanation instead of a single click. The flush timer is no longer cleared on stop, so a resumed session sends events again.
+- **Check.** Chromium with the generated snippet: decline → reload → 0 API calls, pill shown → Activar → Aceptar → new session and events → Detener → Activar → Aceptar → new session and events again. goyaledger.com live (API mocked): pill after reload, Activar reopens the banner, 0 calls after Detener.
+- **Tests.** Backend 649 passing, 0 failing (stop test now also covers the pill and reopening the banner).
+
 ## v0.99.29 — Website Tracking: banner says what is saved and what is not (2026-10-29)
 
 ### fix(tracking): explicit consent copy
