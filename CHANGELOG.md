@@ -1,3 +1,17 @@
+## v0.99.32 — Eye Tracking: shelf no longer freezes at the start of viewing (2026-10-29)
+
+### fix(eye-tracking): warm up emotion recognition before viewing
+- **Report.** "IAT Bebidas - Eye Tracking Only": new runs poor on mobile, desktop collapses.
+- **Data.** 13 runs since Oct 21. In the shelf (first Eye Tracking module) the largest gap between emotion samples was always the first one: 0.4–1.8 s on every participant, 14.4 s on `kiosk-17` (desktop, today, 10 gaze points in 15 s) and the whole viewing on `kiosk-13` (mobile, 3 gaze points). The image module right after had ~0.1 s.
+- **Root cause.** The first face-api detection compiles its GPU shaders and blocks the page (measured: 351 ms on a normal GPU, 5.5 s with a 2.7 s long task on software GL). It ran at the start of the first viewing, so neither gaze nor emotions were sampled while it lasted.
+- **Fix.** The preparing phase runs one detection on the live camera before calibration (or before viewing when the calibration is reused). A failed warm-up is logged and the flow continues; without a camera it is skipped.
+- **Check.** Full participant flow of the real study in Chromium, recorded face as camera, software GL, writes mocked: shelf first gap 7116 ms (old) → 434 / 216 ms (new), gaze points 107 → 198 / 209. New renderer test fails on the old code.
+- **Seen, not changed.**
+  - Calibration error is large: desktop RMSE 191–649 px (12–39 % of width), mobile 87–157 px (22–39 %). `calibrationQuality` stores the method name ("mediapipe-13pt") instead of a quality grade, so Results cannot show it.
+  - `kiosk-8`, `11`, `14`, `16` stopped after the screener with no Eye Tracking data; the DB cannot tell where.
+  - Second Eye Tracking module logs `AbortError: The play() request was interrupted by a new load request` when its camera starts; the module still runs.
+- **Tests.** Participant 1146 → 1150, 0 failing.
+
 ## v0.99.31 — Website Tracking: modern camera widget icon (2026-10-29)
 
 ### feat(tracking): viewfinder icon
