@@ -1,3 +1,15 @@
+## v0.99.33 — Eye Tracking: vertical gaze from eyeLook blendshapes (2026-10-29)
+
+### fix(eye-tracking): add eyeLook blendshapes to gaze features, linear ridge
+- **Report.** Eye Tracking records "pobres": calibration RMSE in production 191–649 px desktop, 87–157 px mobile (12–39 % of width); shelf heatmaps drift down.
+- **Bench.** The July reference session (`eval/datasets/session-auto`, 47 s, one person, 21 known targets) run frame by frame through the app's own MediaPipe + `extractGazeFeatures` + `RidgeRegression`. Current model: RMSE 257 px on unseen targets, the same order as production.
+- **Root cause.** Error is mostly vertical (y ≈ 260 px, x ≈ 170 px). The vertical feature measures the iris against the eyelid midpoint, but the lids follow the eye: correlation with target height +0.13 (horizontal feature −0.94).
+- **Fix.** Features append MediaPipe's 8 eyeLook blendshapes (28 dims, `EYE_LOOK_BLENDSHAPES`); the landmarker outputs blendshapes; ridge runs linear (RFF overfit: eyeLook + RFF was worse than today). The Website Tracking embed shares the hook and drops RFF; a stored embed calibration with another feature layout is not reused.
+- **Check.** Real app code on the reference session, 9 calibration → 12 unseen targets: RMSE 257 → 237 px, vertical 259 → 153 px, mean per-target 215 → 170 px. Leave-one-target-out over 21 targets, median 161–178 → 94–126 px. Full participant flow with a recorded face (3 runs): both modules save, ~232 gaze points in the 15 s shelf, no long task over 500 ms.
+- **Limits.** One person, one desktop session; not validated on mobile or with glasses. Watch `calibrationRmsePx` of new production sessions. The e2e calibration RMSE is not an accuracy measure (the recorded face does not look at the app's dots).
+- **Seen, not changed.** A 30 s page freeze during calibration appeared once in an e2e run with Playwright screenshots; not reproduced in 3 runs without screenshots.
+- **Tests.** Participant 1150 → 1153, 0 failing.
+
 ## v0.99.32 — Eye Tracking: shelf no longer freezes at the start of viewing (2026-10-29)
 
 ### fix(eye-tracking): warm up emotion recognition before viewing
