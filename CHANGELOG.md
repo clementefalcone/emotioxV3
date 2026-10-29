@@ -1,3 +1,14 @@
+## v0.99.28 — Website Tracking: visitors know what is recorded (2026-10-29)
+
+### fix(tracking): visible recording, clear consent
+- **Report.** Visitors did not know whether declining blocked the site, nor that their browsing was being recorded.
+- **Root cause.** Default banner text was English-only and vague ("This site uses interaction tracking for UX research."); declining closed the banner silently; nothing showed while rrweb recorded; studies without required consent recorded with no notice when no camera feature was on.
+- **Fix.** Default copy follows the page language (ES/EN) and says the site works either way; researcher text still wins. Declining shows a 5 s notice. A fixed bottom-left pill "● Registrando tu navegación · Detener" shows while recording; Detener flushes pending data, stops events, rrweb and camera, and is remembered on later pages, also when consent is not required. Research config leaves the fields empty with an "Automatic" placeholder instead of saving the English text.
+- **Also.** The DOM snapshot (sent 3 s after the session starts) no longer goes out after the visitor stops. Banner buttons no longer wrap onto two lines.
+- **Check.** Headless Chromium with the generated snippet: decline → 0 API calls, no banner on reload; accept → session + events, Detener → 0 calls after (clicks + scroll), nothing on reload; consent not required → pill on load. Live `script.js` in production serves the new code.
+- **Seen, not changed.** Existing studies saved the old English default as their own text and keep showing it until edited.
+- **Tests.** Backend 645 → 648, 0 failing. Research 683 passing.
+
 ## v0.99.27 — Eye Tracking: calibration correction on the right spot (2026-10-29)
 
 ### fix(eye-tracking): calibration field applied in screen coords
