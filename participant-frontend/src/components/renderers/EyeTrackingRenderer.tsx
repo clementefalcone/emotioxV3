@@ -570,25 +570,30 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     useEffect(() => {
         if (phase !== 'preparing') return;
 
-        void startCamera();
+        const cameraStart = startCamera();
+        if (cachedCalibration) gaze.start();
 
-        if (cachedCalibration) {
-            gaze.start();
-            const timer = setTimeout(() => {
+        let isCancelled = false;
+        const minimumWait = new Promise<void>((resolve) => setTimeout(resolve, cachedCalibration ? 1500 : 2000));
+        const emotionWarmUp = hasEmotionRecognition
+            ? cameraStart
+                .then((isCameraOn) => (isCameraOn ? faceEmotions.warmUp() : undefined))
+                .catch((err: unknown) => console.warn('[EyeTrackingRenderer] Emotion model warm-up failed, emotions start cold:', err))
+            : Promise.resolve();
+        void Promise.all([minimumWait, emotionWarmUp]).then(() => {
+            if (isCancelled) return;
+            if (cachedCalibration) {
                 gazePointsRef.current = [];
                 setTimeLeft(Math.ceil(viewingDuration / 1000));
                 setPhase('viewing');
-            }, 1500);
-            return () => clearTimeout(timer);
-        }
-
-        const timer = setTimeout(() => {
+                return;
+            }
             calibrationSequence.restartSequence();
             calibrationResidualsRef.current = [];
             calibrationRmsePxRef.current = null;
             setPhase('calibration');
-        }, 2000);
-        return () => clearTimeout(timer);
+        });
+        return () => { isCancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is unstable object literal; reads via ref
     }, [phase, startCamera, cachedCalibration, viewingDuration]);
 

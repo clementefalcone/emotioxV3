@@ -24,7 +24,7 @@ vi.mock('../../hooks/useMediaPipeGaze', () => ({
     useMediaPipeGaze: () => mockMPGaze,
 }));
 
-const mockFaceEmotions = { start: vi.fn(), stop: vi.fn(), samples: [] };
+const mockFaceEmotions = { start: vi.fn(), stop: vi.fn(), warmUp: vi.fn(() => Promise.resolve()), samples: [] };
 vi.mock('../../hooks/useFaceApiEmotions', () => ({
     useFaceApiEmotions: () => mockFaceEmotions,
 }));

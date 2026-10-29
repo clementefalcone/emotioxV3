@@ -176,6 +176,17 @@ export function useFaceApiEmotions({
     cancelAnimationFrame(rafIdRef.current);
   }, []);
 
+  /** Runs the first detection, which compiles the GPU shaders and can block the page for seconds, before samples matter. */
+  const warmUp = useCallback(async (): Promise<void> => {
+    const video = videoRef.current;
+    if (!video?.srcObject) return;
+    if (video.readyState < 2) {
+      await new Promise<void>((resolve) => video.addEventListener('loadeddata', () => resolve(), { once: true }));
+    }
+    await ensureModelsLoaded();
+    await detectFaceWithExpressions(video);
+  }, [videoRef]);
+
   /** Get all collected samples. */
   const getSamples = useCallback((): EmotionSample[] => {
     return [...samplesRef.current];
@@ -190,6 +201,7 @@ export function useFaceApiEmotions({
     isLoaded,
     start,
     stop,
+    warmUp,
     getSamples,
     reset,
   };

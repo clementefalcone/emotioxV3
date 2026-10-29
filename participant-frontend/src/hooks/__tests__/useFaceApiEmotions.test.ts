@@ -121,6 +121,27 @@ describe('useFaceApiEmotions', () => {
         expect(result.current.getSamples()[0].emotion).toBe(ekman);
     });
 
+    it('warms up with one detection on the live camera without recording a sample', async () => {
+        const { useFaceApiEmotions } = await import('../useFaceApiEmotions');
+        const videoRef = { current: { readyState: 4, srcObject: {} } as unknown as HTMLVideoElement };
+        const { result } = renderHook(() => useFaceApiEmotions({ videoRef, enabled: true, sampleIntervalMs: 50 }));
+
+        await act(async () => { await result.current.warmUp(); });
+
+        expect(faceApi.detectCalls).toBe(1);
+        expect(result.current.getSamples()).toHaveLength(0);
+    });
+
+    it('skips the warm-up when the camera never started', async () => {
+        const { useFaceApiEmotions } = await import('../useFaceApiEmotions');
+        const videoRef = { current: { readyState: 0, srcObject: null } as unknown as HTMLVideoElement };
+        const { result } = renderHook(() => useFaceApiEmotions({ videoRef, enabled: true, sampleIntervalMs: 50 }));
+
+        await act(async () => { await result.current.warmUp(); });
+
+        expect(faceApi.detectCalls).toBe(0);
+    });
+
     it('starts sampling once the models finish loading when start() was called before', async () => {
         const { result } = await loadHook();
 

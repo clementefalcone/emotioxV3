@@ -56,11 +56,13 @@ const mockEmotionSamples = [
 
 const mockFaceStart = vi.fn();
 const mockFaceStop = vi.fn();
+const mockFaceWarmUp = vi.fn(() => Promise.resolve());
 const mockGetSamples = vi.fn(() => [...mockEmotionSamples]);
 vi.mock('../../hooks/useFaceApiEmotions', () => ({
     useFaceApiEmotions: () => ({
         start: mockFaceStart,
         stop: mockFaceStop,
+        warmUp: mockFaceWarmUp,
         getSamples: mockGetSamples,
         samples: mockEmotionSamples,
         isLoaded: true,
@@ -213,6 +215,34 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         await act(async () => { vi.advanceTimersByTime(2000); });
 
         expect(mockFaceStart).toHaveBeenCalled();
+    });
+
+    it('starts viewing only after the emotion model warm-up finishes, so its first slow detection never lands in the viewing window', async () => {
+        let finishWarmUp = () => {};
+        mockFaceWarmUp.mockImplementationOnce(() => new Promise<void>((resolve) => { finishWarmUp = resolve; }));
+        const { queryByTestId } = render(
+            <EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />
+        );
+
+        await act(async () => { vi.advanceTimersByTime(5000); });
+        expect(mockFaceWarmUp).toHaveBeenCalledTimes(1);
+        expect(queryByTestId('preparing-phase')).not.toBeNull();
+        expect(mockFaceStart).not.toHaveBeenCalled();
+
+        await act(async () => { finishWarmUp(); });
+        expect(queryByTestId('viewing-phase')).not.toBeNull();
+        expect(mockFaceStart).toHaveBeenCalled();
+    });
+
+    it('still reaches viewing when the warm-up fails', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        mockFaceWarmUp.mockImplementationOnce(() => Promise.reject(new Error('webgl lost')));
+        const { queryByTestId } = render(
+            <EyeTrackingRenderer module={makeModule('true')} onComplete={vi.fn()} />
+        );
+
+        await act(async () => { vi.advanceTimersByTime(2000); });
+        expect(queryByTestId('viewing-phase')).not.toBeNull();
     });
 
     it('mobile + emotion recognition: faceEmotions.stop() called on cleanup from viewing', async () => {
