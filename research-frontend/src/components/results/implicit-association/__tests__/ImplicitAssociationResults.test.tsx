@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import type { IATModuleResult } from '../../../../services/analytics.service';
 
@@ -53,5 +53,15 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
     expect(await screen.findByText('% Positivo por atributo')).toBeInTheDocument();
     expect(screen.getAllByText('Positivo:').length).toBeGreaterThan(0);
     expect(screen.getByText(/81% — Fuerte/)).toBeInTheDocument();
+  });
+
+  it('switches the attribute breakdown between places with tabs', async () => {
+    render(<ImplicitAssociationResults researchId="research-1" />);
+    const curacavi = await screen.findByRole('tab', { name: 'Curacaví' });
+    expect(screen.getByRole('tab', { name: 'Chicureo' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('Chicureo: % de Positivo y Negativo en cada uno de los 1 atributos');
+    fireEvent.click(curacavi);
+    expect(curacavi).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('Curacaví: % de Positivo y Negativo');
   });
 });
