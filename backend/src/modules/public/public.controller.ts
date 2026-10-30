@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
 import * as publicService from './index';
 import * as mediaService from '../media/media.service';
+import { isAuthError, requireParticipantReviewToken } from '../../utils/auth';
 
 export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -75,6 +76,7 @@ export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<A
         if (participantResponsesMatch && httpMethod === 'GET') {
             const researchId = participantResponsesMatch[1];
             const participantId = decodeURIComponent(participantResponsesMatch[2]);
+            requireParticipantReviewToken(event, researchId, participantId);
             const responses = await publicService.getParticipantResponses(researchId, participantId);
             return success({ responses }, 200, undefined, origin);
         }
@@ -226,6 +228,10 @@ export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<A
 
         return error('Route not found', 404, undefined, origin);
     } catch (err: unknown) {
+        if (isAuthError(err)) {
+            console.warn(JSON.stringify({ event: 'public_auth_denied', path, reason: err.message }));
+            return error(err.message, 401, undefined, origin);
+        }
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         console.error('Public API error:', err);
         return error(errorMessage, 500, undefined, origin);

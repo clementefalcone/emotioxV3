@@ -252,12 +252,12 @@ class PublicService {
             return { hasResponded: false };
         }
     }
-    async getParticipantResponses(researchId: string, participantId: string): Promise<ParticipantResponse[]> {
+    async getParticipantResponses(researchId: string, participantId: string, reviewToken: string): Promise<ParticipantResponse[]> {
         const baseUrl = configService.getBaseUrl();
         const url = `${baseUrl}/public/research/${researchId}/participant/${encodeURIComponent(participantId)}/responses`;
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${reviewToken}` } });
         if (!response.ok) {
-            throw new Error('Failed to fetch participant responses');
+            throw new Error(`Failed to fetch responses of participant ${participantId} in research ${researchId}: HTTP ${response.status}`);
         }
         const data = await response.json() as { responses: ParticipantResponse[] };
         return data.responses;

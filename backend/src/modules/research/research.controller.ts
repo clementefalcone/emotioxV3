@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
-import { isAuthError, requireAuth } from '../../utils/auth';
+import { isAuthError, requireAuth, signParticipantReviewToken } from '../../utils/auth';
 import * as researchService from '.';
 import * as researchInProgressService from './research-in-progress.service';
 import * as researchActivityService from './research-activity.service';
@@ -370,6 +370,21 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
                 }
                 throw err;
             }
+        }
+
+        const reviewTokenMatch = path.match(/^\/research\/([^\/]+)\/participants\/([^\/]+)\/review-token$/);
+        if (reviewTokenMatch && httpMethod === 'POST') {
+            const researchId = reviewTokenMatch[1];
+            const participantId = decodeURIComponent(reviewTokenMatch[2]);
+            try {
+                await researchService.getById(researchId, user.id, user.role);
+            } catch (err: unknown) {
+                if (err instanceof Error && err.message === 'Research not found') {
+                    return researchNotFound(researchId, decoded.sub, path, origin);
+                }
+                throw err;
+            }
+            return success({ reviewToken: signParticipantReviewToken(researchId, participantId) }, 200, undefined, origin);
         }
 
         // GET /research/:id/participants/:participantId

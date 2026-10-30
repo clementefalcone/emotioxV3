@@ -15,6 +15,7 @@ import {
     Users
 } from 'lucide-react';
 import { useToast } from '../../../hooks/useToast';
+import { getReviewUrl } from '../../../utils/publicTestsUrl';
 
 interface ParticipantsTableProps {
     participants: Participant[];
@@ -99,6 +100,16 @@ export function ParticipantsTable({
             toast.error('Failed to load participant details');
         } finally {
             setDrawerLoading(false);
+        }
+    };
+    const handleOpenReview = async (participantId: string): Promise<void> => {
+        const reviewWindow = window.open('', '_blank');
+        try {
+            const reviewToken = await researchInProgressService.createParticipantReviewToken(researchId, participantId);
+            if (reviewWindow) reviewWindow.location.href = getReviewUrl(researchId, participantId, reviewToken);
+        } catch (err) {
+            reviewWindow?.close();
+            toast.error(`No se pudo abrir la revisión de ${participantId}: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
     const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
@@ -535,6 +546,9 @@ export function ParticipantsTable({
                     <DrawerDetailsSkeleton />
                 ) : drawerDetails ? (
                     <div className="space-y-6">
+                        <Button variant="outline" size="sm" onClick={() => handleOpenReview(drawerDetails.id)}>
+                            Ver como participante
+                        </Button>
                         {/* Summary */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 bg-gray-50 rounded-lg">

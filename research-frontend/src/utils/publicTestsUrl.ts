@@ -65,7 +65,7 @@ export function getPublicTestsUrl(researchId: string, participantId: string): st
 /**
  * Genera la URL para revisar las respuestas de un participante (read-only)
  */
-export function getReviewUrl(researchId: string, participantId: string): string {
+export function getReviewUrl(researchId: string, participantId: string, reviewToken: string): string {
     const baseUrl = cachedParticipantBaseUrl || `${window.location.protocol}//${window.location.hostname}/participant`;
-    return `${baseUrl}/research/${researchId}?review=${encodeURIComponent(participantId)}`;
+    return `${baseUrl}/research/${researchId}?review=${encodeURIComponent(participantId)}#reviewToken=${encodeURIComponent(reviewToken)}`;
 }

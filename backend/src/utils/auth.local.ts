@@ -135,3 +135,31 @@ export const requireAuth = async (event: APIGatewayProxyEvent): Promise<DecodedT
         throw new AuthError('Invalid or expired token', 'INVALID_TOKEN');
     }
 };
+
+const PARTICIPANT_REVIEW_TTL = '30m';
+
+const getParticipantReviewSecret = (): string => `${getJwtSecret()}:participant-review`;
+
+interface ParticipantReviewToken {
+    researchId: string;
+    participantId: string;
+}
+
+export const signParticipantReviewToken = (researchId: string, participantId: string): string =>
+    jwt.sign({ researchId, participantId }, getParticipantReviewSecret(), { expiresIn: PARTICIPANT_REVIEW_TTL });
+
+export const requireParticipantReviewToken = (event: APIGatewayProxyEvent, researchId: string, participantId: string): void => {
+    const token = extractToken(event);
+    if (!token) {
+        throw new AuthError(`No review token provided for participant ${participantId} in research ${researchId}`, 'NO_TOKEN');
+    }
+    let decoded: ParticipantReviewToken;
+    try {
+        decoded = jwt.verify(token, getParticipantReviewSecret()) as ParticipantReviewToken;
+    } catch {
+        throw new AuthError(`Invalid or expired review token for participant ${participantId} in research ${researchId}`, 'INVALID_TOKEN');
+    }
+    if (decoded.researchId !== researchId || decoded.participantId !== participantId) {
+        throw new AuthError(`Review token does not grant participant ${participantId} in research ${researchId}`, 'INVALID_TOKEN');
+    }
+};

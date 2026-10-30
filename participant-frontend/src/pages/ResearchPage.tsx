@@ -403,7 +403,8 @@ export const ResearchPage = () => {
         // Review mode: load participant responses after modules are ready
         if (reviewParam) {
           try {
-            const responses = await publicService.getParticipantResponses(researchId, reviewParam);
+            const reviewToken = new URLSearchParams(window.location.hash.slice(1)).get('reviewToken') ?? '';
+            const responses = await publicService.getParticipantResponses(researchId, reviewParam, reviewToken);
             for (const r of responses) {
               let parsedValue: unknown = r.value;
               if (typeof parsedValue === 'string') {

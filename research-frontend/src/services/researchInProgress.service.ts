@@ -174,6 +174,13 @@ class ResearchInProgressService {
         }
     }
 
+    async createParticipantReviewToken(researchId: string, participantId: string): Promise<string> {
+        const response = await apiClient.post<{ reviewToken: string }>(
+            `/research/${researchId}/participants/${encodeURIComponent(participantId)}/review-token`
+        );
+        return response.reviewToken;
+    }
+
     /**
      * Elimina un participante
      * @param researchId - ID de la investigación
