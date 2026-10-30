@@ -78,20 +78,7 @@ if [ ! -d "dist" ]; then
     exit 1
 fi
 
-# 5. Crear backup del directorio remoto si existe
-echo ""
-echo "4. Creando backup del directorio remoto..."
-ssh $SSH_OPTS "$SSH_HOST" '
-    REMOTE_DIR="$HOME/public_html/research"
-    if [ -d "$REMOTE_DIR" ]; then
-        BACKUP_DIR="${REMOTE_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
-        cp -r "$REMOTE_DIR" "$BACKUP_DIR"
-        echo "   ✅ Backup creado: $BACKUP_DIR"
-    else
-        mkdir -p "$REMOTE_DIR"
-        echo "   ✅ Directorio creado"
-    fi
-'
+ssh $SSH_OPTS "$SSH_HOST" 'mkdir -p "$HOME/public_html/research"'
 
 # 6. Limpiar directorio remoto (excepto .well-known si existe)
 echo ""
