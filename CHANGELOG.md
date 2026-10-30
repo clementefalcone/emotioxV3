@@ -5,6 +5,10 @@
 - **Change.** The endpoint requires a 30-minute pass scoped to one research + participant, signed with a key distinct from sessions (`signParticipantReviewToken` / `requireParticipantReviewToken`). `POST /research/:id/participants/:pid/review-token` issues it to the study owner. The participant drawer gets "Ver como participante", which opens review mode with the pass in the URL fragment.
 - **Check.** Production: no pass 401, valid pass 200, pass for another participant 401. Backend 663 → 667, research 702, participant 1155, 0 failing. Not checked in the browser.
 
+### fix(privacy): anonymize public progress list
+- The shareable progress page (`/progress/:id`, `GET /public/research/:id/progress`) returned each participant's name, email and external id to anyone with the link. It now returns a stable non-reversible alias (`Participante 3fa91c2e`, sha256 of research + participant) and no email; status, progress, duration and last activity unchanged. Shared links keep working.
+- Check: production "Exploracion Mercado" returns 106 aliased participants. Backend 667 → 669, 0 failing.
+
 ## v0.99.39 — Progress: empty Screener no longer blocks 100 % (2026-10-30)
 
 ### fix(progress): skip unconfigured screener
