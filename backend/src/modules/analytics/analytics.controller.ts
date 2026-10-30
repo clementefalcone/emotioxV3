@@ -86,7 +86,12 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
         if (implicitMatch && httpMethod === 'GET') {
             const researchId = implicitMatch[1];
             const stageId = queryParams?.stageId as string | undefined;
-            const results = await analyticsService.getImplicitAssociationResults(researchId, stageId);
+            const moduleId = queryParams?.moduleId as string | undefined;
+            const participants = queryParams?.participants as string | undefined;
+            const participantIds = participants === undefined
+                ? undefined
+                : new Set(participants.split(',').map(id => id.trim()).filter(Boolean));
+            const results = await analyticsService.getImplicitAssociationResults(researchId, stageId, { moduleId, participantIds });
             return success({ results }, 200, undefined, origin);
         }
 

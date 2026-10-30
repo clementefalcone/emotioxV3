@@ -108,6 +108,19 @@ interface IATModuleResult {
     overallFastRate: number;
   };
   rtDistribution?: RTDistributionStats[];
+  responseQualities?: IATResponseQuality[];
+}
+
+type IATResponseQualityLevel = 'reliable' | 'same_choice' | 'too_fast';
+
+interface IATResponseQuality {
+  participantId: string;
+  quality: IATResponseQualityLevel;
+}
+
+interface IATResultsScope {
+  moduleId?: string;
+  participantIds?: ReadonlySet<string>;
 }
 
 /**
@@ -651,6 +664,25 @@ const MIN_TRIALS_FOR_QUALITY = 5;
 const MIN_ACCURACY_THRESHOLD = 0.6; // 60%
 const MAX_FAST_RATIO = 0.3; // 30% fast trials = flagged
 
+const SAME_CHOICE_RATIO = 0.95;
+
+const isTestTrial = (t: { phase?: string }): boolean =>
+  (t.phase === 'test' || !!t.phase?.startsWith('block')) && t.phase !== 'block-1';
+
+const classifyResponseQuality = (trials: Array<{ criterionId: string; rt: number }>): IATResponseQualityLevel => {
+  if (trials.filter(t => t.rt < FAST_RT_THRESHOLD).length / trials.length > MAX_FAST_RATIO) return 'too_fast';
+  const choiceCounts = new Map<string, number>();
+  for (const t of trials) choiceCounts.set(t.criterionId, (choiceCounts.get(t.criterionId) ?? 0) + 1);
+  return Math.max(...choiceCounts.values()) / trials.length >= SAME_CHOICE_RATIO ? 'same_choice' : 'reliable';
+};
+
+const computeResponseQualities = (rows: Array<{ value: string | unknown; participant_id: string }>): IATResponseQuality[] =>
+  rows.flatMap(row => {
+    const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+    const trials: Array<{ criterionId: string; rt: number; phase?: string }> = (Array.isArray(parsed) ? parsed : parsed?.trials ?? []).filter(isTestTrial);
+    return trials.length > 0 ? [{ participantId: row.participant_id, quality: classifyResponseQuality(trials) }] : [];
+  });
+
 const computeIATParticipantData = (
   rows: Array<{ value: string | unknown; participant_id: string }>,
   targets: IATTarget[],
@@ -931,7 +963,7 @@ export const getIATRawTrials = async (researchId: string) => {
   return { trials };
 };
 
-export const getImplicitAssociationResults = async (researchId: string, filterStageId?: string) => {
+export const getImplicitAssociationResults = async (researchId: string, filterStageId?: string, scope: IATResultsScope = {}) => {
   let stageIds: string[];
   if (filterStageId) {
     stageIds = [filterStageId];
@@ -956,10 +988,13 @@ export const getImplicitAssociationResults = async (researchId: string, filterSt
     ORDER BY order_index
   `;
   const moduleResult = await pool.query(moduleQuery, [researchId, ...stageIds]);
+  const scopedModules = scope.moduleId
+    ? moduleResult.rows.filter((m: Record<string, unknown>) => m.id === scope.moduleId)
+    : moduleResult.rows;
 
   const modules: IATModuleResult[] = [];
 
-  for (const mod of moduleResult.rows) {
+  for (const mod of scopedModules) {
     const testType = detectIATTestType(mod.name);
     let config: any = {};
     try {
@@ -980,12 +1015,15 @@ export const getImplicitAssociationResults = async (researchId: string, filterSt
       WHERE r.research_id = ? AND r.module_id = ? AND r.component_id = 'iat-trials'
       ORDER BY r.created_at ASC
     `;
-    const responsesResult = await pool.query(responsesQuery, [researchId, mod.id]);
+    const allResponses = await pool.query(responsesQuery, [researchId, mod.id]);
+    const responsesResult = scope.participantIds
+      ? { rows: allResponses.rows.filter((r: Record<string, unknown>) => scope.participantIds?.has(r.participant_id as string)) }
+      : allResponses;
 
     const scores = computeIATScores(responsesResult.rows, targets, attributes, testType);
 
     // D-score and error analysis only apply to paradigms with correct/incorrect trials
-    const isLegacyOC = testType === 'objects_comparing' && hasLegacy7BlockData(responsesResult.rows);
+    const isLegacyOC = testType === 'objects_comparing' && hasLegacy7BlockData(allResponses.rows);
     const hasDScore = testType === 'attribute_testing' || isLegacyOC;
     const participantData = hasDScore
       ? computeIATParticipantData(responsesResult.rows as Array<{ value: string | unknown; participant_id: string }>, targets, attributes, testType)
@@ -1022,6 +1060,7 @@ export const getImplicitAssociationResults = async (researchId: string, filterSt
       dScore,
       errorAnalysis,
       rtDistribution: rtDistribution.length > 0 ? rtDistribution : undefined,
+      responseQualities: isLegacyOC ? undefined : computeResponseQualities(allResponses.rows as Array<{ value: string | unknown; participant_id: string }>),
     });
   }
 

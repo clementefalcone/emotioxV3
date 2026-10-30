@@ -43,6 +43,42 @@ const loadObjectsComparingModule = async () => {
   return modules[0];
 };
 
+const sameChoiceTrials = participantTrials.map((t) => ({ ...t, criterionId: 'criteria-1' }));
+const tooFastTrials = participantTrials.map((t) => ({ ...t, rt: 150 }));
+
+const loadThreeParticipants = async (participantIds?: ReadonlySet<string>) => {
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ id: 'module-1', name: 'Objects Comparing', config: JSON.stringify(objectsComparingConfig) }] })
+    .mockResolvedValueOnce({
+      rows: [
+        { value: JSON.stringify(participantTrials), participant_id: 'p-reliable', created_at: new Date() },
+        { value: JSON.stringify(sameChoiceTrials), participant_id: 'p-same', created_at: new Date() },
+        { value: JSON.stringify(tooFastTrials), participant_id: 'p-fast', created_at: new Date() },
+      ],
+    });
+  const { modules } = await getImplicitAssociationResults('research-1', 'stage-1', { participantIds });
+  return modules[0];
+};
+
+describe('getImplicitAssociationResults — response quality', () => {
+  it('labels every participant without dropping anyone', async () => {
+    const mod = await loadThreeParticipants();
+    expect(mod.totalResponses).toBe(3);
+    expect(mod.responseQualities).toEqual([
+      { participantId: 'p-reliable', quality: 'reliable' },
+      { participantId: 'p-same', quality: 'same_choice' },
+      { participantId: 'p-fast', quality: 'too_fast' },
+    ]);
+  });
+
+  it('scores only the chosen participants but keeps every quality label', async () => {
+    const mod = await loadThreeParticipants(new Set(['p-reliable']));
+    expect(mod.totalResponses).toBe(1);
+    expect(mod.scores[0].targetScores).toEqual({ 'target-1': 75, 'target-2': 25 });
+    expect(mod.responseQualities).toHaveLength(3);
+  });
+});
+
 describe('getImplicitAssociationResults — Objects Comparing', () => {
   it('scores each object by the share of Positivo/Negativo choices', async () => {
     const mod = await loadObjectsComparingModule();
