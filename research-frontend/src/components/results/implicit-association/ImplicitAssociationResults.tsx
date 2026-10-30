@@ -1050,35 +1050,44 @@ interface IATModuleCardProps {
   module: IATModuleResult;
   researchId: string;
   stageId?: string;
+  filteredParticipantIds: ReadonlySet<string> | null;
 }
 
-const IATModuleCard = ({ module: fullModule, researchId, stageId }: IATModuleCardProps) => {
+const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredParticipantIds }: IATModuleCardProps) => {
   const [isReliableOnly, setIsReliableOnly] = useState(false);
-  const [reliableModule, setReliableModule] = useState<IATModuleResult | null>(null);
+  const [scopedModule, setScopedModule] = useState<IATModuleResult | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
-  const qualities = useMemo(() => fullModule.responseQualities ?? [], [fullModule.responseQualities]);
+  const qualities = useMemo(
+    () => (fullModule.responseQualities ?? []).filter(q => !filteredParticipantIds || filteredParticipantIds.has(q.participantId)),
+    [fullModule.responseQualities, filteredParticipantIds],
+  );
+  const scopeParticipantIds = useMemo(() => {
+    if (isReliableOnly) return qualities.filter(q => q.quality === 'reliable').map(q => q.participantId);
+    return filteredParticipantIds ? [...filteredParticipantIds] : null;
+  }, [isReliableOnly, qualities, filteredParticipantIds]);
 
   useEffect(() => {
-    setReliableModule(null);
+    setScopedModule(null);
     setFilterError(null);
-    if (!isReliableOnly) return;
+    if (!scopeParticipantIds) return;
     let isCancelled = false;
-    const participantIds = qualities.filter(q => q.quality === 'reliable').map(q => q.participantId);
-    analyticsService.getImplicitAssociationResults(researchId, stageId, { moduleId: fullModule.moduleId, participantIds })
-      .then(results => { if (!isCancelled) setReliableModule(results.modules[0] ?? null); })
+    analyticsService.getImplicitAssociationResults(researchId, stageId, { moduleId: fullModule.moduleId, participantIds: scopeParticipantIds })
+      .then(results => { if (!isCancelled) setScopedModule(results.modules[0] ?? null); })
       .catch((err: unknown) => {
-        if (!isCancelled) setFilterError(`No se pudieron cargar las respuestas fiables: ${err instanceof Error ? err.message : String(err)}`);
+        if (!isCancelled) setFilterError(`No se pudieron cargar los resultados filtrados: ${err instanceof Error ? err.message : String(err)}`);
       });
     return () => { isCancelled = true; };
-  }, [isReliableOnly, qualities, researchId, stageId, fullModule.moduleId]);
+  }, [scopeParticipantIds, researchId, stageId, fullModule.moduleId]);
 
-  const reliabilityFilter = qualities.length > 0 && (
+  const reliabilityFilter = (
     <>
-      <IATReliabilityFilter qualities={qualities} isReliableOnly={isReliableOnly} onChange={setIsReliableOnly} />
+      {qualities.length > 0 && (
+        <IATReliabilityFilter qualities={qualities} isReliableOnly={isReliableOnly} onChange={setIsReliableOnly} />
+      )}
       {filterError && <p className="text-xs text-red-600 mb-4">{filterError}</p>}
     </>
   );
-  const shownModule = isReliableOnly ? reliableModule : fullModule;
+  const shownModule = scopeParticipantIds ? scopedModule : fullModule;
 
   if (!shownModule) {
     return (
@@ -1211,18 +1220,6 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
     filteredParticipantIds,
   } = useResultsFilter(researchId);
 
-  // Filter modules by participant when filters active
-  const filteredModules = useMemo(() => {
-    if (!data?.modules || !filteredParticipantIds) return data?.modules ?? [];
-    return data.modules.map(mod => {
-      const filteredPD = (mod.participantData ?? []).filter(p => filteredParticipantIds.has(p.participantId));
-      return {
-        ...mod,
-        participantData: filteredPD,
-      };
-    });
-  }, [data?.modules, filteredParticipantIds]);
-
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -1258,15 +1255,15 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
           <div className="flex-1 min-w-0">
             {/* Header */}
 
-            {filteredModules.length === 0 ? (
+            {data.modules.length === 0 ? (
               <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
                 <p className="text-sm font-semibold text-gray-700 mb-1">No IAT modules found</p>
                 <p className="text-[13px] text-gray-400">Configure Implicit Association in the study builder.</p>
               </div>
             ) : (
               <div className="space-y-8">
-                {filteredModules.map(mod => (
-                  <IATModuleCard key={mod.moduleId} module={mod} researchId={researchId} stageId={stageId} />
+                {data.modules.map(mod => (
+                  <IATModuleCard key={mod.moduleId} module={mod} researchId={researchId} stageId={stageId} filteredParticipantIds={filteredParticipantIds} />
                 ))}
               </div>
             )}

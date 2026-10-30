@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IATModuleResult } from '../../../../services/analytics.service';
 
 const objectsComparingModule: IATModuleResult = {
@@ -41,6 +41,7 @@ const reliableOnlyModule: IATModuleResult = {
 };
 
 const getResults = vi.hoisted(() => vi.fn());
+const demographicScope = vi.hoisted(() => ({ filteredParticipantIds: null as Set<string> | null }));
 
 vi.mock('../../../../services/analytics.service', () => ({
   getImplicitAssociationResults: getResults,
@@ -55,7 +56,7 @@ vi.mock('../../../../hooks/useResultsFilter', () => ({
     setUserIdFilter: vi.fn(),
     completionMin: 0,
     setCompletionMin: vi.fn(),
-    filteredParticipantIds: null,
+    filteredParticipantIds: demographicScope.filteredParticipantIds,
   }),
 }));
 
@@ -68,6 +69,11 @@ getResults.mockImplementation(async (_researchId: string, _stageId?: string, sco
 }));
 
 describe('ImplicitAssociationResults — Objects Comparing', () => {
+  beforeEach(() => {
+    demographicScope.filteredParticipantIds = null;
+    getResults.mockClear();
+  });
+
   it('shows the choice share per object and the per-attribute breakdown', async () => {
     render(<ImplicitAssociationResults researchId="research-1" />);
     expect(await screen.findByText('% Positivo por atributo')).toBeInTheDocument();
@@ -94,5 +100,15 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
     expect(await screen.findByText(/62% — Media/)).toBeInTheDocument();
     expect(getResults).toHaveBeenLastCalledWith('research-1', undefined, { moduleId: 'module-1', participantIds: ['p-reliable'] });
     expect(screen.getByText(/se muestran 1 de 3/)).toBeInTheDocument();
+  });
+
+  it('recomputes the module for the demographic filter and counts only those participants', async () => {
+    demographicScope.filteredParticipantIds = new Set(['p-reliable', 'p-same']);
+    render(<ImplicitAssociationResults researchId="research-1" />);
+    expect(await screen.findByText(/62% — Media/)).toBeInTheDocument();
+    expect(getResults).toHaveBeenLastCalledWith('research-1', undefined, { moduleId: 'module-1', participantIds: ['p-reliable', 'p-same'] });
+    expect(screen.getByRole('button', { name: 'Todos (2)' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Solo fiables (1)' }));
+    await vi.waitFor(() => expect(getResults).toHaveBeenLastCalledWith('research-1', undefined, { moduleId: 'module-1', participantIds: ['p-reliable'] }));
   });
 });
