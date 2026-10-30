@@ -1,3 +1,11 @@
+## v0.99.39 — Progress: empty Screener no longer blocks 100 % (2026-10-30)
+
+### fix(progress): skip unconfigured screener
+- **Report.** "Exploracion Mercado" > IAT 2 showed charts with every value at 0 % and "Sin respuestas aún". The researcher had "Min. completion" at 100 %.
+- **Cause.** The study has a Screener with no question text. The participant never sees it, but the progress denominator counted it, so no participant could reach 100 %: 0 of 106 at 100 %, 100 at 97 %. The 100 % filter matched nobody.
+- **Fix.** `isModuleConfiguredForProgress` counts a Screener only when `question-title` / `screener-question` has text, as the participant does.
+- **Check.** Production, live DB: 100 of 106 participants now at 100 %. Backend 660 → 661, 0 failing.
+
 ## v0.99.38 — IAT: raw data download per module (2026-10-30)
 
 ### feat(iat): name attribute and trial in raw trials
