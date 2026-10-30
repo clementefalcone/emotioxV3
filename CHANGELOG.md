@@ -12,6 +12,9 @@
 - Real data of module `894d11c3` through the new code: Positivo Chicureo 81 %, Curacaví 75 %, Cajón del Maipo 80 %, Algarrobo 82 %; per attribute matches a manual count (e.g. Aniversario empresa × Chicureo 91 %, Semana santa × Curacaví 63 %).
 - Tests: backend 655 → 657, research 687 → 688, 0 failing.
 
+### feat(iat): tab objects comparing results by place
+- "Desempeño por lugar": one tab per place, stacked Positivo/Negativo bar per attribute, sorted by Positivo. Real data, module `9db0ac8b`, Chicureo: Buena experiencia 89 % … Lejos 54 % across its 12 attributes. Research 688 → 689, 0 failing.
+
 ## v0.99.35 — Website Tracking: camera off / optional / required per feature (2026-10-30)
 
 ### feat(tracking): camera modes
