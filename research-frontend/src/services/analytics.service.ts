@@ -415,6 +415,25 @@ export interface IATResponseQuality {
     quality: IATResponseQualityLevel;
 }
 
+export interface IATRawTrial {
+    participantId: string;
+    moduleId: string;
+    trialNumber: number;
+    phase: string;
+    targetName: string;
+    attributeLabel: string;
+    criterionLabel: string;
+    rt: number;
+    correct: boolean;
+}
+
+export const getIATRawTrials = async (researchId: string, moduleId: string): Promise<IATRawTrial[]> => {
+    const response = await apiClient.get<{ results: { trials: IATRawTrial[] } }>(
+        `/analytics/research/${researchId}/implicit-association/raw-trials?moduleId=${encodeURIComponent(moduleId)}`
+    );
+    return response.results.trials;
+};
+
 export interface ImplicitAssociationResults {
     modules: IATModuleResult[];
 }

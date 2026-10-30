@@ -8,6 +8,7 @@ import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { Filters } from '../shared/Filters';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { IATReliabilityFilter } from './IATReliabilityFilter';
+import { downloadIATRawData } from './iatRawDataExport';
 import { useResultsFilter } from '../../../hooks/useResultsFilter';
 import * as analyticsService from '../../../services/analytics.service';
 import type { IATModuleResult, IATParticipantData } from '../../../services/analytics.service';
@@ -1051,9 +1052,10 @@ interface IATModuleCardProps {
   researchId: string;
   stageId?: string;
   filteredParticipantIds: ReadonlySet<string> | null;
+  moduleLabel: string;
 }
 
-const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredParticipantIds }: IATModuleCardProps) => {
+const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredParticipantIds, moduleLabel }: IATModuleCardProps) => {
   const [isReliableOnly, setIsReliableOnly] = useState(false);
   const [scopedModule, setScopedModule] = useState<IATModuleResult | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -1098,10 +1100,43 @@ const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredPartic
     );
   }
 
-  return <IATModuleView module={shownModule} reliabilityFilter={reliabilityFilter} />;
+  const rawDataButton = <RawDataButton researchId={researchId} module={fullModule} moduleLabel={moduleLabel} />;
+
+  return <IATModuleView module={shownModule} reliabilityFilter={reliabilityFilter} rawDataButton={rawDataButton} />;
 };
 
-const IATModuleView = ({ module: mod, reliabilityFilter }: { module: IATModuleResult; reliabilityFilter: ReactNode }) => {
+const RawDataButton = ({ researchId, module: mod, moduleLabel }: { researchId: string; module: IATModuleResult; moduleLabel: string }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    setDownloadError(null);
+    try {
+      await downloadIATRawData(researchId, mod, moduleLabel);
+    } catch (err) {
+      setDownloadError(`No se pudo descargar el raw data de ${moduleLabel}: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={handleDownload}
+        disabled={isDownloading}
+        className="px-3 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
+      >
+        {isDownloading ? 'Preparando raw data…' : 'Descargar raw data'}
+      </button>
+      {downloadError && <p className="text-xs text-red-600">{downloadError}</p>}
+    </div>
+  );
+};
+
+const IATModuleView = ({ module: mod, reliabilityFilter, rawDataButton }: { module: IATModuleResult; reliabilityFilter: ReactNode; rawDataButton: ReactNode }) => {
   const targetLabels = mod.testType === 'objects_comparing'
     ? (mod.attributes.length >= 2 ? [mod.attributes[0].label, mod.attributes[1].label] : mod.targets.map(t => t.name))
     : mod.targets.map(t => t.name);
@@ -1142,12 +1177,15 @@ const IATModuleView = ({ module: mod, reliabilityFilter }: { module: IATModuleRe
             Tabla
           </button>
         </div>
-        <button
-          onClick={() => downloadCSV(tableData.headers, tableData.rows, `${mod.testTitle || mod.testType}.csv`)}
-          className="px-3 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
-        >
-          Exportar CSV
-        </button>
+        <div className="flex items-start gap-2">
+          <button
+            onClick={() => downloadCSV(tableData.headers, tableData.rows, `${mod.testTitle || mod.testType}.csv`)}
+            className="px-3 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            Exportar CSV
+          </button>
+          {rawDataButton}
+        </div>
       </div>
 
       {viewMode === 'chart' ? (
@@ -1262,8 +1300,8 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
               </div>
             ) : (
               <div className="space-y-8">
-                {data.modules.map(mod => (
-                  <IATModuleCard key={mod.moduleId} module={mod} researchId={researchId} stageId={stageId} filteredParticipantIds={filteredParticipantIds} />
+                {data.modules.map((mod, index) => (
+                  <IATModuleCard key={mod.moduleId} module={mod} researchId={researchId} stageId={stageId} filteredParticipantIds={filteredParticipantIds} moduleLabel={mod.testTitle || `IAT ${index + 1}`} />
                 ))}
               </div>
             )}
