@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../ui/Card';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { Filters } from '../shared/Filters';
 import { useResultsFilter } from '../../../hooks/useResultsFilter';
+import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
 import { TrendingUp, TrendingDown, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import * as analyticsService from '../../../services/analytics.service';
 import type { ScreenerResults as ScreenerResultsType } from '../../../services/analytics.service';
@@ -39,22 +40,30 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
     setUserIdFilter,
     completionMin,
     setCompletionMin,
+    filteredParticipantIds,
   } = useResultsFilter(researchId);
+  const scopeParticipantIds = useMemo(
+    () => (filteredParticipantIds ? [...filteredParticipantIds] : undefined),
+    [filteredParticipantIds],
+  );
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (isCancelled: () => boolean = () => false) => {
     setError(null);
     try {
-      const results = await analyticsService.getScreenerResults(researchId);
-      setData(results);
+      const results = await analyticsService.getScreenerResults(researchId, scopeParticipantIds);
+      if (!isCancelled()) setData(results);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load screener results'));
+      if (!isCancelled()) setError(err instanceof Error ? err : new Error(`Failed to load screener results for research ${researchId}`));
     } finally {
-      setIsLoading(false);
+      if (!isCancelled()) setIsLoading(false);
     }
-  }, [researchId]);
+  }, [researchId, scopeParticipantIds]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    let isCancelled = false;
+    fetchData(() => isCancelled);
+    return () => { isCancelled = true; };
+  }, [fetchData]);
 
   const loadingSkeleton = (
     <div className="space-y-6 animate-pulse">
@@ -74,7 +83,7 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
     <ResultsStateHandler
       isLoading={isLoading}
       error={error}
-      onRetry={fetchData}
+      onRetry={() => fetchData()}
       loadingSkeleton={loadingSkeleton}
     >
       {data && (
@@ -84,37 +93,43 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
           ) : null}
 
           <div className="flex items-start gap-6">
-            <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <Card className="lg:col-span-3 rounded-lg shadow-none">
-                <CardContent className="p-6">
-                  <DistributionChart data={data} />
-                </CardContent>
-              </Card>
-
-              <div className="lg:col-span-2 flex flex-col gap-4">
-                <StatusCard
-                  label="Entrevistas con sobrecutoa"
-                  count={data.overquota}
-                  icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
-                />
-                <StatusCard
-                  label="Entrevistas descalificadas"
-                  count={data.disqualified}
-                  icon={<XCircle className="h-5 w-5 text-red-500" />}
-                />
-                <StatusCard
-                  label="Entrevistas completas"
-                  count={data.qualified}
-                  icon={<CheckCircle className="h-5 w-5 text-green-500" />}
-                />
-
-                <Card className="flex-1 rounded-lg shadow-none">
-                  <CardContent className="p-4 h-full">
-                    <WeeklyChart timeSeries={data.weeklyTimeSeries} />
+            {filteredParticipantIds?.size === 0 ? (
+              <div className="flex-1 min-w-0">
+                <NoMatchingParticipantsNotice />
+              </div>
+            ) : (
+              <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <Card className="lg:col-span-3 rounded-lg shadow-none">
+                  <CardContent className="p-6">
+                    <DistributionChart data={data} />
                   </CardContent>
                 </Card>
+
+                <div className="lg:col-span-2 flex flex-col gap-4">
+                  <StatusCard
+                    label="Entrevistas con sobrecutoa"
+                    count={data.overquota}
+                    icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+                  />
+                  <StatusCard
+                    label="Entrevistas descalificadas"
+                    count={data.disqualified}
+                    icon={<XCircle className="h-5 w-5 text-red-500" />}
+                  />
+                  <StatusCard
+                    label="Entrevistas completas"
+                    count={data.qualified}
+                    icon={<CheckCircle className="h-5 w-5 text-green-500" />}
+                  />
+
+                  <Card className="flex-1 rounded-lg shadow-none">
+                    <CardContent className="p-4 h-full">
+                      <WeeklyChart timeSeries={data.weeklyTimeSeries} />
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="w-80 shrink-0 sticky top-0 max-h-[calc(100vh-8rem)] overflow-y-auto">
               <Filters

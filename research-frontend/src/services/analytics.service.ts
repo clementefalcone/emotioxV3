@@ -311,9 +311,10 @@ export interface ScreenerResults {
     }>;
 }
 
-export const getScreenerResults = async (researchId: string): Promise<ScreenerResults> => {
+export const getScreenerResults = async (researchId: string, participantIds?: readonly string[]): Promise<ScreenerResults> => {
+    const qs = participantIds ? `?${new URLSearchParams({ participants: participantIds.join(',') })}` : '';
     const response = await apiClient.get<{ results: ScreenerResults }>(
-        `/analytics/research/${researchId}/screener`
+        `/analytics/research/${researchId}/screener${qs}`
     );
     return response.results;
 };

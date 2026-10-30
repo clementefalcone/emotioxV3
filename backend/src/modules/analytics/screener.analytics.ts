@@ -9,7 +9,7 @@ import pool from '../../config/database';
 // SCREENER RESULTS
 // ==========================================
 
-export const getScreenerResults = async (researchId: string) => {
+export const getScreenerResults = async (researchId: string, participantIds?: ReadonlySet<string>) => {
   // 1. Find the Screener stage and its module(s)
   const stageQuery = `
     SELECT s.id as stage_id, s.name as stage_name
@@ -73,6 +73,8 @@ export const getScreenerResults = async (researchId: string) => {
     return { totalResponses: 0, qualified: 0, disqualified: 0, overquota: 0, choiceDistribution: [], dailyDistribution: [], bestDay: null, slowestDay: null, weeklyTimeSeries: [], questionText };
   }
 
+  const isInScope = (participantId: string) => !participantIds || participantIds.has(participantId);
+
   // 3. Get all responses for Screener modules
   const placeholders = moduleIds.map(() => '?').join(',');
   const responsesQuery = `
@@ -91,20 +93,19 @@ export const getScreenerResults = async (researchId: string) => {
 
   // 4. Get participant statuses from participants table
   const statusQuery = `
-    SELECT status, COUNT(*) as cnt
+    SELECT participant_id, status
     FROM participants
     WHERE research_id = ?
-    GROUP BY status
   `;
   const statusResult = await pool.query(statusQuery, [researchId]);
   const statusCounts: Record<string, number> = {};
-  for (const row of statusResult.rows) {
-    statusCounts[row.status] = parseInt(row.cnt);
+  for (const row of statusResult.rows.filter(row => isInScope(row.participant_id))) {
+    statusCounts[row.status] = (statusCounts[row.status] || 0) + 1;
   }
 
   // 5. Also count from participant_demographics for disqualifications (kiosk mode doesn't use participants table)
   // Use responses-based counting as primary source
-  const responses = responsesResult.rows.map(row => {
+  const responses = responsesResult.rows.filter(row => isInScope(row.participant_id)).map(row => {
     let value: string | string[];
     try {
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;

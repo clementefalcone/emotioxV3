@@ -30,6 +30,10 @@ const collectSmartVOCResults = async (researchFilter: string, params: string[]) 
     return results;
 };
 
+const readParticipantIds = (participants: string | undefined): Set<string> | undefined => (
+    participants === undefined ? undefined : new Set(participants.split(',').map(id => id.trim()).filter(Boolean))
+);
+
 const RESEARCH_SCOPED_PATH = /^\/analytics\/(?:research|benchmark)\/([^\/]+)/;
 
 export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPublicRequest = false): Promise<APIGatewayProxyResult> => {
@@ -69,7 +73,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
         const screenerMatch = path.match(/^\/analytics\/research\/([^\/]+)\/screener$/);
         if (screenerMatch && httpMethod === 'GET') {
             const researchId = screenerMatch[1];
-            const results = await analyticsService.getScreenerResults(researchId);
+            const results = await analyticsService.getScreenerResults(researchId, readParticipantIds(queryParams?.participants));
             return success({ results }, 200, undefined, origin);
         }
 
@@ -87,10 +91,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
             const researchId = implicitMatch[1];
             const stageId = queryParams?.stageId as string | undefined;
             const moduleId = queryParams?.moduleId as string | undefined;
-            const participants = queryParams?.participants as string | undefined;
-            const participantIds = participants === undefined
-                ? undefined
-                : new Set(participants.split(',').map(id => id.trim()).filter(Boolean));
+            const participantIds = readParticipantIds(queryParams?.participants);
             const results = await analyticsService.getImplicitAssociationResults(researchId, stageId, { moduleId, participantIds });
             return success({ results }, 200, undefined, origin);
         }
@@ -101,10 +102,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
             const researchId = eyeTrackingMatch[1];
             const stageId = queryParams?.stageId as string | undefined;
             const moduleId = queryParams?.moduleId as string | undefined;
-            const participants = queryParams?.participants as string | undefined;
-            const participantIds = participants === undefined
-                ? undefined
-                : new Set(participants.split(',').map(id => id.trim()).filter(Boolean));
+            const participantIds = readParticipantIds(queryParams?.participants);
             const results = await analyticsService.getEyeTrackingResults(researchId, stageId, { moduleId, participantIds });
             return success({ results }, 200, undefined, origin);
         }
