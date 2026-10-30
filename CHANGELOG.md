@@ -9,6 +9,9 @@
 ### fix(iat): say when filters match nobody
 - A filter that left no participants drew every IAT chart at 0 % with "Sin respuestas aún". The card now skips the request and shows "Ningún participante cumple los filtros activos". Research 692 → 693, 0 failing. Not checked in the browser.
 
+### fix(results): say when filters match nobody
+- SmartVOC, Cognitive Tasks and Eye Tracking show the same notice (`shared/NoMatchingParticipantsNotice`) in place of the charts; the filters panel stays visible. Research 693 → 699, 0 failing. Not checked in the browser.
+
 ## v0.99.38 — IAT: raw data download per module (2026-10-30)
 
 ### feat(iat): name attribute and trial in raw trials
