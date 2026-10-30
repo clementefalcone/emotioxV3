@@ -12,6 +12,12 @@
 - Production backend on the live DB: IAT 1 57 reliable / 30 same choice / 15 too fast; IAT 2 66 / 14 / 21. IAT 2 reliable only: Curacaví 77 → 73 % Positivo, Cajón 82 → 80 %, Chicureo 82 %, Algarrobo 84 % unchanged. Browser render with real data, both states.
 - Tests: backend 657 → 659, research 689 → 690, 0 failing.
 
+### fix(iat): show positivo labels, drop profile radar
+- The divergent chart drew the left (Positivo) % inside its own bar in the same colour; it now sits outside the bar. Removed "Perfil por objeto", which repeated the first chart.
+
+### feat(iat): apply demographic filters to results
+- Demographic, user ID and completion filters only trimmed the D-score table. Each IAT card now recomputes its module server-side for the filtered participants; "Todos / Solo fiables" counts within that group. Research 690 → 691, 0 failing.
+
 ### ops
 - Backend deploy failed on cPanel disk quota (21.7 of 20 GB). Removed 116 old frontend deploy backups in `public_html` (kept the 3 newest per app): 12.6 GB used. Inodes stay near the limit (294,366 of 300,000).
 
