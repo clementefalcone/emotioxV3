@@ -38,10 +38,12 @@ export interface TrackingConfig {
     dataRetentionDays: number;
     funnels?: FunnelDefinition[];
     verified?: boolean;
-    captureEmotions: boolean;
-    captureGaze: boolean;
+    emotionsMode: CameraFeatureMode;
+    gazeMode: CameraFeatureMode;
     zones: TrackingZone[];
 }
+
+export type CameraFeatureMode = 'off' | 'optional' | 'required';
 
 export interface TrackingZone {
     id: string;

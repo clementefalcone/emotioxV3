@@ -7,13 +7,13 @@ interface TrackingCaptureEmptyStateProps {
     researchId: string;
     icon: LucideIcon;
     title: string;
-    captureSetting: 'captureEmotions' | 'captureGaze';
+    captureSetting: 'emotionsMode' | 'gazeMode';
     toggleLabel: string;
 }
 
 const describeCaptureHint = (config: TrackingConfig | undefined, props: TrackingCaptureEmptyStateProps): string | null => {
     if (!config) return null;
-    if (!config[props.captureSetting]) return `Enable "${props.toggleLabel}" in tracking config`;
+    if (config[props.captureSetting] === 'off') return `Set "${props.toggleLabel}" to Optional or Required in tracking config`;
     return 'Capture is on — no visitor has accepted the camera and finished calibration yet';
 };
 

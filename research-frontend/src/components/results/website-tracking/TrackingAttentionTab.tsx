@@ -75,7 +75,7 @@ export const TrackingAttentionTab = ({ researchId, selectedPageUrl }: TrackingAt
                 researchId={researchId}
                 icon={Eye}
                 title="No attention data collected yet"
-                captureSetting="captureGaze"
+                captureSetting="gazeMode"
                 toggleLabel="Gaze Tracking"
             />
         );

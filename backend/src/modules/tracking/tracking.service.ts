@@ -82,10 +82,16 @@ interface TrackingConfig {
     excludePages: string[];
     dataRetentionDays: number;
     funnels?: FunnelDefinition[];
-    captureEmotions: boolean;
-    captureGaze: boolean;
+    emotionsMode: CameraFeatureMode;
+    gazeMode: CameraFeatureMode;
     zones: TrackingZone[];
 }
+
+export const CAMERA_FEATURE_MODES = ['off', 'optional', 'required'] as const;
+export type CameraFeatureMode = (typeof CAMERA_FEATURE_MODES)[number];
+
+const toCameraFeatureMode = (value: unknown): CameraFeatureMode =>
+    CAMERA_FEATURE_MODES.find((mode) => mode === value) ?? 'off';
 
 // ─── Session Management ──────────────────────────────────────────────
 
@@ -307,8 +313,8 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
         excludePages: (trackingConfig.excludePages as string[]) || [],
         dataRetentionDays: (trackingConfig.dataRetentionDays as number) || 90,
         funnels: (trackingConfig.funnels as FunnelDefinition[]) || [],
-        captureEmotions: trackingConfig.captureEmotions === true,
-        captureGaze: trackingConfig.captureGaze === true,
+        emotionsMode: toCameraFeatureMode(trackingConfig.emotionsMode),
+        gazeMode: toCameraFeatureMode(trackingConfig.gazeMode),
         zones: Array.isArray(trackingConfig.zones) ? trackingConfig.zones.filter(isTrackingZone) : [],
     };
 };

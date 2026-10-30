@@ -76,7 +76,7 @@ const renderComponent = (props: { researchId: string; selectedPageUrl?: string }
 describe('TrackingEmotionsTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ captureEmotions: false } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
+        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ emotionsMode: 'off' } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
     });
 
     it('renders loading state with pulse skeletons', () => {
@@ -96,11 +96,11 @@ describe('TrackingEmotionsTab', () => {
         await waitFor(() => {
             expect(screen.getByText('No emotion data collected yet')).toBeInTheDocument();
         });
-        expect(await screen.findByText('Enable "Emotions" in tracking config')).toBeInTheDocument();
+        expect(await screen.findByText('Set "Emotions" to Optional or Required in tracking config')).toBeInTheDocument();
     });
 
     it('explains that capture is on but no visitor finished the camera step', async () => {
-        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ captureEmotions: true } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
+        vi.mocked(trackingService.getTrackingConfig).mockResolvedValue({ emotionsMode: 'optional' } as Awaited<ReturnType<typeof trackingService.getTrackingConfig>>);
         vi.mocked(trackingService.getTrackingEmotions).mockResolvedValue(EMPTY_DATA);
         renderComponent({ researchId: 'r1' });
 

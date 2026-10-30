@@ -9,7 +9,7 @@ import { Globe, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import * as trackingService from '../../services/tracking.service';
-import type { TrackingConfig } from '../../services/tracking.service';
+import type { CameraFeatureMode, TrackingConfig } from '../../services/tracking.service';
 import { researchKeys } from '../../hooks/useResearchQuery';
 import { CopyButton } from '../ui/CopyButton';
 import { TrackingZonesEditor } from './TrackingZonesEditor';
@@ -43,8 +43,8 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
         targetPages: existingConfig.targetPages || [],
         excludePages: existingConfig.excludePages || [],
         dataRetentionDays: existingConfig.dataRetentionDays || 90,
-        captureEmotions: existingConfig.captureEmotions === true,
-        captureGaze: existingConfig.captureGaze === true,
+        emotionsMode: existingConfig.emotionsMode ?? 'off',
+        gazeMode: existingConfig.gazeMode ?? 'off',
         zones: existingConfig.zones || [],
     });
     const [domainInput, setDomainInput] = useState('');
@@ -241,19 +241,19 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                         <CompactToggle label="Scroll" enabled={config.captureScroll} onToggle={() => handleToggle('captureScroll')} />
                         <CompactToggle label="Mouse" enabled={config.captureMousemove} onToggle={() => handleToggle('captureMousemove')} />
                         <CompactToggle label="Consent" enabled={config.consentRequired} onToggle={() => handleToggle('consentRequired')} />
-                        <CompactToggle label="Emotions" enabled={config.captureEmotions} onToggle={() => handleToggle('captureEmotions')} />
-                        {config.captureEmotions && (
-                            <p className="text-[10px] text-gray-400 ml-9">Webcam-based facial expression estimation, only for visitors who turn on the camera from the footer notice or the side tab. Best for aggregate trends across sessions.</p>
+                        <CompactModeSelect label="Emotions" mode={config.emotionsMode} onChange={(emotionsMode) => setConfig((prev) => ({ ...prev, emotionsMode }))} />
+                        {config.emotionsMode !== 'off' && (
+                            <p className="text-[10px] text-gray-400">{EMOTIONS_MODE_HINTS[config.emotionsMode]}</p>
                         )}
-                        <CompactToggle label="Gaze Tracking" enabled={config.captureGaze} onToggle={() => handleToggle('captureGaze')} />
-                        {config.captureGaze && (
-                            <p className="text-[10px] text-gray-400 ml-9">Visitors who turn on the camera go through the Eye Tracking consent, face position and 13-point calibration. Generates gaze heatmaps without cursor data.</p>
+                        <CompactModeSelect label="Gaze Tracking" mode={config.gazeMode} onChange={(gazeMode) => setConfig((prev) => ({ ...prev, gazeMode }))} />
+                        {config.gazeMode !== 'off' && (
+                            <p className="text-[10px] text-gray-400">{GAZE_MODE_HINTS[config.gazeMode]}</p>
                         )}
                     </div>
                 </div>
             </div>
 
-            {config.captureGaze && (
+            {config.gazeMode !== 'off' && (
                 <TrackingZonesEditor
                     researchId={research.id}
                     zones={config.zones}
@@ -471,6 +471,43 @@ const ChecklistItem = ({ done, label }: { done: boolean; label: string }) => (
             {done && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
         </div>
         <span className={`text-xs ${done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{label}</span>
+    </div>
+);
+
+const CAMERA_FEATURE_MODES: ReadonlyArray<{ mode: CameraFeatureMode; label: string }> = [
+    { mode: 'off', label: 'Off' },
+    { mode: 'optional', label: 'Optional' },
+    { mode: 'required', label: 'Required' },
+];
+
+const EMOTIONS_MODE_HINTS: Record<Exclude<CameraFeatureMode, 'off'>, string> = {
+    optional: 'Webcam-based facial expression estimation for visitors who turn on the camera. Visitors who decline are still tracked without it.',
+    required: 'Visitors must turn on the camera to take part. Nothing is recorded from visitors who decline or whose camera fails.',
+};
+
+const GAZE_MODE_HINTS: Record<Exclude<CameraFeatureMode, 'off'>, string> = {
+    optional: 'Visitors who turn on the camera go through face position and 13-point calibration. Visitors who decline are still tracked without it.',
+    required: 'Visitors must turn on the camera and finish calibration to take part. Nothing is recorded from visitors who decline.',
+};
+
+const CompactModeSelect = ({ label, mode, onChange }: { label: string; mode: CameraFeatureMode; onChange: (mode: CameraFeatureMode) => void }) => (
+    <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-700">{label}</span>
+        <div className="flex items-center gap-0.5 rounded-md border border-gray-200 p-0.5" role="group" aria-label={label}>
+            {CAMERA_FEATURE_MODES.map((option) => (
+                <button
+                    key={option.mode}
+                    type="button"
+                    aria-pressed={mode === option.mode}
+                    onClick={() => onChange(option.mode)}
+                    className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                        mode === option.mode ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-gray-100'
+                    }`}
+                >
+                    {option.label}
+                </button>
+            ))}
+        </div>
     </div>
 );
 

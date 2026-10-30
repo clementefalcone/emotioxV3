@@ -129,9 +129,9 @@ export const handlePublicTrackingRoutes = async (
                     samplingRate: config.samplingRate,
                     targetPages: config.targetPages,
                     excludePages: config.excludePages,
-                    captureEmotions: config.captureEmotions,
+                    emotionsMode: config.emotionsMode,
                     emotionModelBaseUrl: apiBaseUrl + '/media/face-api-models',
-                    captureGaze: config.captureGaze,
+                    gazeMode: config.gazeMode,
                     eyeEmbedUrl: (process.env.PARTICIPANT_FRONTEND_URL || 'https://emotio.cx/participant') + '/embed/eye.js',
                     zones: config.zones,
                 });

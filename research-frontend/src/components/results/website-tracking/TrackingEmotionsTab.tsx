@@ -62,7 +62,7 @@ export const TrackingEmotionsTab = ({ researchId, selectedPageUrl }: TrackingEmo
                 researchId={researchId}
                 icon={SmilePlus}
                 title="No emotion data collected yet"
-                captureSetting="captureEmotions"
+                captureSetting="emotionsMode"
                 toggleLabel="Emotions"
             />
         );

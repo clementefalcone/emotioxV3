@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { generateTrackingSnippet } from '../tracking-snippet';
+import type { CameraFeatureMode } from '../tracking.service';
 import {
     estimateAttentionState,
     computeAttentionScore,
@@ -32,9 +33,9 @@ const defaultConfig = {
     samplingRate: 100,
     targetPages: [],
     excludePages: [],
-    captureEmotions: true,
+    emotionsMode: 'optional' as CameraFeatureMode,
     emotionModelBaseUrl: 'https://cdn.example.com/models',
-    captureGaze: false,
+    gazeMode: 'off' as CameraFeatureMode,
     eyeEmbedUrl: 'https://emotio.cx/participant/embed/eye.js',
     zones: [] as Array<{ id: string; pageUrl: string; selector: string }>,
 };
@@ -51,7 +52,7 @@ describe('generateTrackingSnippet — JS validity', () => {
 
     it('produces valid JS with all config combinations', () => {
         const configs = [
-            { ...defaultConfig, captureEmotions: false },
+            { ...defaultConfig, emotionsMode: 'off' as CameraFeatureMode },
             { ...defaultConfig, consentRequired: true },
             { ...defaultConfig, allowedDomains: ['a.com', 'b.com', 'c.com'] },
             { ...defaultConfig, targetPages: ['/pricing', '/about'] },
@@ -242,7 +243,7 @@ describe('generateTrackingSnippet — emotion and gaze delivery', () => {
 
 describe('generateTrackingSnippet — why a page has no camera data', () => {
     const runUnload = (isEyeFlowOpen: boolean) => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' });
         const unloadHandler = js.slice(js.indexOf('window.addEventListener("beforeunload"'), js.indexOf('// SPA navigation'));
         const reportCaptureError = vi.fn();
         const handlers: Array<() => void> = [];
@@ -274,7 +275,7 @@ interface FakeEyeOptions {
 }
 
 function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isChosen = true, isCalibrationFresh = true, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isChosen?: boolean; isCalibrationFresh?: boolean; pageLang?: string } = {}) {
-    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze, captureEmotions });
+    const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: captureGaze ? 'optional' : 'off', emotionsMode: captureEmotions ? 'optional' : 'off' });
     const source = js.slice(js.indexOf('var eyeSession=null,isEyeFlowOpen=false;'), js.indexOf('function loadFaceApi(cb){'));
     const starts: FakeEyeOptions[] = [];
     const window = { EmotioxEye: { start: (options: FakeEyeOptions) => starts.push(options) } };
@@ -386,7 +387,7 @@ interface FakeElement {
 }
 
 function runCameraChoice({ stored = {}, captureGaze = true, captureEmotions = true }: { stored?: Record<string, string>; captureGaze?: boolean; captureEmotions?: boolean } = {}) {
-    const js = generateTrackingSnippet({ ...defaultConfig, captureGaze, captureEmotions });
+    const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: captureGaze ? 'optional' : 'off', emotionsMode: captureEmotions ? 'optional' : 'off' });
     const source = js.slice(js.indexOf('var CAMERA_CHOICE_KEY='), js.indexOf('// FACS Action Units'));
     const storage: Record<string, string> = { ...stored };
     const attached = new Map<string, FakeElement>();
@@ -567,30 +568,31 @@ describe('generateTrackingSnippet — emotion sampling like the Eye Tracking mod
     });
 
     it('resumes sampling after a tab switch only once capture began', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' });
         expect(js).toContain('if(isCaptureStarted&&emoStream&&!emoRunning)startSampling();');
     });
 });
 
 describe('generateTrackingSnippet — one shared camera', () => {
-    const loadWithCamera = (js: string, mediaDevices?: { getUserMedia: () => Promise<object> }) => {
+    const loadWithCamera = (js: string, mediaDevices?: { getUserMedia: () => Promise<object> }, isCameraRequired = false) => {
         const source = js.slice(js.indexOf('var cameraWaiters=null;'), js.indexOf('function startSampling(){'));
         let resolveStream: (stream: object) => void = () => undefined;
         const getUserMedia = vi.fn(() => new Promise<object>((resolve) => { resolveStream = resolve; }));
         const reportCaptureError = vi.fn();
+        const refuseRequiredCamera = vi.fn();
         const fakeDocument = { createElement: () => ({ setAttribute: () => undefined, style: {}, remove: () => undefined }), body: { appendChild: () => undefined } };
-        const { withCamera, releaseCamera } = new Function('C', 'navigator', 'document', 'reportCaptureError',
+        const { withCamera, releaseCamera } = new Function('C', 'navigator', 'document', 'reportCaptureError', 'isCameraRequired', 'refuseRequiredCamera',
             `var emoVideo=null,emoStream=null,eyeSession=null;${source}return {withCamera:withCamera,releaseCamera:releaseCamera};`,
-        )({ gaze: true }, { mediaDevices: mediaDevices ?? { getUserMedia } }, fakeDocument, reportCaptureError) as {
+        )({ gaze: true }, { mediaDevices: mediaDevices ?? { getUserMedia } }, fakeDocument, reportCaptureError, () => isCameraRequired, refuseRequiredCamera) as {
             withCamera: (cb: (stream: object) => void) => void;
             releaseCamera: () => void;
         };
-        return { withCamera, releaseCamera, getUserMedia, reportCaptureError, resolveStream: (stream: object) => resolveStream(stream) };
+        return { withCamera, releaseCamera, getUserMedia, reportCaptureError, refuseRequiredCamera, resolveStream: (stream: object) => resolveStream(stream) };
     };
     const flushPromises = async () => { await Promise.resolve(); await Promise.resolve(); };
 
     it('opens the camera once when emotions and gaze start together and gives both the same stream', async () => {
-        const { withCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }));
+        const { withCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' }));
         const received: object[] = [];
         withCamera((stream) => received.push(stream));
         withCamera((stream) => received.push(stream));
@@ -604,7 +606,7 @@ describe('generateTrackingSnippet — one shared camera', () => {
     });
 
     it('turns the camera off on release and opens a fresh stream for the next session', async () => {
-        const { withCamera, releaseCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }));
+        const { withCamera, releaseCamera, getUserMedia, resolveStream } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' }));
         const track = { stop: vi.fn() };
         withCamera(() => undefined);
         resolveStream({ getTracks: () => [track] });
@@ -619,7 +621,7 @@ describe('generateTrackingSnippet — one shared camera', () => {
 
     it('reports camera-denied without retrying when the visitor refuses the permission', async () => {
         const getUserMedia = vi.fn(() => Promise.reject(Object.assign(new Error('denied'), { name: 'NotAllowedError' })));
-        const { withCamera, reportCaptureError } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, captureGaze: true }), { getUserMedia });
+        const { withCamera, reportCaptureError } = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' }), { getUserMedia });
         withCamera(() => undefined);
         await flushPromises();
 
@@ -627,9 +629,21 @@ describe('generateTrackingSnippet — one shared camera', () => {
         expect(reportCaptureError).toHaveBeenCalledWith('camera-denied');
     });
 
+    it('leaves the visitor out of a camera-required study when the camera permission is refused', async () => {
+        const getUserMedia = vi.fn(() => Promise.reject(Object.assign(new Error('denied'), { name: 'NotAllowedError' })));
+        const optional = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, emotionsMode: 'optional' }), { getUserMedia });
+        const required = loadWithCamera(generateTrackingSnippet({ ...defaultConfig, emotionsMode: 'required' }), { getUserMedia }, true);
+        optional.withCamera(() => undefined);
+        required.withCamera(() => undefined);
+        await flushPromises();
+
+        expect(optional.refuseRequiredCamera).not.toHaveBeenCalled();
+        expect(required.refuseRequiredCamera).toHaveBeenCalledTimes(1);
+    });
+
     it('reports camera-unavailable when the browser has no camera API', () => {
         const { withCamera, reportCaptureError } = loadWithCamera(
-            generateTrackingSnippet({ ...defaultConfig, captureGaze: true }),
+            generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' }),
             {} as { getUserMedia: () => Promise<object> },
         );
         expect(() => withCamera(() => undefined)).not.toThrow();
@@ -637,14 +651,14 @@ describe('generateTrackingSnippet — one shared camera', () => {
     });
 
     it('reports model load failures for the gaze bundle and face-api and keeps going', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: true });
+        const js = generateTrackingSnippet({ ...defaultConfig, emotionsMode: 'optional' });
         expect(js).toContain('sc.onerror=function(){isEyeFlowOpen=false;reportCaptureError("mediapipe-failed");};');
-        expect(js).toContain('function(){reportModelFailure(cb);});');
-        expect(js).toContain('sc.onerror=function(){reportModelFailure(cb);};');
+        expect(js).toContain('function(){reportModelFailure(done);});');
+        expect(js).toContain('sc.onerror=function(){reportModelFailure(done);};');
     });
 
     it('does not report face-api failures caused by leaving the page while models load', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureEmotions: true });
+        const js = generateTrackingSnippet({ ...defaultConfig, emotionsMode: 'optional' });
         const source = js.slice(js.indexOf('var isPageLeaving=false;'), js.indexOf('var cameraWaiters=null;'));
         const listeners: Record<string, () => void> = {};
         const window = { addEventListener: (type: string, listener: () => void) => { listeners[type] = listener; } };
@@ -754,7 +768,7 @@ describe('generateTrackingSnippet — emotion timestamps across tab switches', (
 
 describe('generateTrackingSnippet — gaze from the calibrated Eye Tracking session', () => {
     const runSampler = (sampler: 'sampleGaze' | 'sampleFixation', session: object) => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true });
+        const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional' });
         const source = js.slice(js.indexOf('var HEAD_DIST_DEG='), js.indexOf('// I-DT fixation detection')) +
             js.slice(js.indexOf('function captureElapsedMs(){'), js.indexOf('function startSampling(){')) +
             js.slice(js.indexOf('function rateGaze('), js.indexOf('function stopEmotionCapture(){'));
@@ -818,7 +832,7 @@ describe('generateTrackingSnippet — zones marked by the researcher', () => {
     });
 
     it('records where each zone of the current page was, in page coordinates, with every fixation', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true, zones });
+        const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional', zones });
         const source = js.slice(js.indexOf('function zoneRectsOnPage(){'), js.indexOf('function feedFixation('));
         const elements: Record<string, object> = {
             'main > a.buy:nth-of-type(1)': { getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 40 }) },
@@ -836,7 +850,7 @@ describe('generateTrackingSnippet — zones marked by the researcher', () => {
     });
 
     it('ignores a selector the page cannot parse instead of breaking capture', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, captureGaze: true, zones: [{ id: 'bad', pageUrl: 'https://x.com/', selector: 'div[' }] });
+        const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: 'optional', zones: [{ id: 'bad', pageUrl: 'https://x.com/', selector: 'div[' }] });
         const source = js.slice(js.indexOf('function zoneRectsOnPage(){'), js.indexOf('function feedFixation('));
         const zoneRectsOnPage = new Function('C', 'window', 'location', 'document', `${source}return zoneRectsOnPage;`)(
             { zones: generateZoneConfig(js) }, { scrollX: 0, scrollY: 0 }, { pathname: '/' },
@@ -907,7 +921,7 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         const describe = (config: Partial<typeof defaultConfig>, language: string) => {
             const js = generateTrackingSnippet({ ...defaultConfig, ...config });
             const source = js.slice(js.indexOf('var VISITOR_COPY='), js.indexOf('function isCameraChosen(){'));
-            const C = { clicks: config.captureClicks ?? true, scroll: config.captureScroll ?? true, mouse: config.captureMousemove ?? false, emotions: config.captureEmotions ?? true, gaze: false };
+            const C = { clicks: config.captureClicks ?? true, scroll: config.captureScroll ?? true, mouse: config.captureMousemove ?? false, emotions: (config.emotionsMode ?? 'optional') !== 'off', emotionsRequired: config.emotionsMode === 'required', gaze: (config.gazeMode ?? 'off') !== 'off', gazeRequired: config.gazeMode === 'required' };
             return new Function('C', 'pageLanguage', `${source}return describeConsent();`)(C, () => language) as string;
         };
 
@@ -918,12 +932,25 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
             + 'La cámara es aparte y opcional: solo se activa si la eliges, y sus imágenes no salen de tu dispositivo. '
             + 'Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.',
         );
-        expect(describe({ captureClicks: false, captureScroll: false, captureEmotions: false }, 'en')).toBe(
+        expect(describe({ captureClicks: false, captureScroll: false, emotionsMode: 'off' }, 'en')).toBe(
             '<strong>This site is part of a user experience study.</strong><br>'
             + 'If you accept, we save how you use the page: a screen recording of this site. '
             + 'We do not save what you type in forms, your name or your IP. '
             + 'If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.',
         );
+    });
+
+    it('says the camera is required, and calibration too when gaze is required', () => {
+        const describeFor = (config: Partial<typeof defaultConfig>) => {
+            const js = generateTrackingSnippet({ ...defaultConfig, ...config });
+            const source = js.slice(js.indexOf('var VISITOR_COPY='), js.indexOf('function isCameraChosen(){'));
+            const C = { clicks: true, scroll: true, mouse: false, emotions: config.emotionsMode !== 'off', emotionsRequired: config.emotionsMode === 'required', gaze: config.gazeMode !== 'off', gazeRequired: config.gazeMode === 'required' };
+            return new Function('C', 'pageLanguage', `${source}return describeConsent();`)(C, () => 'es') as string;
+        };
+
+        expect(describeFor({ emotionsMode: 'required', gazeMode: 'off' })).toContain('Para participar es necesario activar la cámara; sus imágenes no salen de tu dispositivo.');
+        expect(describeFor({ emotionsMode: 'optional', gazeMode: 'required' })).toContain('Para participar es necesario activar la cámara y calibrar la mirada;');
+        expect(describeFor({ emotionsMode: 'optional', gazeMode: 'optional' })).toContain('La cámara es aparte y opcional');
     });
 
     it('starts nothing on later pages once the visitor declined or stopped, even without required consent', () => {
