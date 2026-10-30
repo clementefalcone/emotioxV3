@@ -1,3 +1,17 @@
+## v0.99.36 — IAT Objects Comparing: choice share and per-attribute results (2026-10-30)
+
+### fix(iat): score objects comparing by choice share
+- **Report.** "Exploracion Mercado" > IAT Comparing Objects showed no charts and nothing about the attributes participants faced, though 102 + 101 participants had complete trials.
+- **Cause.** Objects Comparing records, per object × attribute, which category (Positivo/Negativo) the participant chose. Scores were computed from reaction times against the overall mean, landing between −10 and +3, so the bars were empty; `criteriaScores` was only computed for Comparing Attribute.
+- **Fix.** Non-legacy Objects Comparing scores each object by the % of choices per category, and `criteriaScores` is computed from the attribute list. Legacy 7-block data unchanged.
+
+### feat(iat): show objects comparing per attribute
+- The Comparing Attribute criteria charts (bars per attribute × object, association strength, radar) are a shared component, shown in Comparing Objects as "% Positivo por atributo". Removed the "Tiempo de reacción por objeto" chart, which plotted percentages; RT per object stays in the RT distribution card.
+
+### Check
+- Real data of module `894d11c3` through the new code: Positivo Chicureo 81 %, Curacaví 75 %, Cajón del Maipo 80 %, Algarrobo 82 %; per attribute matches a manual count (e.g. Aniversario empresa × Chicureo 91 %, Semana santa × Curacaví 63 %).
+- Tests: backend 655 → 657, research 687 → 688, 0 failing.
+
 ## v0.99.35 — Website Tracking: camera off / optional / required per feature (2026-10-30)
 
 ### feat(tracking): camera modes
