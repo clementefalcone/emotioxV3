@@ -1,3 +1,10 @@
+## v0.99.40 — Privacy: participant responses need a review pass (2026-10-30)
+
+### fix(privacy): require review pass for responses
+- **Why.** `GET /public/research/:id/participant/:pid/responses` returned every answer of a participant, gaze and emotions included, to anyone with the URL. Found in the data-protection review of Eye Tracking and Website Tracking.
+- **Change.** The endpoint requires a 30-minute pass scoped to one research + participant, signed with a key distinct from sessions (`signParticipantReviewToken` / `requireParticipantReviewToken`). `POST /research/:id/participants/:pid/review-token` issues it to the study owner. The participant drawer gets "Ver como participante", which opens review mode with the pass in the URL fragment.
+- **Check.** Production: no pass 401, valid pass 200, pass for another participant 401. Backend 663 → 667, research 702, participant 1155, 0 failing. Not checked in the browser.
+
 ## v0.99.39 — Progress: empty Screener no longer blocks 100 % (2026-10-30)
 
 ### fix(progress): skip unconfigured screener
