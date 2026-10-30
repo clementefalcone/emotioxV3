@@ -111,4 +111,12 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Solo fiables (1)' }));
     await vi.waitFor(() => expect(getResults).toHaveBeenLastCalledWith('research-1', undefined, { moduleId: 'module-1', participantIds: ['p-reliable'] }));
   });
+
+  it('says no participant matches instead of drawing empty charts when the filter leaves nobody', async () => {
+    demographicScope.filteredParticipantIds = new Set();
+    render(<ImplicitAssociationResults researchId="research-1" />);
+    expect(await screen.findByText('Ningún participante cumple los filtros activos')).toBeInTheDocument();
+    expect(screen.queryByText('% Positivo por atributo')).not.toBeInTheDocument();
+    expect(getResults).toHaveBeenCalledTimes(1);
+  });
 });

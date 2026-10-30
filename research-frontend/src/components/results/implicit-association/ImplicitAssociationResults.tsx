@@ -1071,7 +1071,7 @@ const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredPartic
   useEffect(() => {
     setScopedModule(null);
     setFilterError(null);
-    if (!scopeParticipantIds) return;
+    if (!scopeParticipantIds?.length) return;
     let isCancelled = false;
     analyticsService.getImplicitAssociationResults(researchId, stageId, { moduleId: fullModule.moduleId, participantIds: scopeParticipantIds })
       .then(results => { if (!isCancelled) setScopedModule(results.modules[0] ?? null); })
@@ -1090,6 +1090,18 @@ const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredPartic
     </>
   );
   const shownModule = scopeParticipantIds ? scopedModule : fullModule;
+
+  if (scopeParticipantIds?.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        {reliabilityFilter}
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+          <p className="text-sm font-semibold text-gray-700 mb-1">Ningún participante cumple los filtros activos</p>
+          <p className="text-[13px] text-gray-400">Ajusta o limpia los filtros (por ejemplo, Min. completion) para ver resultados.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!shownModule) {
     return (
