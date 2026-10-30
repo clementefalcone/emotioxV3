@@ -5,6 +5,7 @@ import {
   ReferenceArea, ResponsiveContainer,
 } from 'recharts';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
+import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
 import { Filters } from '../shared/Filters';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { IATReliabilityFilter } from './IATReliabilityFilter';
@@ -1095,10 +1096,7 @@ const IATModuleCard = ({ module: fullModule, researchId, stageId, filteredPartic
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
         {reliabilityFilter}
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-          <p className="text-sm font-semibold text-gray-700 mb-1">Ningún participante cumple los filtros activos</p>
-          <p className="text-[13px] text-gray-400">Ajusta o limpia los filtros (por ejemplo, Min. completion) para ver resultados.</p>
-        </div>
+        <NoMatchingParticipantsNotice />
       </div>
     );
   }

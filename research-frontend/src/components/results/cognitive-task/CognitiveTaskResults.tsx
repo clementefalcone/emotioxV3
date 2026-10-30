@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ListFilter } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Filters } from '../shared/Filters';
+import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
 import { VOCComments } from '../smart-voc/components/VOCComments';
 import { cn } from '../../../lib/utils';
 import { useCognitiveTaskResults } from '../../../hooks/useCognitiveTaskResults';
@@ -279,78 +280,84 @@ export const CognitiveTaskResults = ({ researchId, stageId, className }: Cogniti
         <div className="flex gap-6">
           {/* Left: Main Content */}
           <div className="flex-1 space-y-6">
-            {/* Module selector */}
-            {modulesToRender.length > 1 && (
-              <div className="relative">
-                <button
-                  onClick={() => setModuleFilterOpen(prev => !prev)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
-                    selectedModuleIds && selectedModuleIds.size < modulesToRender.length
-                      ? 'bg-blue-50 border-blue-200 text-blue-700'
-                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                  )}
-                >
-                  <ListFilter className="h-4 w-4" />
-                  {selectedModuleIds && selectedModuleIds.size < modulesToRender.length
-                    ? `${selectedModuleIds.size} of ${modulesToRender.length} modules`
-                    : `All modules (${modulesToRender.length})`}
-                </button>
+            {filteredParticipantIds?.size === 0 ? (
+              <NoMatchingParticipantsNotice />
+            ) : (
+              <>
+                {/* Module selector */}
+                {modulesToRender.length > 1 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setModuleFilterOpen(prev => !prev)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
+                        selectedModuleIds && selectedModuleIds.size < modulesToRender.length
+                          ? 'bg-blue-50 border-blue-200 text-blue-700'
+                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                      )}
+                    >
+                      <ListFilter className="h-4 w-4" />
+                      {selectedModuleIds && selectedModuleIds.size < modulesToRender.length
+                        ? `${selectedModuleIds.size} of ${modulesToRender.length} modules`
+                        : `All modules (${modulesToRender.length})`}
+                    </button>
 
-                {moduleFilterOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setModuleFilterOpen(false)} />
-                    <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-80 max-h-72 overflow-y-auto">
-                      {/* Select all */}
-                      <label className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 mb-1">
-                        <input
-                          type="checkbox"
-                          checked={!selectedModuleIds || selectedModuleIds.size === modulesToRender.length}
-                          onChange={toggleAllModules}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-xs font-medium text-gray-700">Select all</span>
-                      </label>
-                      {modulesToRender.map((mod) => {
-                        const checked = !selectedModuleIds || selectedModuleIds.has(mod.moduleId);
-                        return (
-                          <label key={mod.moduleId} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                    {moduleFilterOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setModuleFilterOpen(false)} />
+                        <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-80 max-h-72 overflow-y-auto">
+                          {/* Select all */}
+                          <label className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 mb-1">
                             <input
                               type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleModuleId(mod.moduleId)}
+                              checked={!selectedModuleIds || selectedModuleIds.size === modulesToRender.length}
+                              onChange={toggleAllModules}
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-xs text-gray-700 truncate block">{(mod as ModuleData).questionText || mod.moduleName}</span>
-                              <span className="text-[10px] text-gray-400">{mod.totalResponses} responses</span>
-                            </div>
+                            <span className="text-xs font-medium text-gray-700">Select all</span>
                           </label>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Dynamic Module Rendering */}
-            {visibleModules.length > 0 ? (
-              visibleModules.map((module, index) => renderModuleResults(module, index))
-            ) : (
-              <Card className="p-12 text-center bg-gray-50">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
+                          {modulesToRender.map((mod) => {
+                            const checked = !selectedModuleIds || selectedModuleIds.has(mod.moduleId);
+                            return (
+                              <label key={mod.moduleId} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleModuleId(mod.moduleId)}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-xs text-gray-700 truncate block">{(mod as ModuleData).questionText || mod.moduleName}</span>
+                                  <span className="text-[10px] text-gray-400">{mod.totalResponses} responses</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-                <p className="text-gray-700 font-medium mb-2">No cognitive task data available yet</p>
-                <p className="text-gray-500 text-sm">
-                  Cognitive task results will appear here once participants complete the tasks.
-                </p>
-              </Card>
+                )}
+
+                {/* Dynamic Module Rendering */}
+                {visibleModules.length > 0 ? (
+                  visibleModules.map((module, index) => renderModuleResults(module, index))
+                ) : (
+                  <Card className="p-12 text-center bg-gray-50">
+                    <div className="flex items-center justify-center mb-4">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                    </div>
+                    <p className="text-gray-700 font-medium mb-2">No cognitive task data available yet</p>
+                    <p className="text-gray-500 text-sm">
+                      Cognitive task results will appear here once participants complete the tasks.
+                    </p>
+                  </Card>
+                )}
+              </>
             )}
           </div>
 
