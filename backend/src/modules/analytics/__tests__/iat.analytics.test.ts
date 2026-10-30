@@ -1,0 +1,66 @@
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('../../../config/database', () => ({
+  default: { query: vi.fn() },
+}));
+
+import { getImplicitAssociationResults } from '../iat.analytics';
+import pool from '../../../config/database';
+
+const mockQuery = pool.query as ReturnType<typeof vi.fn>;
+
+const objectsComparingConfig = {
+  structure: {
+    components: [
+      { id: 'target-1-name', value: 'Chicureo' },
+      { id: 'target-2-name', value: 'Curacaví' },
+      { id: 'criteria-1', value: 'Positivo' },
+      { id: 'criteria-2', value: 'Negativo' },
+      { id: 'criteria', value: JSON.stringify([{ id: 'criterion-a', label: 'Navidad' }, { id: 'criterion-b', label: 'Año nuevo' }]) },
+    ],
+  },
+};
+
+const trial = (stimulusId: string, chosen: string) => ({ targetId: stimulusId, criterionId: chosen, rt: 800, correct: true, phase: 'block-2' });
+
+const participantTrials = [
+  { targetId: 'target-1', criterionId: 'criteria-1', rt: 900, correct: true, phase: 'block-1' },
+  trial('target-1__criterion-a', 'criteria-1'),
+  trial('target-1__criterion-a', 'criteria-1'),
+  trial('target-1__criterion-b', 'criteria-1'),
+  trial('target-1__criterion-b', 'criteria-2'),
+  trial('target-2__criterion-a', 'criteria-2'),
+  trial('target-2__criterion-a', 'criteria-2'),
+  trial('target-2__criterion-b', 'criteria-1'),
+  trial('target-2__criterion-b', 'criteria-2'),
+];
+
+const loadObjectsComparingModule = async () => {
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ id: 'module-1', name: 'Objects Comparing', config: JSON.stringify(objectsComparingConfig) }] })
+    .mockResolvedValueOnce({ rows: [{ value: JSON.stringify(participantTrials), participant_id: 'p1', created_at: new Date() }] });
+  const { modules } = await getImplicitAssociationResults('research-1', 'stage-1');
+  return modules[0];
+};
+
+describe('getImplicitAssociationResults — Objects Comparing', () => {
+  it('scores each object by the share of Positivo/Negativo choices', async () => {
+    const mod = await loadObjectsComparingModule();
+    expect(mod.scores).toEqual([
+      { attributeId: 'criteria-1', attributeLabel: 'Positivo', targetScores: { 'target-1': 75, 'target-2': 25 } },
+      { attributeId: 'criteria-2', attributeLabel: 'Negativo', targetScores: { 'target-1': 25, 'target-2': 75 } },
+    ]);
+  });
+
+  it('breaks the choices down by each attribute the participant faced', async () => {
+    const mod = await loadObjectsComparingModule();
+    expect(mod.criteriaScores?.map((c) => ({
+      label: c.criterionLabel,
+      chicureo: c.objectScores['target-1'].dim1Pct,
+      curacavi: c.objectScores['target-2'].dim1Pct,
+    }))).toEqual([
+      { label: 'Navidad', chicureo: 100, curacavi: 0 },
+      { label: 'Año nuevo', chicureo: 50, curacavi: 50 },
+    ]);
+  });
+});

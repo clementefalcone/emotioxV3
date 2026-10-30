@@ -210,6 +210,7 @@ const extractIATConfig = (config: any, testType: IATModuleResult['testType']) =>
       const l1 = (c1?.value ?? c1?.placeholder?.text ?? '').toString().trim();
       const l2 = (c2?.value ?? c2?.placeholder?.text ?? '').toString().trim();
       if (l1 && l2) {
+        criteria.push(...attributes.map(({ id, label }) => ({ id, label })));
         attributes.length = 0;
         attributes.push({ id: 'criteria-1', label: l1 });
         attributes.push({ id: 'criteria-2', label: l2 });
@@ -242,6 +243,20 @@ function hasLegacy7BlockData(responses: any[]): boolean {
   }
   return false;
 }
+
+const computeChoiceShares = (
+  trials: Array<{ targetId: string; criterionId: string }>,
+  targets: IATTarget[],
+  attributes: IATAttribute[],
+): IATModuleResult['scores'] => attributes.map(attr => ({
+  attributeId: attr.id,
+  attributeLabel: attr.label,
+  targetScores: Object.fromEntries(targets.map(target => {
+    const shown = trials.filter(t => t.targetId.split('__')[0] === target.id);
+    const chosen = shown.filter(t => t.criterionId === attr.id).length;
+    return [target.id, shown.length > 0 ? Math.round((chosen / shown.length) * 100) : 0];
+  })),
+}));
 
 const computeIATScores = (
   responses: any[],
@@ -314,6 +329,7 @@ const computeIATScores = (
         { attributeId: attributes[1].id, attributeLabel: attributes[1].label, targetScores: dim2Scores },
       ];
     }
+    return computeChoiceShares(allTrials, targets, attributes);
   }
 
   return attributes.map(attr => {
@@ -987,7 +1003,7 @@ export const getImplicitAssociationResults = async (researchId: string, filterSt
 
     const rtDistribution = computeRTDistribution(responsesResult.rows, targets, attributes, testType);
 
-    const criteriaScores = testType === 'comparing_attribute' && criteria.length > 0
+    const criteriaScores = !isLegacyOC && criteria.length > 0
       ? computeCriteriaScores(responsesResult.rows, criteria, attributes, targets)
       : undefined;
 
