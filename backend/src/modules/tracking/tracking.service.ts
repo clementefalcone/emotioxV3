@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../../config/database';
 import { parseCaptureErrors, type CaptureErrorKind } from './capture-errors';
+import { readTrackingRetentionDays } from '../retention/retention.service';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -187,14 +188,6 @@ export const createSession = async (input: CreateSessionInput): Promise<{ sessio
         [uuidv4(), input.researchId, normalizedPageUrl, input.pageTitle || null, input.viewportWidth, input.viewportHeight]
     );
 
-    // Lazy data retention cleanup (~1% of session creations)
-    const retentionDays = Number((trackingConfig.dataRetentionDays as number) || 0);
-    if (retentionDays > 0 && Math.random() < 0.01) {
-        pool.query(
-            `DELETE FROM tracking_sessions WHERE research_id = ? AND started_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
-            [input.researchId, retentionDays]
-        ).catch(() => { /* best-effort cleanup */ });
-    }
 
     return { sessionId };
 };
@@ -311,7 +304,7 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
         excludedIPs: (trackingConfig.excludedIPs as string[]) || [],
         targetPages: (trackingConfig.targetPages as string[]) || [],
         excludePages: (trackingConfig.excludePages as string[]) || [],
-        dataRetentionDays: (trackingConfig.dataRetentionDays as number) || 90,
+        dataRetentionDays: readTrackingRetentionDays({ trackingConfig }),
         funnels: (trackingConfig.funnels as FunnelDefinition[]) || [],
         emotionsMode: toCameraFeatureMode(trackingConfig.emotionsMode),
         gazeMode: toCameraFeatureMode(trackingConfig.gazeMode),

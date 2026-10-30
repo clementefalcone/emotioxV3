@@ -12,6 +12,7 @@ import { BacklinkInput } from './BacklinkInput';
 import { DemographicsSection } from './DemographicsSection';
 import { ScreeningQuestionsSection } from './ScreeningQuestionsSection';
 import { StudyLogoSection } from './StudyLogoSection';
+import { BiometricRetentionSection } from './BiometricRetentionSection';
 import { LinkConfigurationSection } from './LinkConfigurationSection';
 import { DemographicModals } from './DemographicModals';
 import {
@@ -514,7 +515,7 @@ export const ResearchConfigurationModule = ({ config, researchStatus, researchNa
 
             {/* Settings tab */}
             {configTab === 'settings' && (
-            <div className="max-w-xl">
+            <div className="max-w-xl space-y-6">
                 <LinkConfigurationSection
                     config={config}
                     linkConfig={linkConfig}
@@ -524,6 +525,7 @@ export const ResearchConfigurationModule = ({ config, researchStatus, researchNa
                     participantLimit={participantLimit}
                     onChange={onChange}
                 />
+                {researchId && <BiometricRetentionSection researchId={researchId} />}
             </div>
             )}
 
