@@ -24,10 +24,26 @@ const objectsComparingModule: IATModuleResult = {
       },
     },
   ],
+  responseQualities: [
+    { participantId: 'p-reliable', quality: 'reliable' },
+    { participantId: 'p-same', quality: 'same_choice' },
+    { participantId: 'p-fast', quality: 'too_fast' },
+  ],
 };
 
+const reliableOnlyModule: IATModuleResult = {
+  ...objectsComparingModule,
+  totalResponses: 1,
+  scores: [
+    { attributeId: 'criteria-1', attributeLabel: 'Positivo', targetScores: { 'target-1': 62, 'target-2': 50 } },
+    { attributeId: 'criteria-2', attributeLabel: 'Negativo', targetScores: { 'target-1': 38, 'target-2': 50 } },
+  ],
+};
+
+const getResults = vi.hoisted(() => vi.fn());
+
 vi.mock('../../../../services/analytics.service', () => ({
-  getImplicitAssociationResults: vi.fn(async () => ({ modules: [objectsComparingModule] })),
+  getImplicitAssociationResults: getResults,
 }));
 
 vi.mock('../../../../hooks/useResultsFilter', () => ({
@@ -47,6 +63,10 @@ vi.mock('../../shared/Filters', () => ({ Filters: () => null }));
 
 import { ImplicitAssociationResults } from '../ImplicitAssociationResults';
 
+getResults.mockImplementation(async (_researchId: string, _stageId?: string, scope: { participantIds?: readonly string[] } = {}) => ({
+  modules: [scope.participantIds ? reliableOnlyModule : objectsComparingModule],
+}));
+
 describe('ImplicitAssociationResults — Objects Comparing', () => {
   it('shows the choice share per object and the per-attribute breakdown', async () => {
     render(<ImplicitAssociationResults researchId="research-1" />);
@@ -63,5 +83,16 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
     fireEvent.click(curacavi);
     expect(curacavi).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Curacaví: % de Positivo y Negativo');
+  });
+
+  it('shows everyone by default and recomputes with only reliable participants on demand', async () => {
+    render(<ImplicitAssociationResults researchId="research-1" />);
+    const everyone = await screen.findByRole('button', { name: 'Todos (3)' });
+    expect(everyone).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/1 fiables · 1 siempre la misma respuesta · 1 demasiado rápidas · se muestran 3 de 3/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Solo fiables (1)' }));
+    expect(await screen.findByText(/62% — Media/)).toBeInTheDocument();
+    expect(getResults).toHaveBeenLastCalledWith('research-1', undefined, { moduleId: 'module-1', participantIds: ['p-reliable'] });
+    expect(screen.getByText(/se muestran 1 de 3/)).toBeInTheDocument();
   });
 });

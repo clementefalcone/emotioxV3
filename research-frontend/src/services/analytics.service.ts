@@ -405,14 +405,30 @@ export interface IATModuleResult {
         overallFastRate: number;
     };
     rtDistribution?: RTDistributionStats[];
+    responseQualities?: IATResponseQuality[];
+}
+
+export type IATResponseQualityLevel = 'reliable' | 'same_choice' | 'too_fast';
+
+export interface IATResponseQuality {
+    participantId: string;
+    quality: IATResponseQualityLevel;
 }
 
 export interface ImplicitAssociationResults {
     modules: IATModuleResult[];
 }
 
-export const getImplicitAssociationResults = async (researchId: string, stageId?: string): Promise<ImplicitAssociationResults> => {
-    const qs = stageId ? `?stageId=${stageId}` : '';
+export const getImplicitAssociationResults = async (
+    researchId: string,
+    stageId?: string,
+    scope: { moduleId?: string; participantIds?: readonly string[] } = {},
+): Promise<ImplicitAssociationResults> => {
+    const params = new URLSearchParams();
+    if (stageId) params.set('stageId', stageId);
+    if (scope.moduleId) params.set('moduleId', scope.moduleId);
+    if (scope.participantIds) params.set('participants', scope.participantIds.join(','));
+    const qs = params.size > 0 ? `?${params.toString()}` : '';
     const response = await apiClient.get<{ results: ImplicitAssociationResults }>(
         `/analytics/research/${researchId}/implicit-association${qs}`
     );

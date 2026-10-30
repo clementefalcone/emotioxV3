@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
+import { useState, useEffect, useCallback, useMemo, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -7,6 +7,7 @@ import {
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { Filters } from '../shared/Filters';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
+import { IATReliabilityFilter } from './IATReliabilityFilter';
 import { useResultsFilter } from '../../../hooks/useResultsFilter';
 import * as analyticsService from '../../../services/analytics.service';
 import type { IATModuleResult, IATParticipantData } from '../../../services/analytics.service';
@@ -1066,7 +1067,53 @@ function downloadCSV(headers: string[], rows: string[][], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-const IATModuleCard = ({ module: mod }: { module: IATModuleResult }) => {
+interface IATModuleCardProps {
+  module: IATModuleResult;
+  researchId: string;
+  stageId?: string;
+}
+
+const IATModuleCard = ({ module: fullModule, researchId, stageId }: IATModuleCardProps) => {
+  const [isReliableOnly, setIsReliableOnly] = useState(false);
+  const [reliableModule, setReliableModule] = useState<IATModuleResult | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const qualities = useMemo(() => fullModule.responseQualities ?? [], [fullModule.responseQualities]);
+
+  useEffect(() => {
+    setReliableModule(null);
+    setFilterError(null);
+    if (!isReliableOnly) return;
+    let isCancelled = false;
+    const participantIds = qualities.filter(q => q.quality === 'reliable').map(q => q.participantId);
+    analyticsService.getImplicitAssociationResults(researchId, stageId, { moduleId: fullModule.moduleId, participantIds })
+      .then(results => { if (!isCancelled) setReliableModule(results.modules[0] ?? null); })
+      .catch((err: unknown) => {
+        if (!isCancelled) setFilterError(`No se pudieron cargar las respuestas fiables: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    return () => { isCancelled = true; };
+  }, [isReliableOnly, qualities, researchId, stageId, fullModule.moduleId]);
+
+  const reliabilityFilter = qualities.length > 0 && (
+    <>
+      <IATReliabilityFilter qualities={qualities} isReliableOnly={isReliableOnly} onChange={setIsReliableOnly} />
+      {filterError && <p className="text-xs text-red-600 mb-4">{filterError}</p>}
+    </>
+  );
+  const shownModule = isReliableOnly ? reliableModule : fullModule;
+
+  if (!shownModule) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        {reliabilityFilter}
+        {!filterError && <div className="h-96 bg-gray-200 rounded-xl animate-pulse" />}
+      </div>
+    );
+  }
+
+  return <IATModuleView module={shownModule} reliabilityFilter={reliabilityFilter} />;
+};
+
+const IATModuleView = ({ module: mod, reliabilityFilter }: { module: IATModuleResult; reliabilityFilter: ReactNode }) => {
   const targetLabels = mod.testType === 'objects_comparing'
     ? (mod.attributes.length >= 2 ? [mod.attributes[0].label, mod.attributes[1].label] : mod.targets.map(t => t.name))
     : mod.targets.map(t => t.name);
@@ -1090,6 +1137,7 @@ const IATModuleCard = ({ module: mod }: { module: IATModuleResult }) => {
       {mod.testTitle && (
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">{mod.testTitle}</p>
       )}
+      {reliabilityFilter}
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex bg-gray-100 rounded-lg p-0.5">
@@ -1239,7 +1287,7 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
             ) : (
               <div className="space-y-8">
                 {filteredModules.map(mod => (
-                  <IATModuleCard key={mod.moduleId} module={mod} />
+                  <IATModuleCard key={mod.moduleId} module={mod} researchId={researchId} stageId={stageId} />
                 ))}
               </div>
             )}
