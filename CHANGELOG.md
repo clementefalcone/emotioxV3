@@ -1,3 +1,13 @@
+## v0.99.41 — Privacy: consent recorded on the server (2026-10-30)
+
+### feat(privacy): record consent decisions on server
+- **Why.** Camera and tracking consent lived only in the visitor's localStorage, so no consent could be proven.
+- **Table.** Migration 034 `consent_records`: research, subject (participant id or website visitor id), context (`eye_tracking` / `emotion_analysis` / `website_tracking`), decision (`accepted` / `declined` / `withdrawn`), exact text shown, its sha256, locale, server time. No IP. Applied in production.
+- **Endpoint.** `POST /public/research/:id/consent`; context and decision validated against the dictionary (400), unknown research 404.
+- **Where.** Eye Tracking consent screen (accept / decline, text = what the screen shows); Emotion Analysis intro "Continue" (accept only, it has no decline yet); Website Tracking banner (accept, accept with camera, decline: banner text + button) and the "Stop" pill (withdrawn). Preview mode records nothing.
+- **Fail closed.** Eye Tracking and Emotion Analysis do not start the camera when the acceptance cannot be recorded; the participant sees "No pudimos guardar tu consentimiento…".
+- **Check.** Production: invalid decision 400, valid 201 (row stored with text, hash, locale; test row deleted), unknown research 404; live snippet posts to `/consent`. Backend 669 → 675, participant 1155 → 1156, 0 failing. Not checked in the browser.
+
 ## v0.99.40 — Privacy: participant responses need a review pass (2026-10-30)
 
 ### fix(privacy): require review pass for responses
