@@ -210,6 +210,36 @@ describe('getParticipantsWithStatusInternal — status labels', () => {
     expect(result[0].status).toBe('In progress');
   });
 
+  it('does not count a screener without question text', async () => {
+    const screenerConfig = (question: string) => JSON.stringify({ structure: { components: [
+      { id: 'screener-enabled', type: 'checkbox', value: 'false' },
+      { id: 'screener-question', type: 'input', placeholder: { text: 'Ask something' }, value: question },
+    ] } });
+    const now = new Date();
+    const participant = { id: 'p10', name: 'Judy', answered_modules: 1, panel_status: null, first_response: now, last_response: now };
+
+    setupQueries({
+      modules: [
+        { id: 'm1', name: 'CSAT', config: JSON.stringify({ structure: { components: [] } }) },
+        { id: 'm2', name: 'Screener', config: screenerConfig('') },
+      ],
+      participants: [participant],
+    });
+    const [unconfigured] = await getParticipantsWithStatusInternal('r-1');
+
+    setupQueries({
+      modules: [
+        { id: 'm1', name: 'CSAT', config: JSON.stringify({ structure: { components: [] } }) },
+        { id: 'm2', name: 'Screener', config: screenerConfig('Do you drink coffee?') },
+      ],
+      participants: [participant],
+    });
+    const [configured] = await getParticipantsWithStatusInternal('r-1');
+
+    expect(unconfigured.progress).toBe(100);
+    expect(configured.progress).toBe(50);
+  });
+
   it('overquota takes precedence over completion status', async () => {
     // Even if all modules are answered, overquota status wins
     setupQueries({

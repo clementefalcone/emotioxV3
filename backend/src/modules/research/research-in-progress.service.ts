@@ -73,6 +73,12 @@ const isModuleConfiguredForProgress = (name: string, components: ProgressCompone
         }
     }
 
+    if (trimmed === 'Screener') {
+        const question = components.find(c => c.id === 'question-title')
+            ?? components.find(c => c.id === 'screener-question');
+        return typeof question?.value === 'string' && question.value.trim().length > 0;
+    }
+
     // Cognitive Tasks: require at least title or description
     const cognitiveNames = ['Short Text', 'Long Text', 'Single Choice', 'Multiple Choice', 'Linear Scale'];
     if (cognitiveNames.includes(trimmed)) {
