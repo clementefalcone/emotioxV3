@@ -1,8 +1,14 @@
+import { createHash } from 'crypto';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
 import * as publicService from './index';
 import * as mediaService from '../media/media.service';
 import { isAuthError, requireParticipantReviewToken } from '../../utils/auth';
+
+const anonymizeProgressParticipant = <T extends { id: string; name: string; email: string }>(researchId: string, participant: T): T => {
+    const alias = createHash('sha256').update(`${researchId}:${participant.id}`).digest('hex').slice(0, 8);
+    return { ...participant, id: alias, name: `Participante ${alias}`, email: '' };
+};
 
 export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -129,7 +135,7 @@ export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<A
                     getOverviewMetricsInternal(researchId),
                     getParticipantsWithStatusInternal(researchId),
                 ]);
-                return success({ metrics, participants }, 200, undefined, origin);
+                return success({ metrics, participants: participants.map(p => anonymizeProgressParticipant(researchId, p)) }, 200, undefined, origin);
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : 'Failed to load progress';
                 if (msg.includes('not found')) return error(msg, 404, undefined, origin);
