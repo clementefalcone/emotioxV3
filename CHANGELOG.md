@@ -1,3 +1,18 @@
+## v0.99.35 — Website Tracking: camera off / optional / required per feature (2026-10-30)
+
+### feat(tracking): camera modes
+- **Request.** From research-frontend, decide per feature (emotions, gaze) whether the camera is off, optional or required, where required leaves out visitors who do not turn it on.
+- **Config.** `trackingConfig.emotionsMode` and `gazeMode`: `off` / `optional` / `required` (unknown values read as off). Replaces `captureEmotions` / `captureGaze`. Research config shows an Off / Optional / Required selector per feature with a hint per mode; Results empty states point to the new setting. Data: the two studies with camera features (`1d673c9f`, `eeca0023`) converted true → optional; backup `~/backup-tracking-camera-modes-20261030.tsv`.
+- **Required.** Banner offers only "Aceptar y activar cámara" / "Rechazar" (shown even when consent is not required) and states that the camera (and calibration when gaze is required) is needed. Nothing is recorded until the camera runs and, for required gaze, calibration finishes. Declining, a refused or failed camera, abandoning calibration, or turning the camera off later leaves the visitor out ("Sin la cámara no participas…") with the "Activar" pill to try again. Camera samples taken before the session exists are dropped; face-api loads once when asked twice.
+- **Optional.** Unchanged.
+
+### feat(tracking): skip calibration, keep emotions
+- The Eye Tracking embed takes `canSkipCalibration` (emotions on, gaze not required) and shows "Saltar calibración (solo emociones)" on the face, preparing and calibration screens. Skipping hands over a camera session with `isGazeCalibrated: false` and no gaze; the snippet records emotions only. The skip is remembered 10 min, so later pages reopen the camera for emotions without calibration; ignored when gaze is required.
+
+### Check
+- Chromium, real snippet, fake camera, API mocked. Emotions required: accept → session only after the camera runs; camera fails → "Sin la cámara…", 0 calls; camera off mid-visit → stop, 0 calls after, stays out on reload; consent not required → banner still asks for the camera, reload resumes with camera. Emotions required + gaze optional with the locally built embed and a recorded face: 0 calls before the camera, after "Saltar calibración" session + `/emotions` and no `/gaze`; reload reopens the camera without calibration. goyaledger.com live (optional/optional) unchanged.
+- Tests: backend 651 → 655, research 686 → 687, participant 1153 → 1155, 0 failing.
+
 ## v0.99.34 — Eye Tracking: honest reliability grade, everyone shown (2026-10-29)
 
 ### fix(analytics): grade calibration by screen size
