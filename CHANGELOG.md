@@ -1,3 +1,20 @@
+## v0.99.37 — IAT: reliability filter, everyone kept (2026-10-30)
+
+### feat(iat): label response quality, scope results
+- **Why.** In "Exploracion Mercado" a third of IAT participants chose the same category almost every time (IAT 1: 30 of 102) or answered mostly under 300 ms (IAT 2: 21 of 101), pulling every place toward ~80 % Positivo.
+- **Labels.** Each participant of a choice-based module gets `responseQualities[]`: `too_fast` (> 30 % of test trials under 300 ms), `same_choice` (≥ 95 % identical choices), else `reliable`. Legacy 7-block Objects Comparing is not labelled.
+- **Scope.** `GET …/implicit-association?moduleId=&participants=` recomputes one module for the listed participants; labels always cover everyone. No response is deleted.
+
+### feat(iat): filter results by reliability
+- Each IAT card shows "Todos (N)" (default) / "Solo fiables (n)" and "Fiabilidad: X fiables · Y siempre la misma respuesta · Z demasiado rápidas · se muestran n de N"; rules on hover.
+
+### Check
+- Production backend on the live DB: IAT 1 57 reliable / 30 same choice / 15 too fast; IAT 2 66 / 14 / 21. IAT 2 reliable only: Curacaví 77 → 73 % Positivo, Cajón 82 → 80 %, Chicureo 82 %, Algarrobo 84 % unchanged. Browser render with real data, both states.
+- Tests: backend 657 → 659, research 689 → 690, 0 failing.
+
+### ops
+- Backend deploy failed on cPanel disk quota (21.7 of 20 GB). Removed 116 old frontend deploy backups in `public_html` (kept the 3 newest per app): 12.6 GB used. Inodes stay near the limit (294,366 of 300,000).
+
 ## v0.99.36 — IAT Objects Comparing: choice share and per-attribute results (2026-10-30)
 
 ### fix(iat): score objects comparing by choice share
