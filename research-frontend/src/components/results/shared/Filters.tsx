@@ -2,23 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { FileDown } from 'lucide-react';
 import * as analyticsService from '../../../services/analytics.service';
 import { triggerCsvDownload } from '../../../utils/csvDownload';
-
-const DEMOGRAPHIC_LABELS: Record<string, string> = {
-    age: 'Age range',
-    country: 'Country',
-    gender: 'Gender',
-    educationLevel: 'Education level',
-    annualIncome: 'Annual Income',
-    employmentStatus: 'Employment Status',
-    dailyHoursOnline: 'Daily Hours Online',
-    technicalProficiency: 'Technical Proficiency',
-};
+import { getDemographicLabel } from './demographicLabels';
 
 const INITIAL_VISIBLE_OPTIONS = 5;
-
-function getDemographicLabel(key: string): string {
-    return DEMOGRAPHIC_LABELS[key] ?? key;
-}
 
 export type DemographicFiltersState = Record<string, string[]>;
 
