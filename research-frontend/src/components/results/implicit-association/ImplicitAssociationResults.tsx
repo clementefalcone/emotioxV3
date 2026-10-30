@@ -225,11 +225,14 @@ const classifyAssociationBand = (score: number): string => {
   return 'Asociación baja';
 };
 
-const ComparingAttributeChart = ({ module: mod, colors }: { module: IATModuleResult; colors: string[] }) => {
+const CriteriaAssociationCharts = ({ module: mod, colors }: { module: IATModuleResult; colors: string[] }) => {
   const [visibleBands, setVisibleBands] = useState<Set<number>>(() => new Set([0, 1, 2]));
   const [visibleTargets, setVisibleTargets] = useState<Set<string>>(() => new Set(mod.targets.map(t => t.id)));
   const cs = mod.criteriaScores ?? [];
-  const hasCriteria = cs.length > 0;
+
+  if (cs.length === 0) {
+    return <p className="mt-4 text-sm text-gray-400 italic">No criteria data available</p>;
+  }
 
   const barData = cs.map(criterion => {
     const entry: Record<string, string | number> = { attribute: criterion.criterionLabel };
@@ -254,6 +257,182 @@ const ComparingAttributeChart = ({ module: mod, colors }: { module: IATModuleRes
     }
     return entry;
   });
+
+  return (
+    <>
+      {/* Grouped bar chart — criteria × objects */}
+      <div className="flex justify-end gap-3 text-[11px] text-gray-500 mb-2">
+        {ASSOCIATION_BANDS.map((b, i) => {
+          const active = visibleBands.has(i);
+          return (
+            <button
+              key={b.label}
+              type="button"
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${active ? 'border-gray-300 bg-white' : 'border-transparent bg-gray-100 text-gray-400'}`}
+              onClick={() => {
+                const next = new Set(visibleBands);
+                if (next.has(i)) next.delete(i); else next.add(i);
+                setVisibleBands(next);
+              }}
+            >
+              <div
+                className="w-3 h-3 rounded-sm transition-opacity"
+                style={{ backgroundColor: b.color, opacity: active ? 1 : 0.3 }}
+              />
+              {b.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="w-full" style={{ height: 400 }}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <BarChart data={barData} barCategoryGap="15%" barGap={2}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+            <XAxis
+              dataKey="attribute"
+              tick={{ fontSize: 11, fill: '#374151' }}
+              axisLine={{ stroke: '#E5E7EB' }}
+              interval={0}
+              angle={-25}
+              textAnchor="end"
+              height={70}
+            />
+            <YAxis
+              domain={[0, yMax]}
+              ticks={[0, 25, 56, yMax]}
+              tick={{ fontSize: 11, fill: '#9CA3AF' }}
+              axisLine={{ stroke: '#E5E7EB' }}
+              tickFormatter={(v: number) => `${v}%`}
+            />
+            {visibleBands.has(0) && <ReferenceArea y1={56} y2={yMax} fill={ASSOCIATION_BANDS[0].color} fillOpacity={0.45} ifOverflow="hidden" />}
+            {visibleBands.has(1) && <ReferenceArea y1={25} y2={56} fill={ASSOCIATION_BANDS[1].color} fillOpacity={0.45} ifOverflow="hidden" />}
+            {visibleBands.has(2) && <ReferenceArea y1={0} y2={25} fill={ASSOCIATION_BANDS[2].color} fillOpacity={0.45} ifOverflow="hidden" />}
+            {mod.targets.map((target, i) => (
+              visibleTargets.has(target.id) ? (
+                <Bar
+                  key={target.id}
+                  dataKey={target.name}
+                  fill={colors[i % colors.length]}
+                  radius={[3, 3, 0, 0]}
+                />
+              ) : null
+            ))}
+            <Tooltip
+              formatter={(value: number, name: string) => [`${value}%`, name]}
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: 12 }}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex justify-center gap-3 text-[11px] text-gray-500 mt-2">
+        {mod.targets.map((target, i) => {
+          const active = visibleTargets.has(target.id);
+          return (
+            <button
+              key={target.id}
+              type="button"
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${active ? 'border-gray-300 bg-white' : 'border-transparent bg-gray-100 text-gray-400'}`}
+              onClick={() => {
+                const next = new Set(visibleTargets);
+                if (next.has(target.id)) next.delete(target.id); else next.add(target.id);
+                setVisibleTargets(next);
+              }}
+            >
+              <div
+                className="w-3 h-3 rounded-full transition-opacity"
+                style={{ backgroundColor: colors[i % colors.length], opacity: active ? 1 : 0.3 }}
+              />
+              {target.name}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Association strength per object */}
+      <div className="mt-4 space-y-2">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Association Strength</h4>
+        {mod.targets.map(target => {
+          const avgPct = cs.length > 0
+            ? Math.round(cs.reduce((sum, c) => sum + (c.objectScores[target.id]?.dim1Pct ?? 0), 0) / cs.length)
+            : 0;
+          return (
+            <div key={target.id} className="flex items-center gap-3">
+              <span className="text-sm text-gray-700 w-32 truncate">{target.name}</span>
+              <span className="text-sm font-medium text-gray-900">{avgPct}%</span>
+              <span className="text-xs text-gray-500">— {classifyAssociationBand(avgPct)}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Radar chart */}
+      <div className="mt-8">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          Radar — Atributos evaluados
+        </h4>
+        <div className="w-full flex justify-center" style={{ height: 400 }}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <RadarChart data={radarData} outerRadius="75%">
+              <PolarGrid stroke="#E5E7EB" />
+              <PolarAngleAxis
+                dataKey="attribute"
+                tick={{ fontSize: 11, fill: '#374151' }}
+              />
+              <PolarRadiusAxis
+                domain={[0, yMax]}
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                tickFormatter={(v: number) => `${v}%`}
+              />
+              {mod.targets.map((target, i) => (
+                visibleTargets.has(target.id) ? (
+                  <Radar
+                    key={target.id}
+                    name={target.name}
+                    dataKey={target.name}
+                    stroke={colors[i % colors.length]}
+                    fill={colors[i % colors.length]}
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                ) : null
+              ))}
+              <Tooltip
+                formatter={(value: number, name: string) => [`${value}%`, name]}
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: 12 }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex justify-center gap-3 text-[11px] text-gray-500 mt-2">
+          {mod.targets.map((target, i) => {
+            const active = visibleTargets.has(target.id);
+            return (
+              <button
+                key={target.id}
+                type="button"
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${active ? 'border-gray-300 bg-white' : 'border-transparent bg-gray-100 text-gray-400'}`}
+                onClick={() => {
+                  const next = new Set(visibleTargets);
+                  if (next.has(target.id)) next.delete(target.id); else next.add(target.id);
+                  setVisibleTargets(next);
+                }}
+              >
+                <div
+                  className="w-3 h-3 rounded-full transition-opacity"
+                  style={{ backgroundColor: colors[i % colors.length], opacity: active ? 1 : 0.3 }}
+                />
+                {target.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+};
+
+const ComparingAttributeChart = ({ module: mod, colors }: { module: IATModuleResult; colors: string[] }) => {
+  const cs = mod.criteriaScores ?? [];
 
   const winsPerObject: Record<string, number> = {};
   for (const target of mod.targets) winsPerObject[target.id] = 0;
@@ -297,183 +476,7 @@ const ComparingAttributeChart = ({ module: mod, colors }: { module: IATModuleRes
         </p>
       )}
 
-      {hasCriteria && (
-        <>
-          {/* Grouped bar chart — criteria × objects */}
-          <div className="flex justify-end gap-3 text-[11px] text-gray-500 mb-2">
-            {ASSOCIATION_BANDS.map((b, i) => {
-              const active = visibleBands.has(i);
-              return (
-                <button
-                  key={b.label}
-                  type="button"
-                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${active ? 'border-gray-300 bg-white' : 'border-transparent bg-gray-100 text-gray-400'}`}
-                  onClick={() => {
-                    const next = new Set(visibleBands);
-                    if (next.has(i)) next.delete(i); else next.add(i);
-                    setVisibleBands(next);
-                  }}
-                >
-                  <div
-                    className="w-3 h-3 rounded-sm transition-opacity"
-                    style={{ backgroundColor: b.color, opacity: active ? 1 : 0.3 }}
-                  />
-                  {b.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="w-full" style={{ height: 400 }}>
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart data={barData} barCategoryGap="15%" barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis
-                  dataKey="attribute"
-                  tick={{ fontSize: 11, fill: '#374151' }}
-                  axisLine={{ stroke: '#E5E7EB' }}
-                  interval={0}
-                  angle={-25}
-                  textAnchor="end"
-                  height={70}
-                />
-                <YAxis
-                  domain={[0, yMax]}
-                  ticks={[0, 25, 56, yMax]}
-                  tick={{ fontSize: 11, fill: '#9CA3AF' }}
-                  axisLine={{ stroke: '#E5E7EB' }}
-                  tickFormatter={(v: number) => `${v}%`}
-                />
-                {visibleBands.has(0) && <ReferenceArea y1={56} y2={yMax} fill={ASSOCIATION_BANDS[0].color} fillOpacity={0.45} ifOverflow="hidden" />}
-                {visibleBands.has(1) && <ReferenceArea y1={25} y2={56} fill={ASSOCIATION_BANDS[1].color} fillOpacity={0.45} ifOverflow="hidden" />}
-                {visibleBands.has(2) && <ReferenceArea y1={0} y2={25} fill={ASSOCIATION_BANDS[2].color} fillOpacity={0.45} ifOverflow="hidden" />}
-                {mod.targets.map((target, i) => (
-                  visibleTargets.has(target.id) ? (
-                    <Bar
-                      key={target.id}
-                      dataKey={target.name}
-                      fill={colors[i % colors.length]}
-                      radius={[3, 3, 0, 0]}
-                    />
-                  ) : null
-                ))}
-                <Tooltip
-                  formatter={(value: number, name: string) => [`${value}%`, name]}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: 12 }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-3 text-[11px] text-gray-500 mt-2">
-            {mod.targets.map((target, i) => {
-              const active = visibleTargets.has(target.id);
-              return (
-                <button
-                  key={target.id}
-                  type="button"
-                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${active ? 'border-gray-300 bg-white' : 'border-transparent bg-gray-100 text-gray-400'}`}
-                  onClick={() => {
-                    const next = new Set(visibleTargets);
-                    if (next.has(target.id)) next.delete(target.id); else next.add(target.id);
-                    setVisibleTargets(next);
-                  }}
-                >
-                  <div
-                    className="w-3 h-3 rounded-full transition-opacity"
-                    style={{ backgroundColor: colors[i % colors.length], opacity: active ? 1 : 0.3 }}
-                  />
-                  {target.name}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Association strength per object */}
-          <div className="mt-4 space-y-2">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Association Strength</h4>
-            {mod.targets.map(target => {
-              const avgPct = cs.length > 0
-                ? Math.round(cs.reduce((sum, c) => sum + (c.objectScores[target.id]?.dim1Pct ?? 0), 0) / cs.length)
-                : 0;
-              return (
-                <div key={target.id} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700 w-32 truncate">{target.name}</span>
-                  <span className="text-sm font-medium text-gray-900">{avgPct}%</span>
-                  <span className="text-xs text-gray-500">— {classifyAssociationBand(avgPct)}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Radar chart */}
-          <div className="mt-8">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Radar — Atributos evaluados
-            </h4>
-            <div className="w-full flex justify-center" style={{ height: 400 }}>
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <RadarChart data={radarData} outerRadius="75%">
-                  <PolarGrid stroke="#E5E7EB" />
-                  <PolarAngleAxis
-                    dataKey="attribute"
-                    tick={{ fontSize: 11, fill: '#374151' }}
-                  />
-                  <PolarRadiusAxis
-                    domain={[0, yMax]}
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                    tickFormatter={(v: number) => `${v}%`}
-                  />
-                  {mod.targets.map((target, i) => (
-                    visibleTargets.has(target.id) ? (
-                      <Radar
-                        key={target.id}
-                        name={target.name}
-                        dataKey={target.name}
-                        stroke={colors[i % colors.length]}
-                        fill={colors[i % colors.length]}
-                        fillOpacity={0.15}
-                        strokeWidth={2}
-                      />
-                    ) : null
-                  ))}
-                  <Tooltip
-                    formatter={(value: number, name: string) => [`${value}%`, name]}
-                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: 12 }}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-3 text-[11px] text-gray-500 mt-2">
-              {mod.targets.map((target, i) => {
-                const active = visibleTargets.has(target.id);
-                return (
-                  <button
-                    key={target.id}
-                    type="button"
-                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${active ? 'border-gray-300 bg-white' : 'border-transparent bg-gray-100 text-gray-400'}`}
-                    onClick={() => {
-                      const next = new Set(visibleTargets);
-                      if (next.has(target.id)) next.delete(target.id); else next.add(target.id);
-                      setVisibleTargets(next);
-                    }}
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full transition-opacity"
-                      style={{ backgroundColor: colors[i % colors.length], opacity: active ? 1 : 0.3 }}
-                    />
-                    {target.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
-      {!hasCriteria && (
-        <div className="mt-4">
-          <p className="text-sm text-gray-400 italic">No criteria data available</p>
-        </div>
-      )}
+      <CriteriaAssociationCharts module={mod} colors={colors} />
     </div>
   );
 };
@@ -620,21 +623,14 @@ const ObjectsComparingChart = ({ module: mod, colors }: { module: IATModuleResul
         })}
       </div>
 
-      <div className="mt-6">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Tiempo de reacción por objeto</h4>
-        <div style={{ height: 300 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={barData.map(d => ({ ...d, [dim1Label]: Math.abs(d[dim1Label] as number) }))} barCategoryGap="15%" barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="object" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(value: number, name: string) => [`${Math.abs(value)}%`, name]} />
-              <Bar dataKey={dim1Label} fill={colors[0]} radius={[4, 4, 0, 0]} />
-              <Bar dataKey={dim2Label} fill={colors[1]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      {(mod.criteriaScores?.length ?? 0) > 0 && (
+        <div className="mt-8">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            % {dim1Label} por atributo
+          </h4>
+          <CriteriaAssociationCharts module={mod} colors={TARGET_COLORS} />
         </div>
-      </div>
+      )}
 
       <div className="mt-6">
         <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Perfil por objeto</h4>
