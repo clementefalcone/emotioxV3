@@ -252,6 +252,18 @@ class PublicService {
             return { hasResponded: false };
         }
     }
+    async recordConsent(researchId: string, record: ConsentRecord): Promise<void> {
+        const baseUrl = configService.getBaseUrl();
+        const response = await fetch(`${baseUrl}/public/research/${researchId}/consent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record),
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to record ${record.decision} consent of ${record.subjectId} for ${record.context} in research ${researchId}: HTTP ${response.status}`);
+        }
+    }
+
     async getParticipantResponses(researchId: string, participantId: string, reviewToken: string): Promise<ParticipantResponse[]> {
         const baseUrl = configService.getBaseUrl();
         const url = `${baseUrl}/public/research/${researchId}/participant/${encodeURIComponent(participantId)}/responses`;
@@ -262,6 +274,14 @@ class PublicService {
         const data = await response.json() as { responses: ParticipantResponse[] };
         return data.responses;
     }
+}
+
+export interface ConsentRecord {
+    subjectId: string;
+    context: 'eye_tracking' | 'emotion_analysis';
+    decision: 'accepted' | 'declined';
+    text: string;
+    locale: string;
 }
 
 export interface ParticipantResponse {

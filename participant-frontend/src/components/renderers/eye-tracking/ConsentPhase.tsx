@@ -1,25 +1,35 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface ConsentPhaseProps {
     taskDescription: string;
     hasEmotionRecognition: boolean;
     isGazeModelLoaded: boolean;
-    onAccept: () => Promise<boolean>;
-    onDecline: () => void;
+    onAccept: (consentText: string) => Promise<boolean>;
+    onDecline: (consentText: string) => void;
 }
 
 export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, hasEmotionRecognition, isGazeModelLoaded, onAccept, onDecline }) => {
     const { t } = useTranslation();
     const [isStartingCamera, setIsStartingCamera] = useState(false);
     const [hasCameraFailed, setHasCameraFailed] = useState(false);
+    const [consentError, setConsentError] = useState<string | null>(null);
+    const consentRef = useRef<HTMLDivElement>(null);
+    const readConsentText = () => consentRef.current?.innerText ?? '';
 
     const handleAccept = async () => {
         setIsStartingCamera(true);
         setHasCameraFailed(false);
-        const isCameraOn = await onAccept();
-        setIsStartingCamera(false);
-        setHasCameraFailed(!isCameraOn);
+        setConsentError(null);
+        try {
+            const isCameraOn = await onAccept(readConsentText());
+            setHasCameraFailed(!isCameraOn);
+        } catch (err) {
+            console.error(err);
+            setConsentError(t('eyeTracking.consent.recordFailed', 'We could not save your consent. Check your connection and try again.'));
+        } finally {
+            setIsStartingCamera(false);
+        }
     };
 
     const capturedItems = [
@@ -33,7 +43,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
 
     return (
         <div className="flex flex-col items-center px-4 py-8">
-            <div className="w-full max-w-lg space-y-5">
+            <div ref={consentRef} className="w-full max-w-lg space-y-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
                     {t('eyeTracking.consent.eyebrow', 'Consent')}
                 </p>
@@ -63,6 +73,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
                     </p>
                 </div>
 
+                {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                 {hasCameraFailed && (
                     <p className="text-sm text-red-500">
                         {t('eyeTracking.cameraBlocked', 'Camera permission denied. Reload the page to try again.')}
@@ -79,7 +90,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
                         : t('eyeTracking.loading', 'Loading...')}
                 </button>
                 <button
-                    onClick={onDecline}
+                    onClick={() => onDecline(readConsentText())}
                     className="w-full text-sm text-red-500 underline"
                 >
                     {t('eyeTracking.consent.decline', 'I do not accept · Skip this activity')}

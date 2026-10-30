@@ -8,6 +8,9 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../stores/useParticipantStore', () => ({
     useParticipantStore: () => ({ saveResponse: vi.fn() }),
 }));
+vi.mock('../../hooks/useConsentRecorder', () => ({
+    useConsentRecorder: () => vi.fn().mockResolvedValue(undefined),
+}));
 
 
 vi.mock('../../services/media.service', () => ({

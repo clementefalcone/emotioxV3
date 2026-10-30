@@ -189,7 +189,8 @@
       "notCapturedAudio": "Audio",
       "revoke": "Puedes quitar el permiso de cámara en tu navegador cuando quieras.",
       "accept": "Acepto y activo la cámara",
-      "decline": "No acepto · Saltar esta actividad"
+      "decline": "No acepto · Saltar esta actividad",
+      "recordFailed": "No pudimos guardar tu consentimiento. Revisa tu conexión e inténtalo de nuevo."
     },
     "face": {
       "eyebrow": "Preparación",

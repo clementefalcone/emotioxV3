@@ -914,12 +914,13 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         const stopCameraByChoice = vi.fn();
         const showNotice = vi.fn();
         const showConsent = vi.fn();
-        const copy = { recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.', off: 'Registro desactivado', resume: 'Activar' };
+        const recordConsent = vi.fn();
+        const copy = { activeLead: 'Este sitio guarda: ', recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.', off: 'Registro desactivado', resume: 'Activar' };
         const api = new Function('C', 'document', 'store', 'flush', 'flushRrweb', 'flushEmotions', 'flushGaze', 'stopCameraByChoice', 'showNotice', 'visitorCopy', 'rrwebStopFn', 'showConsent', 'consented',
-            `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
+            `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];var recordConsent=arguments[14];var describeRecording=function(lead){return lead+'clics';};${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
         )({ rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, showConsent, true,
-            (id: string) => attached.get(id) ?? null) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
-        return { ...api, pill: () => attached.get('_ecx_rec'), offPill: () => attached.get('_ecx_off'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice, showConsent };
+            (id: string) => attached.get(id) ?? null, recordConsent) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
+        return { ...api, pill: () => attached.get('_ecx_rec'), offPill: () => attached.get('_ecx_off'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice, showConsent, recordConsent };
     }
 
     it('shows a recording pill whose stop button flushes, stops capture and remembers the choice', () => {
@@ -928,6 +929,7 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         expect(run.pill()?.children[0].textContent).toBe('● Registrando tu navegación');
 
         run.pill()?.children[1].onclick?.();
+        expect(run.recordConsent).toHaveBeenCalledWith('withdrawn', 'Este sitio guarda: clics | Detener');
         expect(run.flushes).toHaveBeenCalledTimes(4);
         expect(run.isConsented()).toBe(false);
         expect(run.rrwebStop).toHaveBeenCalledTimes(1);
@@ -991,5 +993,67 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         expect(js).toContain('function createSession(){\n    if(!consented)return;');
         expect(js).toContain('if(!consented||!window.rrweb||!window.rrweb.record)return;');
         expect(js).toContain('setTimeout(function(){\n            if(!consented)return;');
+    });
+});
+
+function runConsentBanner() {
+    const js = generateTrackingSnippet({ ...defaultConfig, consentRequired: true });
+    const source = js.slice(js.indexOf('function recordConsent('), js.indexOf('function getSelector('))
+        + js.slice(js.indexOf('function showConsent('), js.indexOf('var NOTICE_MS='));
+    const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
+    class FakeXhr {
+        url = '';
+        onerror: (() => void) | null = null;
+        open(_method: string, url: string) { this.url = url; }
+        setRequestHeader() {}
+        send(body: string) { sent.push({ url: this.url, body: JSON.parse(body) }); }
+    }
+    const buttons = new Map<string, { innerText: string; onclick: (() => void) | null }>();
+    const banner = {
+        id: '', style: { cssText: '' }, innerHTML: '',
+        querySelector: () => ({ innerText: 'Este sitio participa en un estudio.' }),
+        remove: vi.fn(),
+    };
+    const labels: Record<string, string> = { _ecx_accept: 'Aceptar', _ecx_accept_camera: 'Aceptar y activar cámara', _ecx_reject: 'Rechazar' };
+    const document = {
+        createElement: () => banner,
+        getElementById: (id: string) => {
+            if (!buttons.has(id)) buttons.set(id, { innerText: labels[id], onclick: null });
+            return buttons.get(id);
+        },
+        body: { appendChild: () => {
+            for (const id of Object.keys(labels)) {
+                if (banner.innerHTML.includes(`id="${id}"`)) document.getElementById(id);
+            }
+        } },
+    };
+    const copy = { accept: 'Aceptar', decline: 'Rechazar', acceptWithCamera: 'Aceptar y activar cámara', declined: 'No registraremos' };
+    const startSession = vi.fn();
+    const api = new Function('C', 'document', 'XMLHttpRequest', 'store', 'load', 'pageLanguage', 'visitorCopy', 'describeConsent', 'isCameraRequired', 'hasCameraFeatures', 'startSession', 'openCameraCapture', 'showNotice', 'renderResumePill', 'CAMERA_INVITE_KEY',
+        `var consented=false;${source}return {showConsent:showConsent};`,
+    )({ rid: 'r-1', api: 'https://api.example.com', cPos: 'bottom' }, document, FakeXhr, vi.fn(), () => 'v_visitor', () => 'es', () => copy, () => 'Este sitio participa en un estudio.',
+        () => false, () => true, startSession, vi.fn(), vi.fn(), vi.fn(), 'k') as { showConsent: () => void };
+    return { showConsent: api.showConsent, sent, click: (id: string) => buttons.get(id)?.onclick?.(), startSession };
+}
+
+describe('generateTrackingSnippet — consent decisions are recorded on the server', () => {
+    it('records an acceptance with the banner text and the button the visitor pressed', () => {
+        const { showConsent, sent, click, startSession } = runConsentBanner();
+        showConsent();
+        click('_ecx_accept');
+        expect(sent).toEqual([{
+            url: 'https://api.example.com/public/research/r-1/consent',
+            body: { subjectId: 'v_visitor', context: 'website_tracking', decision: 'accepted', text: 'Este sitio participa en un estudio. | Aceptar', locale: 'es' },
+        }]);
+        expect(startSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('records a rejection without starting the session', () => {
+        const { showConsent, sent, click, startSession } = runConsentBanner();
+        showConsent();
+        click('_ecx_reject');
+        expect(sent.map(request => request.body.decision)).toEqual(['declined']);
+        expect(sent[0].body.text).toBe('Este sitio participa en un estudio. | Rechazar');
+        expect(startSession).not.toHaveBeenCalled();
     });
 });

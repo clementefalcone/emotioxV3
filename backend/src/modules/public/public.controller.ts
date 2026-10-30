@@ -4,6 +4,7 @@ import { success, error } from '../../utils/response';
 import * as publicService from './index';
 import * as mediaService from '../media/media.service';
 import { isAuthError, requireParticipantReviewToken } from '../../utils/auth';
+import { ConsentValidationError, recordConsent } from './public.consent';
 
 const anonymizeProgressParticipant = <T extends { id: string; name: string; email: string }>(researchId: string, participant: T): T => {
     const alias = createHash('sha256').update(`${researchId}:${participant.id}`).digest('hex').slice(0, 8);
@@ -85,6 +86,21 @@ export const handlePublicRoutes = async (event: APIGatewayProxyEvent): Promise<A
             requireParticipantReviewToken(event, researchId, participantId);
             const responses = await publicService.getParticipantResponses(researchId, participantId);
             return success({ responses }, 200, undefined, origin);
+        }
+
+        const consentMatch = path.match(/^\/public\/research\/([^\/]+)\/consent$/);
+        if (consentMatch && httpMethod === 'POST') {
+            const researchId = consentMatch[1];
+            try {
+                const isRecorded = await recordConsent(researchId, JSON.parse(event.body || '{}'));
+                if (!isRecorded) return error(`Research ${researchId} not found`, 404, undefined, origin);
+                return success({ recorded: true }, 201, undefined, origin);
+            } catch (err: unknown) {
+                if (err instanceof ConsentValidationError || err instanceof SyntaxError) {
+                    return error(`Invalid consent record for research ${researchId}: ${err.message}`, 400, undefined, origin);
+                }
+                throw err;
+            }
         }
 
         // POST /public/research/:id/responses

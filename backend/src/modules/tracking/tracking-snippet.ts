@@ -123,6 +123,14 @@ function checkPage(){
     return true;
 }
 
+function recordConsent(decision,text){
+    var x=new XMLHttpRequest();
+    x.open("POST",C.api+"/public/research/"+C.rid+"/consent",true);
+    x.setRequestHeader("Content-Type","application/json");
+    x.onerror=function(){console.warn("[EmotioX] consent "+decision+" not recorded for research "+C.rid);};
+    x.send(JSON.stringify({subjectId:getVid(),context:"website_tracking",decision:decision,text:text,locale:pageLanguage()}));
+}
+
 function getVid(){
     var v=load("_ecx_vid");
     if(v)return v;
@@ -516,7 +524,9 @@ function showConsent(){
     var cameraButton=hasCameraFeatures()?'<button id="_ecx_accept_camera" style="background:#16a34a;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+copy.acceptWithCamera+'</button>':'';
     d.innerHTML='<span style="flex:1 1 280px;line-height:1.45;">'+(C.cText||describeConsent())+'</span><div style="display:flex;flex-wrap:wrap;gap:8px;">'+acceptButton+cameraButton+'<button id="_ecx_reject" style="background:transparent;color:#94a3b8;border:1px solid #475569;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;">'+(C.cDecline||copy.decline)+'</button></div>';
     document.body.appendChild(d);
+    var bannerText=function(buttonId){return d.querySelector("span").innerText+" | "+document.getElementById(buttonId).innerText;};
     var accept=function(isCameraOn){
+        recordConsent("accepted",bannerText(isCameraOn?"_ecx_accept_camera":"_ecx_accept"));
         consented=true;d.remove();
         store("_ecx_consent_"+C.rid,"1");
         store(CAMERA_INVITE_KEY,"1");
@@ -527,6 +537,7 @@ function showConsent(){
     if(acceptButton)document.getElementById("_ecx_accept").onclick=function(){accept(false);};
     if(cameraButton)document.getElementById("_ecx_accept_camera").onclick=function(){accept(true);};
     document.getElementById("_ecx_reject").onclick=function(){
+        recordConsent("declined",bannerText("_ecx_reject"));
         d.remove();
         store("_ecx_consent_"+C.rid,"0");
         showNotice(copy.declined);
@@ -580,7 +591,10 @@ function renderRecordingPill(){
     renderPill("_ecx_rec","\u25cf "+copy.recording,copy.stop,stopTrackingByChoice);
 }
 
-function stopTrackingByChoice(){endParticipation(visitorCopy().stopped);}
+function stopTrackingByChoice(){
+    recordConsent("withdrawn",describeRecording(visitorCopy().activeLead)+" | "+visitorCopy().stop);
+    endParticipation(visitorCopy().stopped);
+}
 
 function endParticipation(noticeText){
     flush();flushRrweb();flushEmotions();flushGaze();

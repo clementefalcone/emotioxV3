@@ -7,6 +7,11 @@ vi.mock('react-i18next', () => ({
 }));
 
 const mockSaveResponse = vi.fn();
+const mockRecordConsent = vi.fn().mockResolvedValue(undefined);
+const consentAcceptErrors: string[] = [];
+vi.mock('../../hooks/useConsentRecorder', () => ({
+    useConsentRecorder: () => mockRecordConsent,
+}));
 vi.mock('../../stores/useParticipantStore', () => ({
     useParticipantStore: () => ({ saveResponse: mockSaveResponse }),
 }));
@@ -128,10 +133,10 @@ vi.mock('../../lib/eyeTracking/attention/sessionMetrics', () => ({
 }));
 
 vi.mock('./eye-tracking/ConsentPhase', () => ({
-    ConsentPhase: ({ onAccept, onDecline }: { onAccept: () => Promise<boolean>; onDecline: () => void }) => (
+    ConsentPhase: ({ onAccept, onDecline }: { onAccept: (text: string) => Promise<boolean>; onDecline: (text: string) => void }) => (
         <>
-            <button data-testid="consent-accept" onClick={() => { void onAccept(); }}>Accept</button>
-            <button data-testid="consent-decline" onClick={onDecline}>Decline</button>
+            <button data-testid="consent-accept" onClick={() => { onAccept('consent text').catch((err: Error) => { consentAcceptErrors.push(err.message); }); }}>Accept</button>
+            <button data-testid="consent-decline" onClick={() => onDecline('consent text')}>Decline</button>
         </>
     ),
 }));
@@ -294,8 +299,20 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
 
         await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
 
+        expect(mockRecordConsent).toHaveBeenCalledWith('accepted', 'consent text');
         expect(mockGetUserMedia).toHaveBeenCalledTimes(1);
         expect(queryByTestId('face-continue')).not.toBeNull();
+    });
+
+    it('does not turn on the camera when the consent cannot be recorded', async () => {
+        rememberCalibration('test-et-1', { residuals: [], rmsePx: null, predictor: trainedPredictor });
+        mockRecordConsent.mockRejectedValueOnce(new Error('HTTP 500'));
+        const { getByTestId } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+
+        await act(async () => { fireEvent.click(getByTestId('consent-accept')); });
+
+        expect(consentAcceptErrors).toContain('HTTP 500');
+        expect(mockGetUserMedia).not.toHaveBeenCalled();
     });
 
     it('stays on consent when camera permission is denied', async () => {
@@ -319,6 +336,7 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         await act(async () => { vi.advanceTimersByTime(3000); });
 
         expect(onComplete).toHaveBeenCalledTimes(1);
+        expect(mockRecordConsent).toHaveBeenCalledWith('declined', 'consent text');
         expect(mockGetUserMedia).not.toHaveBeenCalled();
         expect(mockSaveResponse).not.toHaveBeenCalled();
     });

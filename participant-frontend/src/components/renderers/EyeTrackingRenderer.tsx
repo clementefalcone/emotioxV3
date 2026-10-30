@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParticipantStore } from '../../stores/useParticipantStore';
+import { useConsentRecorder } from '../../hooks/useConsentRecorder';
 import { mediaService } from '../../services/media.service';
 import { useBlazeGaze } from '../../hooks/useBlazeGaze';
 import { useMediaPipeGaze } from '../../hooks/useMediaPipeGaze';
@@ -93,6 +94,7 @@ function fisherYatesShuffle<T>(arr: T[]): T[] {
 export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module, onComplete }) => {
     const { t } = useTranslation();
     const { saveResponse } = useParticipantStore();
+    const recordConsent = useConsentRecorder('eye_tracking');
 
     const deviceType = useMemo(() => getDeviceType(), []);
 
@@ -849,11 +851,12 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         onSequenceComplete: finishCalibration,
     });
 
-    const handleConsentAccept = useCallback(async () => {
+    const handleConsentAccept = useCallback(async (consentText: string) => {
+        await recordConsent('accepted', consentText);
         const isCameraOn = await startCamera();
         if (isCameraOn) setPhase('face');
         return isCameraOn;
-    }, [startCamera]);
+    }, [recordConsent, startCamera]);
 
     /** Reject session — session quality too low after max attempts. */
     const handleRejectSession = useCallback(() => {
@@ -863,6 +866,11 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         onComplete?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze/faceEmotions are unstable object literals
     }, [blaze, stopCamera, onComplete]);
+
+    const handleConsentDecline = useCallback((consentText: string) => {
+        recordConsent('declined', consentText).catch((err: unknown) => console.error(err));
+        handleRejectSession();
+    }, [recordConsent, handleRejectSession]);
 
     // -----------------------------------------------------------------------
     // Unconfigured
@@ -912,7 +920,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 hasEmotionRecognition={hasEmotionRecognition}
                 isGazeModelLoaded={gaze.isLoaded}
                 onAccept={handleConsentAccept}
-                onDecline={handleRejectSession}
+                onDecline={handleConsentDecline}
             />
         );
     } else if (phase === 'face') {

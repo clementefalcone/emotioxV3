@@ -189,7 +189,8 @@
       "notCapturedAudio": "Audio",
       "revoke": "You can remove camera permission in your browser at any time.",
       "accept": "I accept and turn on the camera",
-      "decline": "I do not accept · Skip this activity"
+      "decline": "I do not accept · Skip this activity",
+      "recordFailed": "We could not save your consent. Check your connection and try again."
     },
     "face": {
       "eyebrow": "Getting ready",

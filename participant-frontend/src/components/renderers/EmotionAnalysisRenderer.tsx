@@ -4,6 +4,7 @@ import { useParticipantStore } from '../../stores/useParticipantStore';
 import { mediaService } from '../../services/media.service';
 import { useFaceApiEmotions } from '../../hooks/useFaceApiEmotions';
 import { usePreviewMode } from '../../hooks/usePreviewMode';
+import { useConsentRecorder } from '../../hooks/useConsentRecorder';
 import { detectMicroExpressions } from '../../lib/eyeTracking';
 
 interface EmotionAnalysisRendererProps {
@@ -57,6 +58,20 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
     const [webcamReady, setWebcamReady] = useState(false);
     const savedRef = useRef(false);
     const webcamVideoRef = useRef<HTMLVideoElement>(null);
+    const introRef = useRef<HTMLDivElement>(null);
+    const [consentError, setConsentError] = useState<string | null>(null);
+    const recordConsent = useConsentRecorder('emotion_analysis');
+
+    const handleIntroContinue = useCallback(async () => {
+        setConsentError(null);
+        try {
+            await recordConsent('accepted', introRef.current?.innerText ?? '');
+            setPhase('setup');
+        } catch (err) {
+            console.error(err);
+            setConsentError(t('eyeTracking.consent.recordFailed', 'We could not save your consent. Check your connection and try again.'));
+        }
+    }, [recordConsent, t]);
     const allSamplesRef = useRef<Array<{ stimulusIndex: number; samples: ReturnType<typeof faceEmotions.getSamples> }>>([]);
 
     const faceEmotions = useFaceApiEmotions({
@@ -195,7 +210,7 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
     if (phase === 'intro') {
         return (
             <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
-                <div className="max-w-md text-center space-y-6 px-6">
+                <div ref={introRef} className="max-w-md text-center space-y-6 px-6">
                     <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto">
                         <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -208,8 +223,9 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
                     <p className="text-xs text-gray-400">
                         {resolvedUrls.length} {resolvedUrls.length === 1 ? 'stimulus' : 'stimuli'} &middot; {Math.ceil(viewingDuration / 1000)}s each
                     </p>
+                    {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                     <button
-                        onClick={() => setPhase('setup')}
+                        onClick={handleIntroContinue}
                         className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
                     >
                         {t('Continue')}
