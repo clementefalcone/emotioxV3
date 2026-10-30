@@ -886,7 +886,7 @@ const computeRTDistribution = (
 // Raw trial export
 // ---------------------------------------------------------------------------
 
-export const getIATRawTrials = async (researchId: string) => {
+export const getIATRawTrials = async (researchId: string, moduleId?: string) => {
   // Reuse stage + module lookup from getImplicitAssociationResults
   const stageQuery = `
     SELECT s.id as stage_id
@@ -905,27 +905,34 @@ export const getIATRawTrials = async (researchId: string) => {
     ORDER BY order_index
   `;
   const moduleResult = await pool.query(moduleQuery, [researchId, ...stageIds]);
+  const scopedModules = moduleId
+    ? moduleResult.rows.filter((m: Record<string, unknown>) => m.id === moduleId)
+    : moduleResult.rows;
 
   interface RawTrial {
     participantId: string;
+    moduleId: string;
     module: string;
+    trialNumber: number;
     testType: string;
     phase: string;
     targetId: string;
     targetName: string;
     criterionId: string;
     criterionLabel: string;
+    attributeLabel: string;
     rt: number;
     correct: boolean;
   }
 
   const trials: RawTrial[] = [];
 
-  for (const mod of moduleResult.rows) {
+  for (const mod of scopedModules) {
     const testType = detectIATTestType(mod.name);
     let config: any = {};
     try { config = typeof mod.config === 'string' ? JSON.parse(mod.config) : mod.config; } catch { /* */ }
-    const { targets, attributes } = extractIATConfig(config, testType);
+    const { targets, attributes, criteria } = extractIATConfig(config, testType);
+    const criteriaMap = new Map(criteria.map(c => [c.id, c.label]));
 
     const targetMap = new Map(targets.map(t => [t.id, t.name]));
     const attrMap = new Map(attributes.map(a => [a.id, a.label]));
@@ -941,21 +948,24 @@ export const getIATRawTrials = async (researchId: string) => {
       try {
         const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
         const trialList = Array.isArray(parsed) ? parsed : parsed?.trials ?? [];
-        for (const t of trialList) {
-          const baseTargetId = t.targetId?.includes('__') ? t.targetId.split('__')[0] : (t.targetId ?? '');
+        trialList.forEach((t: any, index: number) => {
+          const [baseTargetId = '', attributeId = ''] = (t.targetId ?? '').split('__');
           trials.push({
             participantId: row.participant_id,
+            moduleId: mod.id,
             module: mod.name,
+            trialNumber: index + 1,
             testType,
             phase: t.phase ?? '',
             targetId: t.targetId ?? '',
             targetName: targetMap.get(baseTargetId) ?? baseTargetId,
             criterionId: t.criterionId ?? '',
             criterionLabel: attrMap.get(t.criterionId) ?? (t.criterionId ?? ''),
+            attributeLabel: criteriaMap.get(attributeId) ?? '',
             rt: t.rt ?? 0,
             correct: t.correct !== false,
           });
-        }
+        });
       } catch { /* skip */ }
     }
   }

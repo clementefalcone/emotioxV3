@@ -77,7 +77,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
         const rawTrialsMatch = path.match(/^\/analytics\/research\/([^\/]+)\/implicit-association\/raw-trials$/);
         if (rawTrialsMatch && httpMethod === 'GET') {
             const researchId = rawTrialsMatch[1];
-            const results = await analyticsService.getIATRawTrials(researchId);
+            const results = await analyticsService.getIATRawTrials(researchId, queryParams?.moduleId as string | undefined);
             return success({ results }, 200, undefined, origin);
         }
 

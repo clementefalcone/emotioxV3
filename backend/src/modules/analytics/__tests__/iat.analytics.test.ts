@@ -4,7 +4,7 @@ vi.mock('../../../config/database', () => ({
   default: { query: vi.fn() },
 }));
 
-import { getImplicitAssociationResults } from '../iat.analytics';
+import { getIATRawTrials, getImplicitAssociationResults } from '../iat.analytics';
 import pool from '../../../config/database';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
@@ -98,5 +98,18 @@ describe('getImplicitAssociationResults — Objects Comparing', () => {
       { label: 'Navidad', chicureo: 100, curacavi: 0 },
       { label: 'Año nuevo', chicureo: 50, curacavi: 50 },
     ]);
+  });
+});
+
+describe('getIATRawTrials — Objects Comparing', () => {
+  it('names the place, the attribute faced and the choice of every trial', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ stage_id: 'stage-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'module-1', name: 'Objects Comparing', config: JSON.stringify(objectsComparingConfig) }] })
+      .mockResolvedValueOnce({ rows: [{ value: JSON.stringify(participantTrials), participant_id: 'p1' }] });
+    const { trials } = await getIATRawTrials('research-1', 'module-1');
+    expect(trials).toHaveLength(9);
+    expect(trials[0]).toMatchObject({ moduleId: 'module-1', trialNumber: 1, phase: 'block-1', targetName: 'Chicureo', attributeLabel: '', criterionLabel: 'Positivo' });
+    expect(trials[4]).toMatchObject({ trialNumber: 5, phase: 'block-2', targetName: 'Chicureo', attributeLabel: 'Año nuevo', criterionLabel: 'Negativo', rt: 800 });
   });
 });
