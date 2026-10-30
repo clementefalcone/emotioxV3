@@ -1,3 +1,15 @@
+## v0.99.38 — IAT: raw data download per module (2026-10-30)
+
+### feat(iat): name attribute and trial in raw trials
+- `GET …/implicit-association/raw-trials?moduleId=` scopes to one module; each trial carries `moduleId`, `trialNumber` and `attributeLabel` (the attribute faced, from the compound stimulus id). Backend 659 → 660.
+
+### feat(iat): download raw data per module
+- "Descargar raw data" on each IAT card: Excel with Trials (participant, IAT, trial n°, phase, object, attribute, answer, RT, < 300 ms, quality, demographics), Participantes (quality, % fast, % Positivo total and per object, demographics) and Leyenda. Always every participant. Demographic headers reuse the Filters labels (moved to `shared/demographicLabels.ts`). Research 691 → 692.
+- Check: real IAT 2 data downloaded through the button, 10,504 trials matching one by one a file built straight from the DB; 101 participants, 66 / 14 / 21 quality as in Results. Production backend returns 10,504 trials with attributes.
+
+### chore(deploy): stop copying frontends on deploy
+- Frontend deploy scripts no longer copy the live build into `public_html/*.backup.*`; the last copies were deleted (12.2 GB used of 20 GB). Rollback = redeploy the previous commit.
+
 ## v0.99.37 — IAT: reliability filter, everyone kept (2026-10-30)
 
 ### feat(iat): label response quality, scope results
