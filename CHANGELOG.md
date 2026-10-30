@@ -12,6 +12,11 @@
 ### fix(results): say when filters match nobody
 - SmartVOC, Cognitive Tasks and Eye Tracking show the same notice (`shared/NoMatchingParticipantsNotice`) in place of the charts; the filters panel stays visible. Research 693 → 699, 0 failing. Not checked in the browser.
 
+### fix(screener): apply results filters
+- The Screener results showed the filters panel but always counted every participant. `GET …/screener?participants=` now scopes responses, statuses and the daily chart, like IAT and Eye Tracking; the view refetches on every filter change and shows the empty-filter notice.
+- Disqualified participants never answer demographics, so a demographic filter leaves them out.
+- Check: production, study `f65a36d3` (27 screener responses): everyone 27 / 27 complete; 3 participants → 3 / 3; empty scope → 0. Backend 661 → 663, research 699 → 702, 0 failing.
+
 ## v0.99.38 — IAT: raw data download per module (2026-10-30)
 
 ### feat(iat): name attribute and trial in raw trials
