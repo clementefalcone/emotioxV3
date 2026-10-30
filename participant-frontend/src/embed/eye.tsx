@@ -33,6 +33,7 @@ const start = (options: EyeStartOptions): void => {
     const flowOptions: CalibrationFlowOptions = {
         storageKey: options.storageKey,
         hasEmotionRecognition: options.hasEmotionRecognition,
+        canSkipCalibration: options.canSkipCalibration,
         onCameraDenied: options.onCameraDenied,
         onReady: (gaze) => options.onReady({ ...gaze, stop: close }),
         onDecline: () => {

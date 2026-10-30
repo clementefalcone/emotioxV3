@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMediaPipeGaze } from '../hooks/useMediaPipeGaze';
 import { BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS } from '../lib/eyeTracking';
 import { RidgeGazePredictor } from '../lib/eyeTracking/gazePredictor';
@@ -16,6 +17,7 @@ import { saveCalibration } from './eyeSession';
 type EmbedPhase = 'restoring' | 'consent' | 'face' | 'preparing' | 'calibration' | 'done';
 
 const PREPARING_MS = 2000;
+const SKIPPABLE_PHASES: ReadonlySet<EmbedPhase> = new Set(['face', 'preparing', 'calibration']);
 
 const buildPredictor = (stored: StoredCalibration | null): RidgeGazePredictor => {
     const predictor = new RidgeGazePredictor(DEFAULT_RIDGE_LAMBDA);
@@ -51,16 +53,17 @@ export const EyeCalibrationFlow = ({ options, storedCalibration }: EyeCalibratio
         }
     }, [options]);
 
-    const finishSession = useCallback(() => {
+    const finishSession = useCallback((isGazeCalibrated: boolean) => {
         const video = videoRef.current;
         if (!video) return;
         const calibratedGaze: CalibratedGaze = {
             video,
-            readGaze: () => gaze.gazePosRef.current,
+            readGaze: () => (isGazeCalibrated ? gaze.gazePosRef.current : null),
             isEyeOpen: () => gazeStateRef.current === 'open',
             readHeadPose: () => gaze.headPoseRef.current,
             readLandmarks: () => gaze.lastLandmarksRef.current,
-            calibrationRmsePx: predictor.cvRmsePx,
+            calibrationRmsePx: isGazeCalibrated ? predictor.cvRmsePx : null,
+            isGazeCalibrated,
         };
         setPhase('done');
         options.onReady(calibratedGaze);
@@ -72,7 +75,7 @@ export const EyeCalibrationFlow = ({ options, storedCalibration }: EyeCalibratio
         void Promise.all([startCamera(), predictor.train()]).then(([isCameraOn]) => {
             if (isCancelled || !isCameraOn) return;
             gaze.start();
-            finishSession();
+            finishSession(true);
         });
         return () => { isCancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze is an unstable object literal; start is stable
@@ -106,7 +109,7 @@ export const EyeCalibrationFlow = ({ options, storedCalibration }: EyeCalibratio
         onSequenceComplete: () => {
             void gaze.trainRidge().then(() => {
                 saveCalibration(options.storageKey, { samples: predictor.calibrationSamples, savedAt: Date.now() });
-                finishSession();
+                finishSession(true);
             });
         },
     });
@@ -152,11 +155,32 @@ export const EyeCalibrationFlow = ({ options, storedCalibration }: EyeCalibratio
         ),
     };
     const overlay = overlays[phase];
+    const canSkipNow = options.canSkipCalibration && SKIPPABLE_PHASES.has(phase);
 
     return (
         <>
             <video ref={videoRef} autoPlay playsInline muted style={{ display: 'none' }} />
-            {overlay && <div className="fixed inset-0 overflow-y-auto bg-white text-gray-900">{overlay}</div>}
+            {overlay && (
+                <div className="fixed inset-0 overflow-y-auto bg-white text-gray-900">
+                    {overlay}
+                    {canSkipNow && <SkipCalibrationButton onSkip={() => finishSession(false)} />}
+                </div>
+            )}
         </>
+    );
+};
+
+const SkipCalibrationButton = ({ onSkip }: { onSkip: () => void }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="fixed inset-x-0 bottom-4 flex justify-center px-4">
+            <button
+                type="button"
+                onClick={onSkip}
+                className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+                {t('eyeTracking.skipCalibration', 'Skip calibration (emotions only)')}
+            </button>
+        </div>
     );
 };

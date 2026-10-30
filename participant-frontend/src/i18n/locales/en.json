@@ -146,6 +146,7 @@
     "complete": "Test completed. Thank you!"
   },
   "eyeTracking": {
+    "skipCalibration": "Skip calibration (emotions only)",
     "notConfigured": "This activity is not ready yet.",
     "introDescription": "You will be presented with images. Your eye movements will be tracked to understand what catches your attention.",
     "introSpeed": "Try to look naturally at the content presented on screen.",

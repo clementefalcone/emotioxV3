@@ -146,6 +146,7 @@
     "complete": "Prueba completada. ¡Gracias!"
   },
   "eyeTracking": {
+    "skipCalibration": "Saltar calibración (solo emociones)",
     "notConfigured": "Esta actividad todavía no está lista.",
     "introDescription": "Se te presentarán imágenes. Tus movimientos oculares serán rastreados para entender qué llama tu atención.",
     "introSpeed": "Intenta mirar de forma natural el contenido presentado en pantalla.",

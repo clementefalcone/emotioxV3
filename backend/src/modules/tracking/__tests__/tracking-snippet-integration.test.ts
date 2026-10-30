@@ -269,12 +269,13 @@ interface FakeEyeOptions {
     lang: string;
     storageKey: string;
     hasEmotionRecognition: boolean;
+    canSkipCalibration: boolean;
     onReady: (session: object) => void;
     onDecline: () => void;
     onCameraDenied: () => void;
 }
 
-function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isChosen = true, isCalibrationFresh = true, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isChosen?: boolean; isCalibrationFresh?: boolean; pageLang?: string } = {}) {
+function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isChosen = true, isCalibrationFresh = true, isSkipped = false, gazeRequired = false, pageLang = 'es-CL' }: { captureGaze?: boolean; captureEmotions?: boolean; isChosen?: boolean; isCalibrationFresh?: boolean; isSkipped?: boolean; gazeRequired?: boolean; pageLang?: string } = {}) {
     const js = generateTrackingSnippet({ ...defaultConfig, gazeMode: captureGaze ? 'optional' : 'off', emotionsMode: captureEmotions ? 'optional' : 'off' });
     const source = js.slice(js.indexOf('var eyeSession=null,isEyeFlowOpen=false;'), js.indexOf('function loadFaceApi(cb){'));
     const starts: FakeEyeOptions[] = [];
@@ -288,11 +289,11 @@ function runStartCameraCapture({ captureGaze = true, captureEmotions = true, isC
     const store = vi.fn();
     const renderCameraTab = vi.fn();
     const api = new Function('C', 'window', 'document', 'navigator', 'withCamera', 'beginCapture', 'loadFaceApi', 'skipCameraCapture', 'reportCaptureError', 'isCameraChosen', 'hasCameraFeatures',
-        'markCameraOn', 'hasFreshCalibration', 'store', 'renderCameraTab', 'EYE_CALIBRATION_KEY', 'CAMERA_CHOICE_KEY',
+        'markCameraOn', 'hasFreshCalibration', 'store', 'renderCameraTab', 'EYE_CALIBRATION_KEY', 'CAMERA_CHOICE_KEY', 'isCalibrationSkipped', 'EYE_SKIP_KEY',
         `var emoVideo=null,emoStream=null;${source}return {startCameraCapture:startCameraCapture,state:function(){return {eyeSession:eyeSession,emoVideo:emoVideo,isEyeFlowOpen:isEyeFlowOpen};}};`,
-    )({ gaze: captureGaze, emotions: captureEmotions, rid: 'r', eyeUrl: 'https://eye' }, window, { documentElement: { lang: pageLang } }, { language: 'en-US' },
+    )({ gaze: captureGaze, emotions: captureEmotions, gazeRequired, rid: 'r', eyeUrl: 'https://eye' }, window, { documentElement: { lang: pageLang } }, { language: 'en-US' },
         withCamera, beginCapture, loadFaceApi, skipCameraCapture, reportCaptureError, () => isChosen, () => captureGaze || captureEmotions,
-        markCameraOn, () => isCalibrationFresh, store, renderCameraTab, '_ecx_eye_cal_r', '_ecx_cam_r') as {
+        markCameraOn, () => isCalibrationFresh, store, renderCameraTab, '_ecx_eye_cal_r', '_ecx_cam_r', () => isSkipped, '_ecx_eye_skip_r') as {
         startCameraCapture: () => void;
         state: () => { eyeSession: object | null; emoVideo: object | null; isEyeFlowOpen: boolean };
     };
@@ -343,6 +344,31 @@ describe('generateTrackingSnippet — camera screens are the Eye Tracking module
         expect(reportCaptureError).toHaveBeenCalledWith('camera-denied');
         expect(skipCameraCapture).toHaveBeenCalledTimes(1);
         expect(state().isEyeFlowOpen).toBe(false);
+    });
+
+    it('lets the visitor skip calibration only when emotions are on and gaze is not required, and remembers the choice', () => {
+        const optional = runStartCameraCapture();
+        optional.startCameraCapture();
+        expect(optional.starts[0].canSkipCalibration).toBe(true);
+        optional.starts[0].onReady({ video: {}, isGazeCalibrated: false });
+        expect(optional.store).toHaveBeenCalledWith('_ecx_eye_skip_r', expect.stringMatching(/^\d+$/));
+
+        const required = runStartCameraCapture({ gazeRequired: true });
+        required.startCameraCapture();
+        expect(required.starts[0].canSkipCalibration).toBe(false);
+
+        const noEmotions = runStartCameraCapture({ captureEmotions: false });
+        noEmotions.startCameraCapture();
+        expect(noEmotions.starts[0].canSkipCalibration).toBe(false);
+    });
+
+    it('reopens only the camera for emotions on later pages after a skipped calibration', () => {
+        const { startCameraCapture, starts, withCamera, loadFaceApi } = runStartCameraCapture({ isSkipped: true, isCalibrationFresh: false });
+        startCameraCapture();
+
+        expect(starts).toHaveLength(0);
+        expect(withCamera).toHaveBeenCalledTimes(1);
+        expect(loadFaceApi).toHaveBeenCalledTimes(1);
     });
 
     it('captures emotions right away on a small camera when gaze is off', () => {

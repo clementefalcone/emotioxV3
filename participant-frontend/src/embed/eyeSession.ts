@@ -8,6 +8,7 @@ export interface EyeSession {
     readHeadPose: () => { pitch: number; yaw: number };
     readLandmarks: () => Array<{ x: number; y: number; z: number }> | null;
     calibrationRmsePx: number | null;
+    isGazeCalibrated: boolean;
     stop: () => void;
 }
 
@@ -15,6 +16,7 @@ export interface EyeStartOptions {
     lang: string;
     storageKey: string;
     hasEmotionRecognition: boolean;
+    canSkipCalibration: boolean;
     onReady: (session: EyeSession) => void;
     onDecline: () => void;
     onCameraDenied: () => void;
@@ -25,6 +27,7 @@ export type CalibratedGaze = Omit<EyeSession, 'stop'>;
 export interface CalibrationFlowOptions {
     storageKey: string;
     hasEmotionRecognition: boolean;
+    canSkipCalibration: boolean;
     onReady: (gaze: CalibratedGaze) => void;
     onDecline: () => void;
     onCameraDenied: () => void;
