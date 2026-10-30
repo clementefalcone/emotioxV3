@@ -604,10 +604,10 @@ const ObjectsComparingChart = ({ module: mod, colors }: { module: IATModuleResul
                 position: 'left' as const,
                 fontSize: 10,
                 fill: colors[0],
-                content: ({ value, x, y, height // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recharts Label.Props internal type
+                content: ({ value, x, y, width, height // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recharts Label.Props internal type
 }: any) => (
                   <text
-                    x={(x ?? 0) - 6}
+                    x={Math.min(x ?? 0, (x ?? 0) + (width ?? 0)) - 6}
                     y={(y ?? 0) + (height ?? 0) / 2 + 4}
                     textAnchor="end"
                     fontSize={10}
@@ -686,27 +686,6 @@ const ObjectsComparingChart = ({ module: mod, colors }: { module: IATModuleResul
           <CriteriaAssociationCharts module={mod} colors={TARGET_COLORS} />
         </div>
       )}
-
-      <div className="mt-6">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Perfil por objeto</h4>
-        <div style={{ height: 350 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={mod.targets.map(t => ({
-              object: t.name,
-              [dim1Label]: Math.abs(mod.scores.find(s => s.attributeId === dim1?.id)?.targetScores[t.id] ?? 0),
-              [dim2Label]: Math.abs(mod.scores.find(s => s.attributeId === dim2?.id)?.targetScores[t.id] ?? 0),
-            }))} cx="50%" cy="50%" outerRadius="70%">
-              <PolarGrid stroke="#E5E7EB" />
-              <PolarAngleAxis dataKey="object" tick={{ fontSize: 12, fill: '#374151' }} />
-              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-              <Radar name={dim1Label} dataKey={dim1Label} stroke={colors[0]} fill={colors[0]} fillOpacity={0.2} strokeWidth={2} />
-              <Radar name={dim2Label} dataKey={dim2Label} stroke={colors[1]} fill={colors[1]} fillOpacity={0.2} strokeWidth={2} />
-              <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
-              <Tooltip formatter={(value: number, name: string) => [`${value}%`, name]} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
     </div>
   );
 };
