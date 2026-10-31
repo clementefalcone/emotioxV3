@@ -1,3 +1,13 @@
+## v0.99.42 — Privacy: expired data purged daily (2026-10-31)
+
+### feat(privacy): purge expired data daily
+- **Why.** Tracking retention only ran on ~1 % of new sessions, so 1,086 sessions past their 90-day limit were still stored; Eye Tracking / Emotion Analysis responses had no limit.
+- **Job.** `dist/scripts/purge-expired-data.js` (cron 03:30 on cPanel, absolute nvm node path, log `~/emotioxv3/backend/logs/retention.log`). Deletes tracking sessions (events cascade) past each study's `dataRetentionDays` (default 90) and biometric responses past `settings.biometricDataRetentionMonths` (default 12). Before deleting, rows go to `~/retention-backups/retention-<time>.ndjson.gz`; backups older than 7 days are removed. The random 1 % cleanup is gone.
+- **Panel.** Settings tab: "Retención de datos biométricos" (3 / 6 / 12 / 24 meses).
+- **Production.** First run deleted 1,086 sessions + 6,934 events (backup verified row by row count, 97 MB); 0 expired left, 934 kept. Next day 3 more sessions crossed 90 days and were purged with backup.
+- **Incident.** Editing the crontab with a pipe emptied it (4 jobs of other services); restored within ~2 minutes from the earlier listing, no run missed. The crontab is now written from a full file.
+- Tests: backend 675 → 679, research 702 → 703, 0 failing.
+
 ## v0.99.41 — Privacy: consent recorded on the server (2026-10-30)
 
 ### feat(privacy): record consent decisions on server
