@@ -40,6 +40,14 @@ interface ResearchData {
     status: string;
     stages: Stage[];
     modules?: Module[]; // Legacy: backend may return modules directly
+    privacy: PrivacyNotice;
+}
+
+export interface PrivacyNotice {
+    controllerName: string;
+    contactEmail: string;
+    policyUrl: string;
+    biometricRetentionMonths: number;
 }
 
 interface PublicResearchResponse {

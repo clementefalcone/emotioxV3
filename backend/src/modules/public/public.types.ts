@@ -1,3 +1,4 @@
+import type { PrivacyNotice } from '../research/research-privacy';
 // --- Shared types and helpers for public service modules ---
 
 export type ParticipationMode = 'kiosk' | 'panel';
@@ -7,6 +8,7 @@ export interface DbResearchRow {
   name: string;
   description: string | null;
   status: string;
+  config: unknown;
 }
 
 export interface DbResearchConfigModuleRow {
@@ -60,6 +62,7 @@ export interface PublicResearchDto {
    * When present, it is a flattened list in display order.
    */
   modules: PublicModuleDto[];
+  privacy: PrivacyNotice & { biometricRetentionMonths: number };
 }
 
 export interface ParticipantResponsePayload {

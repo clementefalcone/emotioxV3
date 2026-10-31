@@ -5,6 +5,7 @@ import { mediaService } from '../../services/media.service';
 import { useFaceApiEmotions } from '../../hooks/useFaceApiEmotions';
 import { usePreviewMode } from '../../hooks/usePreviewMode';
 import { useConsentRecorder } from '../../hooks/useConsentRecorder';
+import { ConsentDisclosure } from './eye-tracking/ConsentDisclosure';
 import { detectMicroExpressions } from '../../lib/eyeTracking';
 
 interface EmotionAnalysisRendererProps {
@@ -65,7 +66,7 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
     const handleIntroContinue = useCallback(async () => {
         setConsentError(null);
         try {
-            await recordConsent('accepted', introRef.current?.innerText ?? '');
+            await recordConsent('accepted', introRef.current?.innerText ?? introRef.current?.textContent ?? '');
             setPhase('setup');
         } catch (err) {
             console.error(err);
@@ -223,6 +224,7 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
                     <p className="text-xs text-gray-400">
                         {resolvedUrls.length} {resolvedUrls.length === 1 ? 'stimulus' : 'stimuli'} &middot; {Math.ceil(viewingDuration / 1000)}s each
                     </p>
+                    <ConsentDisclosure />
                     {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                     <button
                         onClick={handleIntroContinue}

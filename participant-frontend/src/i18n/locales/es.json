@@ -190,7 +190,13 @@
       "revoke": "Puedes quitar el permiso de cámara en tu navegador cuando quieras.",
       "accept": "Acepto y activo la cámara",
       "decline": "No acepto · Saltar esta actividad",
-      "recordFailed": "No pudimos guardar tu consentimiento. Revisa tu conexión e inténtalo de nuevo."
+      "recordFailed": "No pudimos guardar tu consentimiento. Revisa tu conexión e inténtalo de nuevo.",
+      "purpose": "Finalidad: investigación de experiencia de usuario.",
+      "sensitive": "Las emociones y la mirada son datos biométricos, considerados sensibles.",
+      "retention": "Los datos se guardan {{months}} meses y luego se borran.",
+      "controller": "Responsable: {{controller}}",
+      "rights": "Puedes pedir acceso o borrado de tus datos y retirar tu consentimiento cuando quieras.",
+      "policy": "Política de privacidad"
     },
     "face": {
       "eyebrow": "Preparación",

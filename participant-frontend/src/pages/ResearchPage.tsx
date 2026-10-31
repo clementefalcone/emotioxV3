@@ -219,6 +219,7 @@ export const ResearchPage = () => {
 
         // Fetch research data from backend
         const research = await publicService.getResearch(researchId, effectivePreview);
+        useParticipantStore.getState().setPrivacyNotice(research.privacy);
 
         // Panel with ECX/participantId: block repeat submissions and avoid stale persisted thank-you / redirect race
         if (urlParticipantId && !effectivePreview && !reviewParam) {

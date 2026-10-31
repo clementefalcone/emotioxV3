@@ -1,5 +1,7 @@
 import pool from '../../config/database';
 import cache, { CacheKeys, CacheTTL } from '../../config/cache';
+import { readPrivacyNotice } from '../research/research-privacy';
+import { readBiometricRetentionMonths } from '../retention/retention.service';
 import {
   DbResearchRow,
   DbResearchConfigModuleRow,
@@ -70,7 +72,7 @@ export const getResearch = async (researchId: string, preview: boolean = false):
         const allowedStatuses = preview ? ['active', 'draft'] : ['active'];
         const statusPlaceholders = allowedStatuses.map(() => '?').join(',');
         const researchQuery = `
-          SELECT id, name, description, status
+          SELECT id, name, description, status, config
           FROM researches
           WHERE id = ? AND status IN (${statusPlaceholders}) AND deleted_at IS NULL
         `;
@@ -101,6 +103,7 @@ export const getResearch = async (researchId: string, preview: boolean = false):
         }
 
         const researchRow: DbResearchRow = researchResult.rows[0] as DbResearchRow;
+        const privacy = { ...readPrivacyNotice(researchRow.config), biometricRetentionMonths: readBiometricRetentionMonths(researchRow.config) };
 
         // Get stages with modules + questions (MySQL-compatible approach)
         // Split into multiple simpler queries instead of complex nested JSON aggregation
@@ -241,6 +244,7 @@ export const getResearch = async (researchId: string, preview: boolean = false):
             status: researchRow.status,
             stages: [],
             modules: [],
+            privacy,
           };
         }
 
@@ -313,6 +317,7 @@ export const getResearch = async (researchId: string, preview: boolean = false):
           status: researchRow.status,
           stages,
           modules: flattenedModules,
+          privacy,
         };
       } catch (error: unknown) {
         console.error('Error in getResearch:', error);

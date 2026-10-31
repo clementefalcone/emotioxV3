@@ -51,6 +51,9 @@ vi.mock('../tracking.service', async () => ({
     recordCaptureError: vi.fn().mockResolvedValue({ found: true }),
 }));
 
+vi.mock('../../research/research-privacy', () => ({
+    getPrivacyNotice: vi.fn().mockResolvedValue({ controllerName: 'Acme SpA', contactEmail: 'privacidad@acme.cl', policyUrl: 'https://acme.cl/privacidad' }),
+}));
 vi.mock('../../research/research-access', () => ({
     canAccessResearch: vi.fn().mockResolvedValue(true),
     researchNotFound: vi.fn((researchId: string) => ({ statusCode: 404, body: JSON.stringify({ message: `Research ${researchId} not found` }), headers: {} })),
@@ -175,7 +178,7 @@ describe('handlePublicTrackingRoutes', () => {
         expect(res.headers?.['Content-Type']).toContain('application/javascript');
         expect(getTrackingConfig).toHaveBeenCalledWith('r1');
         expect(generateTrackingSnippet).toHaveBeenCalledWith(
-            expect.objectContaining({ researchId: 'r1' }),
+            expect.objectContaining({ researchId: 'r1', privacy: { controllerName: 'Acme SpA', contactEmail: 'privacidad@acme.cl', policyUrl: 'https://acme.cl/privacidad' } }),
         );
         expect(res.body).toBe('/* tracking script */');
     });

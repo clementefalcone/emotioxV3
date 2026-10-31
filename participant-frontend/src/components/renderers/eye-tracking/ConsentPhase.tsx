@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ConsentDisclosure } from './ConsentDisclosure';
 
 interface ConsentPhaseProps {
     taskDescription: string;
@@ -15,7 +16,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
     const [hasCameraFailed, setHasCameraFailed] = useState(false);
     const [consentError, setConsentError] = useState<string | null>(null);
     const consentRef = useRef<HTMLDivElement>(null);
-    const readConsentText = () => consentRef.current?.innerText ?? '';
+    const readConsentText = () => consentRef.current?.innerText ?? consentRef.current?.textContent ?? '';
 
     const handleAccept = async () => {
         setIsStartingCamera(true);
@@ -72,6 +73,8 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
                         {t('eyeTracking.consent.revoke', 'You can remove camera permission in your browser at any time.')}
                     </p>
                 </div>
+
+                <ConsentDisclosure />
 
                 {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                 {hasCameraFailed && (

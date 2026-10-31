@@ -44,6 +44,7 @@ import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippe
 import { fetchPublicUrl, BlockedUrlError } from './public-fetch';
 import { fetchProxiedAsset, renderInertPage, type ProxiedAsset } from './proxy-rewrite';
 import { canAccessResearch, researchNotFound } from '../research/research-access';
+import { getPrivacyNotice } from '../research/research-privacy';
 
 const MAX_VISITOR_ID_LENGTH = 64;
 
@@ -110,7 +111,7 @@ export const handlePublicTrackingRoutes = async (
             const researchId = scriptMatch[1];
 
             try {
-                const config = await getTrackingConfig(researchId);
+                const [config, privacy] = await Promise.all([getTrackingConfig(researchId), getPrivacyNotice(researchId)]);
 
                 // Use env var for reliable API base URL (cPanel/Passenger headers can be inconsistent)
                 const apiBaseUrl = process.env.API_BASE_URL || 'https://emotio.cx/api';
@@ -137,6 +138,8 @@ export const handlePublicTrackingRoutes = async (
                     gazeMode: config.gazeMode,
                     eyeEmbedUrl: (process.env.PARTICIPANT_FRONTEND_URL || 'https://emotio.cx/participant') + '/embed/eye.js',
                     zones: config.zones,
+                    privacy,
+                    dataRetentionDays: config.dataRetentionDays,
                 });
 
                 return {

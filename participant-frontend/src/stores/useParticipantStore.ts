@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Response, ResponseId, ResponseValue, ResponseMetadata, ResponsesMap } from '../types/responses';
-import type { ParticipationMode } from '../services/public.service';
+import type { ParticipationMode, PrivacyNotice } from '../services/public.service';
 
 interface ParticipantState {
   // Navegación
@@ -25,6 +25,9 @@ interface ParticipantState {
 
   // Turnstile verification (persisted)
   turnstileVerifiedAt: number | null;
+
+  privacyNotice: PrivacyNotice | null;
+  setPrivacyNotice: (notice: PrivacyNotice) => void;
 
   // Actions - Navegación
   setCurrentStep: (step: string) => void;
@@ -90,6 +93,11 @@ export const useParticipantStore = create<ParticipantState>()(
       participantId: null,
       participationMode: null,
       turnstileVerifiedAt: null,
+      privacyNotice: null,
+
+      setPrivacyNotice: (notice: PrivacyNotice) => {
+        set({ privacyNotice: notice });
+      },
 
       /**
        * Establece el ID del participante

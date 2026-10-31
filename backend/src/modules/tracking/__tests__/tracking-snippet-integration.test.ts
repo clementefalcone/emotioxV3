@@ -38,6 +38,8 @@ const defaultConfig = {
     gazeMode: 'off' as CameraFeatureMode,
     eyeEmbedUrl: 'https://emotio.cx/participant/embed/eye.js',
     zones: [] as Array<{ id: string; pageUrl: string; selector: string }>,
+    privacy: { controllerName: 'Acme SpA', contactEmail: 'privacidad@acme.cl', policyUrl: 'https://acme.cl/privacidad' },
+    dataRetentionDays: 90,
 };
 
 // ---------------------------------------------------------------------------
@@ -1067,7 +1069,7 @@ function runConsentBanner() {
     const copy = { accept: 'Aceptar', decline: 'Rechazar', acceptWithCamera: 'Aceptar y activar cámara', declined: 'No registraremos' };
     const startSession = vi.fn();
     const api = new Function('C', 'document', 'XMLHttpRequest', 'store', 'load', 'pageLanguage', 'visitorCopy', 'describeConsent', 'isCameraRequired', 'hasCameraFeatures', 'startSession', 'openCameraCapture', 'showNotice', 'renderResumePill', 'CAMERA_INVITE_KEY',
-        `var consented=false;${source}return {showConsent:showConsent};`,
+        `var consented=false;var describePrivacy=function(){return '';};${source}return {showConsent:showConsent};`,
     )({ rid: 'r-1', api: 'https://api.example.com', cPos: 'bottom' }, document, FakeXhr, vi.fn(), () => 'v_visitor', () => 'es', () => copy, () => 'Este sitio participa en un estudio.',
         () => false, () => true, startSession, vi.fn(), vi.fn(), vi.fn(), 'k') as { showConsent: () => void };
     return { showConsent: api.showConsent, sent, click: (id: string) => buttons.get(id)?.onclick?.(), startSession };
@@ -1114,5 +1116,38 @@ describe('generateTrackingSnippet — only what the study needs leaves the page'
 
     it('sends clicks without the clicked text', () => {
         expect(js).not.toContain('targetText');
+    });
+});
+
+describe('generateTrackingSnippet — the banner says who is responsible, for how long and what rights apply', () => {
+    const describePrivacyFor = (privacy: typeof defaultConfig.privacy, emotionsMode: CameraFeatureMode, language = 'es') => {
+        const js = generateTrackingSnippet({ ...defaultConfig, privacy, emotionsMode, dataRetentionDays: 30 });
+        const source = js.slice(js.indexOf('var VISITOR_COPY='), js.indexOf('function isCameraRequired('));
+        const C = JSON.parse(js.slice(js.indexOf('var C=') + 6, js.indexOf('};', js.indexOf('var C=')) + 1));
+        return new Function('C', 'pageLanguage', `${source}return describePrivacy();`)(C, () => language) as string;
+    };
+
+    it('states purpose, retention, sensitivity, controller, rights and the policy link', () => {
+        const text = describePrivacyFor(defaultConfig.privacy, 'optional');
+        expect(text).toContain('Finalidad: investigación de experiencia de usuario.');
+        expect(text).toContain('Los datos se guardan 30 días y luego se borran.');
+        expect(text).toContain('datos biométricos, considerados sensibles');
+        expect(text).toContain('Responsable: Acme SpA · privacidad@acme.cl.');
+        expect(text).toContain('Puedes pedir acceso o borrado de tus datos');
+        expect(text).toContain('<a href="https://acme.cl/privacidad" target="_blank" rel="noopener noreferrer"');
+    });
+
+    it('leaves out the sensitivity note without camera features and speaks English on English pages', () => {
+        const text = describePrivacyFor(defaultConfig.privacy, 'off', 'en');
+        expect(text).not.toContain('biometric');
+        expect(text).toContain('Data is kept 30 days and then deleted.');
+        expect(text).toContain('Privacy policy');
+    });
+
+    it('escapes what the researcher typed and omits controller and link when missing', () => {
+        const injected = describePrivacyFor({ controllerName: '<img src=x onerror=alert(1)>', contactEmail: '', policyUrl: '' }, 'off');
+        expect(injected).toContain('&lt;img src=x onerror=alert(1)&gt;');
+        expect(injected).not.toContain('<img');
+        expect(describePrivacyFor({ controllerName: '', contactEmail: '', policyUrl: '' }, 'off')).not.toMatch(/Responsable|<a /);
     });
 });

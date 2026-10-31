@@ -190,7 +190,13 @@
       "revoke": "You can remove camera permission in your browser at any time.",
       "accept": "I accept and turn on the camera",
       "decline": "I do not accept · Skip this activity",
-      "recordFailed": "We could not save your consent. Check your connection and try again."
+      "recordFailed": "We could not save your consent. Check your connection and try again.",
+      "purpose": "Purpose: user experience research.",
+      "sensitive": "Emotions and gaze are biometric data, considered sensitive.",
+      "retention": "Data is kept {{months}} months and then deleted.",
+      "controller": "Controller: {{controller}}",
+      "rights": "You can request access to or deletion of your data and withdraw your consent at any time.",
+      "policy": "Privacy policy"
     },
     "face": {
       "eyebrow": "Getting ready",
