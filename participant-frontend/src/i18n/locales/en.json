@@ -44,6 +44,8 @@
   },
   "errors": {
     "failedToLoadResearch": "Failed to load research. Please try again.",
+    "reviewPassRejected": "The review access expired (it lasts 30 minutes) or is not valid. Go back to the panel and click «Ver como participante» again.",
+    "reviewLoadFailed": "Could not load the participant responses: {{message}}",
     "validationError": "Validation error. Please try again.",
     "securityVerificationError": "Security verification error. Please reload the page and complete the verification again.",
     "saveResponsesError": "Error saving responses. Please try again.",

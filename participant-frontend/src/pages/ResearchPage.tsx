@@ -21,7 +21,7 @@ import { useButtonConfig } from '../hooks/useButtonConfig';
 import { useKioskMode } from '../hooks/useKioskMode';
 import { useHandleNext } from '../hooks/useHandleNext';
 import { useEnterToContinue } from '../hooks/useEnterToContinue';
-import { publicService, type Module } from '../services/public.service';
+import { publicService, ReviewPassRejectedError, type Module } from '../services/public.service';
 import { getComponentText } from '../utils/moduleComponent';
 import { mediaService } from '../services/media.service';
 import { queryClient } from '../providers/queryClient';
@@ -410,7 +410,9 @@ export const ResearchPage = () => {
             }
             useParticipantStore.getState().setCurrentStep(firstStep);
           } catch (err) {
-            console.error('[ReviewMode] Failed to load responses:', err);
+            setError(err instanceof ReviewPassRejectedError
+              ? t('errors.reviewPassRejected')
+              : t('errors.reviewLoadFailed', { message: err instanceof Error ? err.message : String(err) }));
           }
         }
 

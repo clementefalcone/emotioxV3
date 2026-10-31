@@ -275,6 +275,9 @@ class PublicService {
         const baseUrl = configService.getBaseUrl();
         const url = `${baseUrl}/public/research/${researchId}/participant/${encodeURIComponent(participantId)}/responses`;
         const response = await fetch(url, { headers: { Authorization: `Bearer ${reviewToken}` } });
+        if (response.status === 401) {
+            throw new ReviewPassRejectedError(`Review pass rejected for participant ${participantId} in research ${researchId}`);
+        }
         if (!response.ok) {
             throw new Error(`Failed to fetch responses of participant ${participantId} in research ${researchId}: HTTP ${response.status}`);
         }
@@ -282,6 +285,8 @@ class PublicService {
         return data.responses;
     }
 }
+
+export class ReviewPassRejectedError extends Error {}
 
 export interface ConsentRecord {
     subjectId: string;

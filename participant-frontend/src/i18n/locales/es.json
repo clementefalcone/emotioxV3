@@ -44,6 +44,8 @@
   },
   "errors": {
     "failedToLoadResearch": "Error al cargar la investigación. Por favor intenta nuevamente.",
+    "reviewPassRejected": "El acceso de revisión caducó (dura 30 minutos) o no es válido. Vuelve al panel y pulsa «Ver como participante» otra vez.",
+    "reviewLoadFailed": "No se pudieron cargar las respuestas del participante: {{message}}",
     "validationError": "Error de validación. Por favor intenta de nuevo.",
     "securityVerificationError": "Error de verificación de seguridad. Por favor, recarga la página y completa la verificación nuevamente.",
     "saveResponsesError": "Error al guardar respuestas. Por favor, intenta nuevamente.",
