@@ -25,7 +25,11 @@ describe('ConsentPhase privacy disclosure', () => {
         const onAccept = renderConsent();
 
         expect(screen.getByRole('link', { name: 'Política de privacidad' }).getAttribute('href')).toBe('https://acme.cl/privacidad');
-        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Acepto y activo la cámara' })); });
+        const acceptButton = screen.getByRole('button', { name: 'Acepto y activo la cámara' }) as HTMLButtonElement;
+        expect(acceptButton.disabled).toBe(true);
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Confirmo que tengo 18 años o más.' }));
+        expect(acceptButton.disabled).toBe(false);
+        await act(async () => { fireEvent.click(acceptButton); });
 
         const recordedText = onAccept.mock.calls[0][0] as string;
         expect(recordedText).toContain('Finalidad: investigación de experiencia de usuario.');
@@ -33,6 +37,7 @@ describe('ConsentPhase privacy disclosure', () => {
         expect(recordedText).toContain('Los datos se guardan 6 meses y luego se borran.');
         expect(recordedText).toContain('Responsable: Acme SpA · privacidad@acme.cl');
         expect(recordedText).toContain('Puedes pedir acceso o borrado de tus datos');
+        expect(recordedText).toContain('Confirmo que tengo 18 años o más.');
     });
 
     it('still explains purpose and rights when the study has no controller or policy configured', () => {

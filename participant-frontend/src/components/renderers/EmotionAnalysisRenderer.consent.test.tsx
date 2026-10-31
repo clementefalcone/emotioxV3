@@ -48,7 +48,10 @@ describe('EmotionAnalysisRenderer consent', () => {
     it('records the acceptance from an explicit accept button before going on', async () => {
         render(<EmotionAnalysisRenderer module={emotionModule} onComplete={vi.fn()} />);
 
-        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'I accept and turn on the camera' })); });
+        const acceptButton = screen.getByRole('button', { name: 'I accept and turn on the camera' }) as HTMLButtonElement;
+        expect(acceptButton.disabled).toBe(true);
+        fireEvent.click(screen.getByRole('checkbox', { name: 'I confirm I am 18 or older.' }));
+        await act(async () => { fireEvent.click(acceptButton); });
 
         expect(recordConsent).toHaveBeenCalledWith('accepted', expect.stringContaining('Emotions and gaze are biometric data'));
         expect(screen.queryByRole('button', { name: 'I accept and turn on the camera' })).toBeNull();

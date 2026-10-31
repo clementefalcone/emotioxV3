@@ -196,7 +196,8 @@
       "retention": "Los datos se guardan {{months}} meses y luego se borran.",
       "controller": "Responsable: {{controller}}",
       "rights": "Puedes pedir acceso o borrado de tus datos y retirar tu consentimiento cuando quieras.",
-      "policy": "Política de privacidad"
+      "policy": "Política de privacidad",
+      "adult": "Confirmo que tengo 18 años o más."
     },
     "face": {
       "eyebrow": "Preparación",

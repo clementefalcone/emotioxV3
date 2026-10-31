@@ -196,7 +196,8 @@
       "retention": "Data is kept {{months}} months and then deleted.",
       "controller": "Controller: {{controller}}",
       "rights": "You can request access to or deletion of your data and withdraw your consent at any time.",
-      "policy": "Privacy policy"
+      "policy": "Privacy policy",
+      "adult": "I confirm I am 18 or older."
     },
     "face": {
       "eyebrow": "Getting ready",

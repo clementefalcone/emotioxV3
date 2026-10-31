@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConsentDisclosure } from './ConsentDisclosure';
+import { AdultConfirmation } from './AdultConfirmation';
 
 interface ConsentPhaseProps {
     taskDescription: string;
@@ -15,6 +16,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
     const [isStartingCamera, setIsStartingCamera] = useState(false);
     const [hasCameraFailed, setHasCameraFailed] = useState(false);
     const [consentError, setConsentError] = useState<string | null>(null);
+    const [isAdultConfirmed, setIsAdultConfirmed] = useState(false);
     const consentRef = useRef<HTMLDivElement>(null);
     const readConsentText = () => consentRef.current?.innerText ?? consentRef.current?.textContent ?? '';
 
@@ -75,6 +77,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
                 </div>
 
                 <ConsentDisclosure />
+                <AdultConfirmation isConfirmed={isAdultConfirmed} onChange={setIsAdultConfirmed} />
 
                 {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                 {hasCameraFailed && (
@@ -85,7 +88,7 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
 
                 <button
                     onClick={handleAccept}
-                    disabled={!isGazeModelLoaded || isStartingCamera}
+                    disabled={!isGazeModelLoaded || isStartingCamera || !isAdultConfirmed}
                     className="w-full px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                     {isGazeModelLoaded

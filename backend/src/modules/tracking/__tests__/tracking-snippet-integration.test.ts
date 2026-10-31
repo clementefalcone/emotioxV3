@@ -1054,17 +1054,17 @@ function runConsentBanner() {
         setRequestHeader() {}
         send(body: string) { sent.push({ url: this.url, body: JSON.parse(body) }); }
     }
-    const buttons = new Map<string, { innerText: string; onclick: (() => void) | null }>();
+    const buttons = new Map<string, { innerText: string; onclick: (() => void) | null; onchange: (() => void) | null; checked: boolean; disabled: boolean; style: Record<string, string> }>();
     const banner = {
         id: '', style: { cssText: '' }, innerHTML: '',
         querySelector: () => ({ innerText: 'Este sitio participa en un estudio.' }),
         remove: vi.fn(),
     };
-    const labels: Record<string, string> = { _ecx_accept: 'Aceptar', _ecx_accept_camera: 'Aceptar y activar cámara', _ecx_reject: 'Rechazar' };
+    const labels: Record<string, string> = { _ecx_adult: '', _ecx_accept: 'Aceptar', _ecx_accept_camera: 'Aceptar y activar cámara', _ecx_reject: 'Rechazar' };
     const document = {
         createElement: () => banner,
         getElementById: (id: string) => {
-            if (!buttons.has(id)) buttons.set(id, { innerText: labels[id], onclick: null });
+            if (!buttons.has(id)) buttons.set(id, { innerText: labels[id], onclick: null, onchange: null, checked: false, disabled: false, style: {} });
             return buttons.get(id);
         },
         body: { appendChild: () => {
@@ -1073,23 +1073,35 @@ function runConsentBanner() {
             }
         } },
     };
-    const copy = { accept: 'Aceptar', decline: 'Rechazar', acceptWithCamera: 'Aceptar y activar cámara', declined: 'No registraremos' };
+    const copy = { accept: 'Aceptar', decline: 'Rechazar', acceptWithCamera: 'Aceptar y activar cámara', declined: 'No registraremos', adult: 'Confirmo que tengo 18 años o más.' };
     const startSession = vi.fn();
     const api = new Function('C', 'document', 'XMLHttpRequest', 'store', 'load', 'pageLanguage', 'visitorCopy', 'describeConsent', 'isCameraRequired', 'hasCameraFeatures', 'startSession', 'openCameraCapture', 'showNotice', 'renderResumePill', 'CAMERA_INVITE_KEY',
         `var consented=false,CONSENT_KEY="_ecx_consent_r-1",touchConsent=function(){};var describePrivacy=function(){return '';};${source}return {showConsent:showConsent};`,
     )({ rid: 'r-1', api: 'https://api.example.com', cPos: 'bottom' }, document, FakeXhr, vi.fn(), () => 'v_visitor', () => 'es', () => copy, () => 'Este sitio participa en un estudio.',
         () => false, () => true, startSession, vi.fn(), vi.fn(), vi.fn(), 'k') as { showConsent: () => void };
-    return { showConsent: api.showConsent, sent, click: (id: string) => buttons.get(id)?.onclick?.(), startSession };
+    const confirmAdult = () => { const box = buttons.get('_ecx_adult'); if (box) { box.checked = true; box.onchange?.(); } };
+    return { showConsent: api.showConsent, sent, click: (id: string) => buttons.get(id)?.onclick?.(), startSession, confirmAdult, isDisabled: (id: string) => buttons.get(id)?.disabled };
 }
 
 describe('generateTrackingSnippet — consent decisions are recorded on the server', () => {
-    it('records an acceptance with the banner text and the button the visitor pressed', () => {
-        const { showConsent, sent, click, startSession } = runConsentBanner();
+    it('accepts only after the visitor confirms being 18 or older', () => {
+        const { showConsent, sent, click, startSession, isDisabled } = runConsentBanner();
         showConsent();
+        expect(isDisabled('_ecx_accept')).toBe(true);
+        click('_ecx_accept');
+        expect(sent).toEqual([]);
+        expect(startSession).not.toHaveBeenCalled();
+    });
+
+    it('records an acceptance with the banner text, the button the visitor pressed and the age confirmation', () => {
+        const { showConsent, sent, click, startSession, confirmAdult, isDisabled } = runConsentBanner();
+        showConsent();
+        confirmAdult();
+        expect(isDisabled('_ecx_accept')).toBe(false);
         click('_ecx_accept');
         expect(sent).toEqual([{
             url: 'https://api.example.com/public/research/r-1/consent',
-            body: { subjectId: 'v_visitor', context: 'website_tracking', decision: 'accepted', text: 'Este sitio participa en un estudio. | Aceptar', locale: 'es' },
+            body: { subjectId: 'v_visitor', context: 'website_tracking', decision: 'accepted', text: 'Este sitio participa en un estudio. | Aceptar | Confirmo que tengo 18 años o más.', locale: 'es' },
         }]);
         expect(startSession).toHaveBeenCalledTimes(1);
     });

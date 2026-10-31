@@ -6,6 +6,7 @@ import { useFaceApiEmotions } from '../../hooks/useFaceApiEmotions';
 import { usePreviewMode } from '../../hooks/usePreviewMode';
 import { useConsentRecorder } from '../../hooks/useConsentRecorder';
 import { ConsentDisclosure } from './eye-tracking/ConsentDisclosure';
+import { AdultConfirmation } from './eye-tracking/AdultConfirmation';
 import { detectMicroExpressions } from '../../lib/eyeTracking';
 
 interface EmotionAnalysisRendererProps {
@@ -61,6 +62,7 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
     const webcamVideoRef = useRef<HTMLVideoElement>(null);
     const introRef = useRef<HTMLDivElement>(null);
     const [consentError, setConsentError] = useState<string | null>(null);
+    const [isAdultConfirmed, setIsAdultConfirmed] = useState(false);
     const recordConsent = useConsentRecorder('emotion_analysis');
 
     const handleIntroContinue = useCallback(async () => {
@@ -230,10 +232,12 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
                         {resolvedUrls.length} {resolvedUrls.length === 1 ? 'stimulus' : 'stimuli'} &middot; {Math.ceil(viewingDuration / 1000)}s each
                     </p>
                     <ConsentDisclosure />
+                    <AdultConfirmation isConfirmed={isAdultConfirmed} onChange={setIsAdultConfirmed} />
                     {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                     <button
                         onClick={handleIntroContinue}
-                        className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                        disabled={!isAdultConfirmed}
+                        className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                         {t('eyeTracking.consent.accept', 'I accept and turn on the camera')}
                     </button>
