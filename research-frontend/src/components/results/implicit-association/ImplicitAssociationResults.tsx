@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, type Dispatch, type ReactNod
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ReferenceArea, ResponsiveContainer,
+  ReferenceArea, ResponsiveContainer, LabelList,
 } from 'recharts';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
@@ -317,7 +317,14 @@ const CriteriaAssociationCharts = ({ module: mod, colors }: { module: IATModuleR
                   dataKey={target.name}
                   fill={colors[i % colors.length]}
                   radius={[3, 3, 0, 0]}
-                />
+                >
+                  <LabelList
+                    dataKey={target.name}
+                    position="top"
+                    formatter={(value) => `${Math.round(Number(value))}%`}
+                    style={{ fontSize: 10, fill: '#374151' }}
+                  />
+                </Bar>
               ) : null
             ))}
             <Tooltip
