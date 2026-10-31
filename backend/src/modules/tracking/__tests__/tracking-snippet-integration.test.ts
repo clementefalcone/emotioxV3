@@ -742,7 +742,7 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
 
     it('drops events of a page whose session was never created instead of moving them to the next one', () => {
         const js = generateTrackingSnippet(defaultConfig);
-        const source = extractFunction(js, 'createSession');
+        const source = extractFunction(js, 'pageAddress') + extractFunction(js, 'createSession');
         const XMLHttpRequest = function (this: { open: () => void; setRequestHeader: () => void; send: () => void }) {
             this.open = () => undefined; this.setRequestHeader = () => undefined; this.send = () => undefined;
         };
@@ -1092,5 +1092,27 @@ describe('generateTrackingSnippet — consent decisions are recorded on the serv
         expect(sent.map(request => request.body.decision)).toEqual(['declined']);
         expect(sent[0].body.text).toBe('Este sitio participa en un estudio. | Rechazar');
         expect(startSession).not.toHaveBeenCalled();
+    });
+});
+
+describe('generateTrackingSnippet — only what the study needs leaves the page', () => {
+    const js = generateTrackingSnippet(defaultConfig);
+    const pageAddress = new Function(`${js.slice(js.indexOf('function pageAddress('), js.indexOf('function maskText('))}return pageAddress;`)() as (url: string) => string;
+
+    it('keeps the page path and drops query strings and fragments, where personal data travels', () => {
+        expect(pageAddress('https://shop.example.com/pedido?email=juan@mail.com&id=9#pago')).toBe('https://shop.example.com/pedido');
+        expect(pageAddress('https://shop.example.com/catalogo#ofertas')).toBe('https://shop.example.com/catalogo');
+        expect(pageAddress('https://shop.example.com/')).toBe('https://shop.example.com/');
+        expect(pageAddress('')).toBe('');
+    });
+
+    it('records the screen with every text masked and without inlining images', () => {
+        expect(js).toContain('maskTextSelector:"*"');
+        expect(js).toContain('inlineImages:false');
+        expect(js).toContain('maskAllInputs:true');
+    });
+
+    it('sends clicks without the clicked text', () => {
+        expect(js).not.toContain('targetText');
     });
 });
