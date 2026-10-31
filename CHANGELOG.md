@@ -1,3 +1,10 @@
+## v0.99.56 — Fix: panel participant delete responses (2026-10-31)
+
+### fix(participants): read DELETE row count correctly
+- **Why.** The pool returns DELETE results as `rowCount` with empty `rows`; `participants.service.ts` read `rows.affectedRows`, always undefined. Deleting one panel participant worked but answered 404 "Participant not found"; deleting all reported "Deleted 0 participants". No data was lost.
+- **Change.** `deleteParticipant` and `deleteAllByResearch` read `rowCount`.
+- **Check.** Live `dist` uses `rowCount`, no `affectedRows` left; health 200. Backend 707 → 709 (tests fail on the old code), 0 failing.
+
 ## v0.99.55 — Privacy: participant data export (2026-10-31)
 
 ### feat(privacy): export a participant's data
