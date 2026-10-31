@@ -1,3 +1,14 @@
+## v0.99.44 — Privacy: website tracking masks page text (2026-10-31)
+
+### fix(privacy): mask page text in website tracking
+- **Why.** Recordings, the DOM snapshot behind heatmaps and click events stored every visible text of the tracked page (names, order numbers), and URLs kept query strings that can carry emails or ids. Data minimisation (Ley 21.719 / GDPR): layout and behaviour need none of it.
+- **Recording.** rrweb `maskTextSelector:"*"` (all text as `*`), `inlineImages:false`; meta event `href` without query/fragment.
+- **Snapshot.** `maskedPageHtml()`: clone of the page with text nodes masked (style kept), `script` / `noscript` / `template` removed, `value` of inputs and options removed, `alt` / `title` / `aria-label` / `placeholder` masked.
+- **Clicks.** No `targetText`; position and selector only.
+- **URLs.** `pageAddress()` keeps origin + path for page, referrer, snapshot and recording; pages differing only by query now group together.
+- **Not changed.** The 934 recordings stored before this keep their text (decision pending). Page titles are still sent.
+- **Check.** jsdom run of the snapshot masking on a page with a name, an order number, an email in a script, an input value and an `alt`: all masked or removed, CSS kept. Live snippet has the new options and passes `node --check`. Backend 686 → 689, 0 failing.
+
 ## v0.99.43 — Privacy: right to erasure (2026-10-31)
 
 ### feat(privacy): erase all data of a person
