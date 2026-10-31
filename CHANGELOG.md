@@ -1,3 +1,11 @@
+## v0.99.52 — Security: no JWT in URLs (2026-10-31)
+
+### fix(security): stop accepting JWT in query string
+- **Why.** The researcher JWT travelled as `?token=` (monitor SSE, Website Tracking heatmap iframe, live tracking stream). URLs stay in browser history and server logs, so anyone reading them could act as the researcher.
+- **Change.** These requests are same-origin, so the httpOnly `accessToken` cookie set at login, refresh and Google login already reaches them. `readAccessTokenCookie` (`utils/auth.local.ts`) is the single cookie reader; the monitor SSE reads it in both cPanel entries; `handleTrackingRoutes` no longer turns `?token=` into a header; unused `/tracking/:id/live/stream` removed (Live tab uses `/live`). Research frontend drops `?token=` from both monitor SSE hooks (`withCredentials`) and the heatmap iframe.
+- **Limit.** In local dev (localhost → emotio.cx) the heatmap iframe depends on the browser allowing third-party cookies. The legacy AWS WebSocket handler (`monitor/handler.ts`, not deployed on cPanel) still reads a query token.
+- **Check.** Production: monitor SSE with `?token=` → 401 "Authentication token is required", with a cookie → 401 "Invalid or expired token" (cookie read); live bundle opens `EventSource` with `withCredentials` and no token; iframe URL has no token. Backend 704 → 703 (4 obsolete tests removed, 3 added), research 705, 0 failing. Not checked in the browser with a real session.
+
 ## v0.99.51 — Privacy: lab camera pages out of production (2026-10-31)
 
 ### fix(privacy): keep lab camera pages out of prod
