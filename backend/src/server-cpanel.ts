@@ -20,6 +20,7 @@ import cache from './config/cache';
 import { monitorSSEService } from './modules/monitor/monitor-sse.service';
 import { verifyToken } from './utils/auth.local';
 import { attachSSE, detachSSE, getJob } from './modules/attention-prediction/video-prediction-jobs';
+import { publicRateLimit } from './public-rate-limit';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 const app = express();
@@ -85,6 +86,7 @@ app.options('/api/monitor/events/:researchId', (req: Request, res: Response) => 
     res.status(204).end();
 });
 
+app.use(['/api/public', '/public'], publicRateLimit);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ type: 'text/plain', limit: '1mb' }));
 

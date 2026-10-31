@@ -16,6 +16,7 @@ const cache = require('./dist/config/cache').default;
 const { monitorSSEService } = require('./dist/modules/monitor/monitor-sse.service');
 const { verifyToken } = require('./dist/utils/auth.local');
 const { attachSSE, detachSSE, getJob } = require('./dist/modules/attention-prediction/video-prediction-jobs');
+const { publicRateLimit } = require('./dist/public-rate-limit');
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
 }));
 
+app.use(['/api/public', '/public'], publicRateLimit);
 app.use(express.json({ limit: '10mb' }));
 
 app.options('/api/monitor/events/:researchId', (req, res) => {

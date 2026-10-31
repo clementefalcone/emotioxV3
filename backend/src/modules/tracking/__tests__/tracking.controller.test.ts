@@ -189,12 +189,10 @@ describe('handlePublicTrackingRoutes', () => {
         expect(res.body).toContain('research not available');
     });
 
-    it('GET config returns tracking config JSON', async () => {
+    it('does not expose the tracking config publicly', async () => {
         const res = await handlePublicTrackingRoutes(mockEvent('GET', '/public/tracking/r1/config'));
-        expect(res.statusCode).toBe(200);
-        expect(getTrackingConfig).toHaveBeenCalledWith('r1');
-        const body = JSON.parse(res.body);
-        expect(body.captureClicks).toBe(true);
+        expect(res.statusCode).toBe(404);
+        expect(getTrackingConfig).not.toHaveBeenCalled();
     });
 
     it('POST session validates required fields', async () => {
@@ -479,9 +477,9 @@ describe('handlePublicTrackingRoutes', () => {
     });
 
     it('unexpected error returns 500', async () => {
-        vi.mocked(getTrackingConfig).mockRejectedValueOnce(new Error('DB connection failed'));
+        vi.mocked(deleteVisitorData).mockRejectedValueOnce(new Error('DB connection failed'));
         const res = await handlePublicTrackingRoutes(
-            mockEvent('GET', '/public/tracking/r1/config'),
+            mockEvent('POST', '/public/tracking/r1/visitor-data/delete', { body: { visitorId: 'v_abc' } }),
         );
         expect(res.statusCode).toBe(500);
     });

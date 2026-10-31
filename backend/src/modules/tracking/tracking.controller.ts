@@ -163,14 +163,6 @@ export const handlePublicTrackingRoutes = async (
             }
         }
 
-        // GET /public/tracking/:researchId/config — tracking configuration
-        const configMatch = path.match(/^\/public\/tracking\/([^/]+)\/config$/);
-        if (configMatch && httpMethod === 'GET') {
-            const researchId = configMatch[1];
-            const config = await getTrackingConfig(researchId);
-            return trackingSuccess(config);
-        }
-
         // POST /public/tracking/:researchId/session — create tracking session
         const sessionMatch = path.match(/^\/public\/tracking\/([^/]+)\/session$/);
         if (sessionMatch && httpMethod === 'POST') {
