@@ -548,6 +548,13 @@ export const getTrackedPages = async (researchId: string) => {
 
 // ─── Page Snapshot ──────────────────────────────────────────────────
 
+export const deleteVisitorData = async (researchId: string, visitorId: string): Promise<number> => {
+    const result = await pool.query('DELETE FROM tracking_sessions WHERE research_id = ? AND visitor_id = ?', [researchId, visitorId]);
+    const deletedSessions = result.rowCount ?? 0;
+    console.info(JSON.stringify({ event: 'tracking_visitor_data_deleted', researchId, deletedSessions }));
+    return deletedSessions;
+};
+
 export const savePageSnapshot = async (
     researchId: string,
     pageUrl: string,

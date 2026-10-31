@@ -27,6 +27,7 @@ import {
     getLiveSessions,
     getAttentionHeatmapData,
     savePageSnapshot,
+    deleteVisitorData,
     getPageSnapshotHtml,
     getFrictionSummary,
     getSessionFrictionTags,
@@ -43,6 +44,8 @@ import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippe
 import { fetchPublicUrl, BlockedUrlError } from './public-fetch';
 import { fetchProxiedAsset, renderInertPage, type ProxiedAsset } from './proxy-rewrite';
 import { canAccessResearch, researchNotFound } from '../research/research-access';
+
+const MAX_VISITOR_ID_LENGTH = 64;
 
 // ─── CORS helpers for public tracking (accepts ANY origin) ───────────
 
@@ -263,6 +266,18 @@ export const handlePublicTrackingRoutes = async (
             if (html.length > 4194304) return trackingError('Snapshot too large', 413);
             await savePageSnapshot(researchId, pageUrl, html);
             return trackingSuccess({ saved: true }, 201);
+        }
+
+        const visitorDataMatch = path.match(/^\/public\/tracking\/([^/]+)\/visitor-data\/delete$/);
+        if (visitorDataMatch && httpMethod === 'POST') {
+            let body: Record<string, unknown>;
+            try { body = JSON.parse(event.body || '{}'); } catch { return trackingError('Invalid JSON'); }
+            const visitorId = body.visitorId;
+            if (typeof visitorId !== 'string' || visitorId.length === 0 || visitorId.length > MAX_VISITOR_ID_LENGTH) {
+                return trackingError(`Field visitorId must be a non-empty string of at most ${MAX_VISITOR_ID_LENGTH} characters`);
+            }
+            const deletedSessions = await deleteVisitorData(visitorDataMatch[1], visitorId);
+            return trackingSuccess({ deletedSessions }, 200);
         }
 
         // POST /public/tracking/:researchId/emotions — save emotion samples for a session

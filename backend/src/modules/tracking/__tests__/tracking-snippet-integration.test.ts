@@ -907,20 +907,32 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
                 return element;
             },
             body: { appendChild: (element: FakeElement & { setAttribute: () => void }) => { attached.set(element.id, element); } },
+            getElementById: (id: string) => attached.get(id) ?? null,
         };
-        const storage: Record<string, string> = {};
+        const storage: Record<string, string> = { _ecx_vid: 'v_visitor' };
+        const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
+        let eraseStatus = 200;
+        class FakeXhr {
+            url = '';
+            status = 0;
+            onload: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            open(_method: string, url: string) { this.url = url; }
+            setRequestHeader() {}
+            send(body: string) { sent.push({ url: this.url, body: JSON.parse(body) }); this.status = eraseStatus; this.onload?.(); }
+        }
         const flushes = vi.fn();
         const rrwebStop = vi.fn();
         const stopCameraByChoice = vi.fn();
         const showNotice = vi.fn();
         const showConsent = vi.fn();
         const recordConsent = vi.fn();
-        const copy = { activeLead: 'Este sitio guarda: ', recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.', off: 'Registro desactivado', resume: 'Activar' };
+        const copy = { activeLead: 'Este sitio guarda: ', recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.', off: 'Registro desactivado', resume: 'Activar', eraseData: 'Borrar mis datos', erased: 'Borramos los datos.', eraseFailed: 'No pudimos borrar.' };
         const api = new Function('C', 'document', 'store', 'flush', 'flushRrweb', 'flushEmotions', 'flushGaze', 'stopCameraByChoice', 'showNotice', 'visitorCopy', 'rrwebStopFn', 'showConsent', 'consented',
-            `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];var recordConsent=arguments[14];var describeRecording=function(lead){return lead+'clics';};${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
-        )({ rid: 'r' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, showConsent, true,
-            (id: string) => attached.get(id) ?? null, recordConsent) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
-        return { ...api, pill: () => attached.get('_ecx_rec'), offPill: () => attached.get('_ecx_off'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice, showConsent, recordConsent };
+            `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];var recordConsent=arguments[14];var load=function(k){return storage[k]||null;};var forget=function(k){delete storage[k];};var XMLHttpRequest=arguments[15];var storage=arguments[16];var describeRecording=function(lead){return lead+'clics';};${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
+        )({ rid: 'r', api: 'https://api.example.com' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, showConsent, true,
+            (id: string) => attached.get(id) ?? null, recordConsent, FakeXhr, storage) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
+        return { ...api, pill: () => attached.get('_ecx_rec'), offPill: () => attached.get('_ecx_off'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice, showConsent, recordConsent, sent, failErase: () => { eraseStatus = 500; } };
     }
 
     it('shows a recording pill whose stop button flushes, stops capture and remembers the choice', () => {
@@ -935,7 +947,7 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         expect(run.rrwebStop).toHaveBeenCalledTimes(1);
         expect(run.hasRrweb()).toBe(false);
         expect(run.stopCameraByChoice).toHaveBeenCalledTimes(1);
-        expect(run.storage).toEqual({ _ecx_consent_r: '0' });
+        expect(run.storage).toEqual({ _ecx_vid: 'v_visitor', _ecx_consent_r: '0' });
         expect(run.pill()).toBeUndefined();
         expect(run.showNotice).toHaveBeenCalledWith('Dejamos de registrar tu navegación.');
 
@@ -943,6 +955,31 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         run.offPill()?.children[1].onclick?.();
         expect(run.offPill()).toBeUndefined();
         expect(run.showConsent).toHaveBeenCalledTimes(1);
+    });
+
+    it('deletes the visitor data from the off pill and forgets the visitor id', () => {
+        const run = runRecordingPill();
+        run.renderRecordingPill();
+        run.pill()?.children[1].onclick?.();
+
+        const eraseButton = run.offPill()?.children[2];
+        expect(eraseButton?.textContent).toBe('Borrar mis datos');
+        eraseButton?.onclick?.();
+
+        expect(run.sent).toEqual([{ url: 'https://api.example.com/public/tracking/r/visitor-data/delete', body: { visitorId: 'v_visitor' } }]);
+        expect(run.storage._ecx_vid).toBeUndefined();
+        expect(run.showNotice).toHaveBeenLastCalledWith('Borramos los datos.');
+    });
+
+    it('keeps the visitor id and says so when the deletion fails', () => {
+        const run = runRecordingPill();
+        run.failErase();
+        run.renderRecordingPill();
+        run.pill()?.children[1].onclick?.();
+        run.offPill()?.children[2].onclick?.();
+
+        expect(run.storage._ecx_vid).toBe('v_visitor');
+        expect(run.showNotice).toHaveBeenLastCalledWith('No pudimos borrar.');
     });
 
     it('tells the visitor exactly what the study saves and what it does not', () => {

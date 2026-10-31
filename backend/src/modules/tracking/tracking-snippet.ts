@@ -93,6 +93,11 @@ function store(k,v){
         try{sessionStorage.setItem(k,v);}catch(e2){memStore[k]=v;}
     }
 }
+function forget(k){
+    try{localStorage.removeItem(k);}catch(e){}
+    try{sessionStorage.removeItem(k);}catch(e2){}
+    delete memStore[k];
+}
 function load(k){
     try{var v=localStorage.getItem(k);if(v!==null)return v;}catch(e){}
     try{var v2=sessionStorage.getItem(k);if(v2!==null)return v2;}catch(e2){}
@@ -584,6 +589,24 @@ function renderPill(id,text,action,onAction){
 function renderResumePill(){
     var copy=visitorCopy();
     renderPill("_ecx_off","\u25cb "+copy.off,copy.resume,function(){removeElement("_ecx_off");showConsent();});
+    var erase=document.createElement("button");erase.type="button";erase.textContent=copy.eraseData;
+    erase.style.cssText="background:transparent;color:#cbd5e1;border:none;padding:4px 8px;font-size:12px;text-decoration:underline;cursor:pointer;";
+    erase.onclick=eraseVisitorData;
+    document.getElementById("_ecx_off").appendChild(erase);
+}
+
+function eraseVisitorData(){
+    var copy=visitorCopy(),vid=load("_ecx_vid");
+    if(!vid){showNotice(copy.erased);return;}
+    var x=new XMLHttpRequest();
+    x.open("POST",C.api+"/public/tracking/"+C.rid+"/visitor-data/delete",true);
+    x.setRequestHeader("Content-Type","application/json");
+    x.onload=function(){
+        if(x.status>=200&&x.status<300){forget("_ecx_vid");showNotice(copy.erased);return;}
+        showNotice(copy.eraseFailed);
+    };
+    x.onerror=function(){showNotice(copy.eraseFailed);};
+    x.send(JSON.stringify({visitorId:vid}));
 }
 
 function renderRecordingPill(){
@@ -664,8 +687,8 @@ function feedFixation(x,y,ts){
 
 var CAMERA_CHOICE_KEY="_ecx_cam_"+C.rid,CAMERA_INVITE_KEY="_ecx_cam_invite_"+C.rid,EYE_CALIBRATION_KEY="_ecx_eye_cal_"+C.rid,EYE_SKIP_KEY="_ecx_eye_skip_"+C.rid,EYE_CALIBRATION_REUSE_MS=600000;
 var VISITOR_COPY={
-    es:{title:"Este sitio participa en un estudio de experiencia de usuario.",acceptLead:"Si aceptas, guardamos c\\u00f3mo usas la p\\u00e1gina: ",activeLead:"Este sitio guarda c\\u00f3mo usas la p\\u00e1gina: ",clicks:"clics",scroll:"scroll",mouse:"movimiento del rat\\u00f3n",screen:"una grabaci\\u00f3n de la pantalla de este sitio",and:" y ",notRecorded:"No guardamos lo que escribes en formularios, tu nombre ni tu IP.",cameraOptional:"La c\\u00e1mara es aparte y opcional: solo se activa si la eliges, y sus im\\u00e1genes no salen de tu dispositivo.",cameraRequired:"Para participar es necesario activar la c\\u00e1mara; sus im\\u00e1genes no salen de tu dispositivo.",cameraAndCalibrationRequired:"Para participar es necesario activar la c\\u00e1mara y calibrar la mirada; sus im\\u00e1genes no salen de tu dispositivo.",cameraRequiredDeclined:"Sin la c\\u00e1mara no participas en este estudio y no se guarda nada. Puedes seguir usando el sitio con normalidad.",declineInfo:"Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",off:"Registro desactivado",resume:"Activar",invite:"Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar"},
-    en:{title:"This site is part of a user experience study.",acceptLead:"If you accept, we save how you use the page: ",activeLead:"This site saves how you use the page: ",clicks:"clicks",scroll:"scroll",mouse:"mouse movement",screen:"a screen recording of this site",and:" and ",notRecorded:"We do not save what you type in forms, your name or your IP.",cameraOptional:"The camera is separate and optional: it only turns on if you choose it, and its images never leave your device.",cameraRequired:"Taking part requires turning on the camera; its images never leave your device.",cameraAndCalibrationRequired:"Taking part requires turning on the camera and calibrating your gaze; its images never leave your device.",cameraRequiredDeclined:"Without the camera you are not part of this study and nothing is saved. You can keep using the site as usual.",declineInfo:"If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",off:"Recording off",resume:"Turn on",invite:"Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off"}
+    es:{title:"Este sitio participa en un estudio de experiencia de usuario.",acceptLead:"Si aceptas, guardamos c\\u00f3mo usas la p\\u00e1gina: ",activeLead:"Este sitio guarda c\\u00f3mo usas la p\\u00e1gina: ",clicks:"clics",scroll:"scroll",mouse:"movimiento del rat\\u00f3n",screen:"una grabaci\\u00f3n de la pantalla de este sitio",and:" y ",notRecorded:"No guardamos lo que escribes en formularios, tu nombre ni tu IP.",cameraOptional:"La c\\u00e1mara es aparte y opcional: solo se activa si la eliges, y sus im\\u00e1genes no salen de tu dispositivo.",cameraRequired:"Para participar es necesario activar la c\\u00e1mara; sus im\\u00e1genes no salen de tu dispositivo.",cameraAndCalibrationRequired:"Para participar es necesario activar la c\\u00e1mara y calibrar la mirada; sus im\\u00e1genes no salen de tu dispositivo.",cameraRequiredDeclined:"Sin la c\\u00e1mara no participas en este estudio y no se guarda nada. Puedes seguir usando el sitio con normalidad.",declineInfo:"Si rechazas no se guarda nada y el sitio funciona igual. Si aceptas, puedes detenerlo cuando quieras.",accept:"Aceptar",decline:"Rechazar",declined:"No registraremos tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",recording:"Registrando tu navegaci\\u00f3n",stop:"Detener",stopped:"Dejamos de registrar tu navegaci\\u00f3n. Puedes seguir usando el sitio con normalidad.",off:"Registro desactivado",resume:"Activar",invite:"Opcional: ay\\u00fadanos midiendo tu atenci\\u00f3n y emociones con la c\\u00e1mara; las im\\u00e1genes no salen de tu dispositivo.",activate:"Activar c\\u00e1mara",dismiss:"Entendido",acceptWithCamera:"Aceptar y activar c\\u00e1mara",tabOff:"Ay\\u00fadanos con tu c\\u00e1mara",tabOn:"C\\u00e1mara activa \\u00b7 desactivar",eraseData:"Borrar mis datos",erased:"Borramos los datos de tus visitas a este sitio.",eraseFailed:"No pudimos borrar tus datos. Int\\u00e9ntalo de nuevo."},
+    en:{title:"This site is part of a user experience study.",acceptLead:"If you accept, we save how you use the page: ",activeLead:"This site saves how you use the page: ",clicks:"clicks",scroll:"scroll",mouse:"mouse movement",screen:"a screen recording of this site",and:" and ",notRecorded:"We do not save what you type in forms, your name or your IP.",cameraOptional:"The camera is separate and optional: it only turns on if you choose it, and its images never leave your device.",cameraRequired:"Taking part requires turning on the camera; its images never leave your device.",cameraAndCalibrationRequired:"Taking part requires turning on the camera and calibrating your gaze; its images never leave your device.",cameraRequiredDeclined:"Without the camera you are not part of this study and nothing is saved. You can keep using the site as usual.",declineInfo:"If you decline, nothing is saved and the site works the same. If you accept, you can stop it at any time.",accept:"Accept",decline:"Decline",declined:"We will not record your browsing. You can keep using the site as usual.",recording:"Recording your browsing",stop:"Stop",stopped:"We stopped recording your browsing. You can keep using the site as usual.",off:"Recording off",resume:"Turn on",invite:"Optional: help us by measuring your attention and emotions with the camera; images never leave your device.",activate:"Turn on camera",dismiss:"Got it",acceptWithCamera:"Accept and turn on camera",tabOff:"Help us with your camera",tabOn:"Camera on \\u00b7 turn off",eraseData:"Delete my data",erased:"We deleted the data of your visits to this site.",eraseFailed:"We could not delete your data. Please try again."}
 };
 function visitorCopy(){return VISITOR_COPY[pageLanguage()];}
 function describeRecording(lead){

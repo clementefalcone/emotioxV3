@@ -637,6 +637,8 @@ export const getParticipantDetails = async (researchId: string, participantId: s
  * @param userId - ID del usuario (para verificar permisos)
  * @returns Mensaje de confirmación
  */
+const PARTICIPANT_DATA_TABLES = ['responses', 'participant_demographics', 'participants'];
+
 export const deleteParticipant = async (researchId: string, participantId: string, userId: string, role?: string) => {
     const client = await pool.connect();
     const ownership = buildOwnershipClause(userId, role, '');
@@ -654,21 +656,15 @@ export const deleteParticipant = async (researchId: string, participantId: strin
             throw new Error('Research not found');
         }
 
-        // Verificar que el participante tiene respuestas
-        const participantCheck = await client.query(
-            'SELECT COUNT(*) as count FROM responses WHERE research_id = ? AND participant_id = ?',
-            [researchId, participantId]
-        );
-
-        if (parseInt(participantCheck.rows[0]?.count || '0', 10) === 0) {
-            throw new Error('Participant not found');
+        let deletedRows = 0;
+        for (const table of PARTICIPANT_DATA_TABLES) {
+            const result = await client.query(`DELETE FROM ${table} WHERE research_id = ? AND participant_id = ?`, [researchId, participantId]);
+            deletedRows += result.rowCount ?? 0;
         }
 
-        // Eliminar todas las respuestas del participante
-        await client.query(
-            'DELETE FROM responses WHERE research_id = ? AND participant_id = ?',
-            [researchId, participantId]
-        );
+        if (deletedRows === 0) {
+            throw new Error('Participant not found');
+        }
 
         await client.query('COMMIT');
         return { message: 'Participant deleted successfully' };

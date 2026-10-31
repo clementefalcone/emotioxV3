@@ -284,3 +284,54 @@ describe('getParticipantsWithStatusInternal — status labels', () => {
       .rejects.toThrow('Research not found');
   });
 });
+
+describe('deleteParticipant', () => {
+  const clientQuery = vi.fn();
+  const release = vi.fn();
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const database = (await import('../../../config/database')).default as unknown as { connect: ReturnType<typeof vi.fn> };
+    database.connect.mockResolvedValue({ query: clientQuery, release });
+  });
+
+  const answer = (rowCounts: Record<string, number>) => {
+    clientQuery.mockImplementation(async (sql: string) => {
+      if (sql.startsWith('SELECT id FROM researches')) return { rows: [{ id: 'r-1' }] };
+      const table = Object.keys(rowCounts).find(name => sql.startsWith(`DELETE FROM ${name} `));
+      return { rows: [], rowCount: table ? rowCounts[table] : 0 };
+    });
+  };
+
+  it('erases responses, demographics and the panel invitation of the participant, keeping consent records', async () => {
+    answer({ responses: 12, participant_demographics: 4, participants: 1 });
+    const { deleteParticipant } = await import('../research-in-progress.service');
+
+    await deleteParticipant('r-1', 'p-1', 'user-1');
+
+    const deletes = clientQuery.mock.calls.filter(([sql]) => sql.startsWith('DELETE')).map(([sql, params]) => [sql, params]);
+    expect(deletes).toEqual([
+      ['DELETE FROM responses WHERE research_id = ? AND participant_id = ?', ['r-1', 'p-1']],
+      ['DELETE FROM participant_demographics WHERE research_id = ? AND participant_id = ?', ['r-1', 'p-1']],
+      ['DELETE FROM participants WHERE research_id = ? AND participant_id = ?', ['r-1', 'p-1']],
+    ]);
+    expect(clientQuery.mock.calls.some(([sql]) => sql.includes('consent_records'))).toBe(false);
+    expect(clientQuery).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('erases a participant who only left demographics, such as a disqualified one', async () => {
+    answer({ participant_demographics: 3 });
+    const { deleteParticipant } = await import('../research-in-progress.service');
+
+    await expect(deleteParticipant('r-1', 'p-disqualified', 'user-1')).resolves.toEqual({ message: 'Participant deleted successfully' });
+  });
+
+  it('rolls back and reports a participant with no data in the study', async () => {
+    answer({});
+    const { deleteParticipant } = await import('../research-in-progress.service');
+
+    await expect(deleteParticipant('r-1', 'ghost', 'user-1')).rejects.toThrow('Participant not found');
+    expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(release).toHaveBeenCalled();
+  });
+});

@@ -39,6 +39,7 @@ vi.mock('../tracking.service', async () => ({
     getLiveSessions: vi.fn().mockResolvedValue([]),
     getAttentionHeatmapData: vi.fn().mockResolvedValue({ points: [] }),
     savePageSnapshot: vi.fn().mockResolvedValue(undefined),
+    deleteVisitorData: vi.fn().mockResolvedValue(4),
     getPageSnapshotHtml: vi.fn().mockResolvedValue('<html><head></head><body><img src=x onerror="alert(1)"></body></html>'),
     getFrictionSummary: vi.fn().mockResolvedValue({ tags: [] }),
     getSessionFrictionTags: vi.fn().mockResolvedValue([]),
@@ -126,6 +127,7 @@ import {
     appendGazeSamples,
     savePageSnapshot,
     recordCaptureError,
+    deleteVisitorData,
 } from '../tracking.service';
 import { generateTrackingSnippet, generateEmbedSnippet } from '../tracking-snippet';
 import { requireAuth } from '../../../utils/auth.local';
@@ -266,6 +268,24 @@ describe('handlePublicTrackingRoutes', () => {
         const res = await handlePublicTrackingRoutes(event);
         expect(res.statusCode).toBe(400);
         expect(res.body).toContain('Invalid JSON');
+    });
+
+    it('POST visitor-data/delete erases the visitor sessions of that study', async () => {
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/visitor-data/delete', { body: { visitorId: 'v_abc' } }),
+        );
+        expect(res.statusCode).toBe(200);
+        expect(JSON.parse(res.body)).toMatchObject({ deletedSessions: 4 });
+        expect(deleteVisitorData).toHaveBeenCalledWith('r1', 'v_abc');
+    });
+
+    it('POST visitor-data/delete rejects a missing visitorId', async () => {
+        const res = await handlePublicTrackingRoutes(
+            mockEvent('POST', '/public/tracking/r1/visitor-data/delete', { body: {} }),
+        );
+        expect(res.statusCode).toBe(400);
+        expect(res.body).toContain('visitorId');
+        expect(deleteVisitorData).not.toHaveBeenCalled();
     });
 
     it('POST rrweb-events validates sessionId and events array', async () => {
