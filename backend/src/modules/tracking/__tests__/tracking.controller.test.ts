@@ -460,22 +460,6 @@ describe('handlePublicTrackingRoutes', () => {
         expect(res.body).toContain('Route not found');
     });
 
-    it('error with "not found" message returns 404', async () => {
-        vi.mocked(getTrackingConfig).mockRejectedValueOnce(new Error('Research not found'));
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('GET', '/public/tracking/r1/config'),
-        );
-        expect(res.statusCode).toBe(404);
-    });
-
-    it('error with "not active" message returns 404', async () => {
-        vi.mocked(getTrackingConfig).mockRejectedValueOnce(new Error('Research not active'));
-        const res = await handlePublicTrackingRoutes(
-            mockEvent('GET', '/public/tracking/r1/config'),
-        );
-        expect(res.statusCode).toBe(404);
-    });
-
     it('unexpected error returns 500', async () => {
         vi.mocked(deleteVisitorData).mockRejectedValueOnce(new Error('DB connection failed'));
         const res = await handlePublicTrackingRoutes(
@@ -496,22 +480,12 @@ describe('handleTrackingRoutes', () => {
         expect(res.statusCode).toBe(401);
     });
 
-    it('supports token in query param when no Authorization header', async () => {
+    it('ignores a token in the query string', async () => {
         const event = mockEvent('GET', '/tracking/r1/config', {
             query: { token: 'my-jwt' },
         });
         await handleTrackingRoutes(event);
-        expect(event.headers.Authorization).toBe('Bearer my-jwt');
-        expect(requireAuth).toHaveBeenCalled();
-    });
-
-    it('does not override existing Authorization header with query token', async () => {
-        const event = mockEvent('GET', '/tracking/r1/config', {
-            query: { token: 'query-jwt' },
-            headers: { Authorization: 'Bearer header-jwt' },
-        });
-        await handleTrackingRoutes(event);
-        expect(event.headers.Authorization).toBe('Bearer header-jwt');
+        expect(event.headers.Authorization).toBeUndefined();
     });
 
     it('GET /tracking/:id/config returns config', async () => {

@@ -234,12 +234,12 @@ export const useMonitoringReceiver = (researchId: string | null, token: string |
                     return;
                 }
 
-                // Build SSE endpoint URL: /api/monitor/events/:researchId?token=xxx
+                // Build SSE endpoint URL: /api/monitor/events/:researchId
                 const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-                const sseUrl = `${cleanBaseUrl}/monitor/events/${encodeURIComponent(researchId)}?token=${encodeURIComponent(token)}`;
+                const sseUrl = `${cleanBaseUrl}/monitor/events/${encodeURIComponent(researchId)}`;
                 
                 console.log('Connecting to SSE:', sseUrl);
-                source = new EventSource(sseUrl);
+                source = new EventSource(sseUrl, { withCredentials: true });
 
                 source.onopen = () => {
                     setIsConnected(true);

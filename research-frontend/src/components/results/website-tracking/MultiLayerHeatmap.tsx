@@ -10,7 +10,6 @@ import { useQuery } from '@tanstack/react-query';
 import simpleheat from 'simpleheat';
 import * as trackingService from '../../../services/tracking.service';
 import { configService } from '../../../services/api/config.service';
-import { useAuthStore } from '../../../stores/auth.store';
 
 interface MultiLayerHeatmapProps {
     researchId: string;
@@ -66,14 +65,13 @@ export const MultiLayerHeatmap = ({
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
     // Iframe URL — prefer DOM snapshot (preserves JS-rendered styles) over live proxy
-    const token = useAuthStore((s) => s.token);
     const proxyUrl = useMemo(() => {
         const base = configService.getBaseUrl();
         if (hasSnapshot) {
-            return `${base}/tracking/${researchId}/snapshot-html?page=${encodeURIComponent(pageUrl)}&token=${encodeURIComponent(token || '')}`;
+            return `${base}/tracking/${researchId}/snapshot-html?page=${encodeURIComponent(pageUrl)}`;
         }
-        return `${base}/tracking/${researchId}/proxy-page?url=${encodeURIComponent(pageUrl)}&token=${encodeURIComponent(token || '')}`;
-    }, [researchId, pageUrl, token, hasSnapshot]);
+        return `${base}/tracking/${researchId}/proxy-page?url=${encodeURIComponent(pageUrl)}`;
+    }, [researchId, pageUrl, hasSnapshot]);
 
     // Screenshot first (reliable), proxy fallback only if no screenshot
     const useScreenshot = !!screenshotUrl;

@@ -97,9 +97,9 @@ export const useSmartVOCAnalytics = (researchId: string | null): UseSmartVOCAnal
             try {
                 const baseUrl = await getSSEBaseUrl();
                 const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-                const sseUrl = `${cleanBaseUrl}/monitor/events/${encodeURIComponent(researchId)}?token=${encodeURIComponent(token)}`;
+                const sseUrl = `${cleanBaseUrl}/monitor/events/${encodeURIComponent(researchId)}`;
 
-                source = new EventSource(sseUrl);
+                source = new EventSource(sseUrl, { withCredentials: true });
                 eventSourceRef.current = source;
 
                 source.addEventListener('connected', () => {

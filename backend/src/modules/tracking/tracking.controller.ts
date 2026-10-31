@@ -360,10 +360,6 @@ export const handleTrackingRoutes = async (
     const origin = getRequestOrigin(event);
 
     try {
-        // Support token in query param (for iframe src where headers aren't available)
-        if (event.queryStringParameters?.token && !event.headers.Authorization && !event.headers.authorization) {
-            event.headers.Authorization = `Bearer ${event.queryStringParameters.token}`;
-        }
         const decoded = await requireAuth(event);
 
         if (decoded.role === 'viewer' && httpMethod !== 'GET') {

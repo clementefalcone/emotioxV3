@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import { route } from './router';
 import cache from './config/cache';
 import { monitorSSEService } from './modules/monitor/monitor-sse.service';
-import { verifyToken } from './utils/auth.local';
+import { readAccessTokenCookie, verifyToken } from './utils/auth.local';
 import { attachSSE, detachSSE, getJob } from './modules/attention-prediction/video-prediction-jobs';
 import { publicRateLimit } from './public-rate-limit';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
@@ -257,83 +257,16 @@ app.use('/api/media', express.static(MEDIA_BASE_DIR, {
     index: false,
 }));
 
-// SSE endpoint for live tracking sessions
-// Registered with both /api and / prefix for Passenger compatibility
-app.get(['/api/tracking/:researchId/live/stream', '/tracking/:researchId/live/stream'], async (req: Request, res: Response) => {
-    try {
-        const { researchId } = req.params;
-        const { token } = req.query;
-
-        if (!token || typeof token !== 'string') {
-            return res.status(401).json({ error: 'Authentication token is required' });
-        }
-
-        let userSub: string;
-        try {
-            userSub = (await verifyToken(token)).sub;
-        } catch {
-            return res.status(401).json({ error: 'Invalid or expired token' });
-        }
-        const { canAccessResearch } = await import('./modules/research/research-access');
-        if (!(await canAccessResearch(researchId, userSub))) {
-            console.warn(JSON.stringify({ event: 'research_access_denied', researchId, userSub, path: req.path }));
-            return res.status(404).json({ error: `Research ${researchId} not found` });
-        }
-
-        // SSE headers
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.flushHeaders();
-
-        // Import lazily to avoid circular deps
-        const { getLiveSessions } = await import('./modules/tracking/tracking.service');
-
-        // Send initial data
-        const initial = await getLiveSessions(researchId);
-        res.write(`data: ${JSON.stringify(initial)}\n\n`);
-        if (typeof (res as any).flush === 'function') (res as any).flush();
-
-        // Push updates every 5s
-        const interval = setInterval(async () => {
-            try {
-                const data = await getLiveSessions(researchId);
-                res.write(`data: ${JSON.stringify(data)}\n\n`);
-                if (typeof (res as any).flush === 'function') (res as any).flush();
-            } catch {
-                // DB query failed — skip this tick
-            }
-        }, 5000);
-
-        // Keep-alive ping every 30s
-        const pingInterval = setInterval(() => {
-            try { res.write(': ping\n\n'); if (typeof (res as any).flush === 'function') (res as any).flush(); } catch { /* connection dead */ }
-        }, 30000);
-
-        // Cleanup on disconnect
-        res.on('close', () => {
-            clearInterval(interval);
-            clearInterval(pingInterval);
-        });
-
-    } catch (err) {
-        console.error('[Tracking SSE] Error:', err);
-        res.status(500).json({ error: 'SSE connection failed' });
-    }
-});
-
 // SSE endpoint for real-time monitoring
-// GET /api/monitor/events/:researchId?token=xxx
+// GET /api/monitor/events/:researchId (accessToken cookie)
 app.get('/api/monitor/events/:researchId', async (req: Request, res: Response) => {
     try {
         const { researchId } = req.params;
-        const { token } = req.query;
+        const token = readAccessTokenCookie(req.headers.cookie);
 
         console.log('[SSE] Connection attempt for research:', researchId);
 
-        if (!token || typeof token !== 'string') {
+        if (!token) {
             console.log('[SSE] No token provided');
             return res.status(401).json({ error: 'Authentication token is required' });
         }

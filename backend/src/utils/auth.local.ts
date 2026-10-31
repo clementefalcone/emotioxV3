@@ -70,30 +70,24 @@ export const getUserFromToken = async (token: string): Promise<DecodedToken> => 
 /**
  * Extrae el token de las cookies o del header Authorization
  */
+export const readAccessTokenCookie = (cookieHeader: string | undefined): string | null => {
+    const cookie = cookieHeader?.split(';').map(part => part.trim()).find(part => part.startsWith('accessToken='));
+    return cookie?.substring('accessToken='.length).trim() || null;
+};
+
 const extractToken = (event: APIGatewayProxyEvent): string | null => {
     const cookieHeaders = [
         event.headers.Cookie,
         event.headers.cookie,
-        event.headers['Cookie'],
-        event.headers['cookie'],
         event.multiValueHeaders?.Cookie?.[0],
         event.multiValueHeaders?.cookie?.[0],
-    ].filter(Boolean) as string[];
+    ];
 
-    for (const cookies of cookieHeaders) {
-        if (!cookies) continue;
-        const cookieParts = cookies.split(';');
-        for (const cookie of cookieParts) {
-            const trimmed = cookie.trim();
-            if (trimmed.startsWith('accessToken=')) {
-                const token = trimmed.substring('accessToken='.length).trim();
-                if (token) {
-                    return token;
-                }
-            }
-        }
+    for (const cookieHeader of cookieHeaders) {
+        const token = readAccessTokenCookie(cookieHeader);
+        if (token) return token;
     }
-    
+
     const authHeaders = [
         event.headers.Authorization,
         event.headers.authorization,
