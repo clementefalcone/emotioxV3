@@ -1,3 +1,11 @@
+## v0.99.53 — Privacy: summarized user agent in Website Tracking (2026-10-31)
+
+### fix(privacy): store summarized tracking user agent
+- **Why.** Each tracking session stored the full browser user agent, detailed enough to help single out a visitor; the panel only needs device type, system and browser (Ley 21.719 data minimization).
+- **Change.** `summarizeUserAgent` (`tracking/user-agent.ts`) turns it into `device · system · browser` (e.g. `desktop · macOS · Chrome`) before the session insert. Unknown parts read `Other` (crawlers).
+- **Data.** The 934 stored sessions (112 distinct agents) were backed up to `~/retention-backups/retention-user-agents-2026-10-31.ndjson.gz` (removed by the retention job after 7 days) and rewritten to their summary: 934 summarized, 0 left in full form.
+- **Check.** Backend 703 → 705, 0 failing. Live `dist` uses the summary; health 200.
+
 ## v0.99.52 — Security: no JWT in URLs (2026-10-31)
 
 ### fix(security): stop accepting JWT in query string
