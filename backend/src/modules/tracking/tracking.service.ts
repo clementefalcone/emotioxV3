@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import pool from '../../config/database';
 import { parseCaptureErrors, type CaptureErrorKind } from './capture-errors';
 import { readTrackingRetentionDays } from '../retention/retention.service';
+import { summarizeUserAgent } from './user-agent';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ export const createSession = async (input: CreateSessionInput): Promise<{ sessio
             input.viewportHeight,
             input.screenWidth || null,
             input.screenHeight || null,
-            input.userAgent || null,
+            summarizeUserAgent(input.userAgent),
             input.referrer || null,
         ]
     );
