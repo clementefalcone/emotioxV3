@@ -5,12 +5,6 @@ import { QueryProvider } from './providers/QueryProvider';
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
 const ResearchPage = lazy(() => import('./pages/ResearchPage').then(m => ({ default: m.ResearchPage })));
-const EyeTrackingHybridPage = lazy(() => import('./pages/EyeTrackingHybridPage').then(m => ({ default: m.EyeTrackingHybridPage })));
-const EyeTrackingV2TestPage = lazy(() => import('./pages/EyeTrackingV2TestPage').then(m => ({ default: m.EyeTrackingV2TestPage })));
-const GazeComparePage = lazy(() => import('./pages/GazeComparePage').then(m => ({ default: m.GazeComparePage })));
-const GazeCapturePage = lazy(() => import('./pages/GazeCapturePage').then(m => ({ default: m.GazeCapturePage })));
-const ExpressionCapturePage = lazy(() => import('./pages/ExpressionCapturePage').then(m => ({ default: m.ExpressionCapturePage })));
-const ExpressionEvalPage = lazy(() => import('./pages/ExpressionEvalPage').then(m => ({ default: m.ExpressionEvalPage })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -41,54 +35,21 @@ const router = createBrowserRouter([
       </Suspense>
     ),
   },
-  {
-    path: '/eye-tracking-hybrid',
+  ...(import.meta.env.DEV ? [
+    { path: '/eye-tracking-hybrid', Component: lazy(() => import('./pages/EyeTrackingHybridPage').then(m => ({ default: m.EyeTrackingHybridPage }))) },
+    { path: '/test/eye-tracking-v2', Component: lazy(() => import('./pages/EyeTrackingV2TestPage').then(m => ({ default: m.EyeTrackingV2TestPage }))) },
+    { path: '/test/gaze-compare', Component: lazy(() => import('./pages/GazeComparePage').then(m => ({ default: m.GazeComparePage }))) },
+    { path: '/test/gaze-capture', Component: lazy(() => import('./pages/GazeCapturePage').then(m => ({ default: m.GazeCapturePage }))) },
+    { path: '/test/expression-capture', Component: lazy(() => import('./pages/ExpressionCapturePage').then(m => ({ default: m.ExpressionCapturePage }))) },
+    { path: '/test/expression-eval', Component: lazy(() => import('./pages/ExpressionEvalPage').then(m => ({ default: m.ExpressionEvalPage }))) },
+  ].map(({ path, Component }) => ({
+    path,
     element: (
       <Suspense fallback={<PageLoader />}>
-        <EyeTrackingHybridPage />
+        <Component />
       </Suspense>
     ),
-  },
-  {
-    path: '/test/eye-tracking-v2',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <EyeTrackingV2TestPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/test/gaze-compare',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <GazeComparePage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/test/gaze-capture',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <GazeCapturePage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/test/expression-capture',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <ExpressionCapturePage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '/test/expression-eval',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <ExpressionEvalPage />
-      </Suspense>
-    ),
-  },
+  })) : []),
 ], {
   basename,
 });
