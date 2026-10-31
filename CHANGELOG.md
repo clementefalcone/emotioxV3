@@ -1,3 +1,10 @@
+## v0.99.58 — Privacy: consent records for researchers (2026-10-31)
+
+### feat(privacy): show consent records to researchers
+- **Why.** Consent decisions were stored but only visible one participant at a time through the data export; the controller must be able to show who accepted, declined or withdrew, and the exact text seen.
+- **Change.** `GET /research/:id/consent-records` (`research-consent-records.ts`, study access required, 404 otherwise). "Registro de consentimientos" section (`ConsentRecordsSection.tsx`) in the study Settings tab and the Website Tracking config: totals per decision, 10 most recent, "Descargar CSV" with every record, consent text and sha256. CSV builder moved from `WebsiteTrackingResults` to `utils/csvDownload.ts` (`buildCsv`) and shared.
+- **Check.** Production: endpoint without session 401, live bundle has the section, health 200. Backend 709 → 711, research 705 → 708, 0 failing. Not seen in the browser with a real session.
+
 ## v0.99.57 — Fix: expired review pass explained (2026-10-31)
 
 ### fix(review): explain an expired review pass

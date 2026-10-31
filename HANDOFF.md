@@ -1,46 +1,71 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-10-30 · Versión: v0.99.38 · Producción = `main` local (backend y research desplegados hoy; participant el 2026-10-30 con v0.99.35). `main` va 16 commits por delante de `origin/main`: falta `git push`.
+Actualizado: 2026-10-31 · Versión: v0.99.58 · Producción = `main` = `origin/main` (backend, research y participant desplegados hoy).
 
-## Estado actual
+## Hecho en esta sesión (v0.99.39 → v0.99.58)
 
-- **IAT Objects Comparing / "IAT clásico" (v0.99.36–38):** Results calcula cada objeto por % de elecciones Positivo/Negativo (antes por tiempos de reacción → barras vacías) y el desglose por atributo (`criteriaScores`). Pestañas "Desempeño por lugar", gráfico por atributo, radar de atributos. Etiqueta Positivo visible; "Perfil por objeto" quitado.
-- **IAT fiabilidad (v0.99.37):** `responseQualities[]` por participante (`too_fast` > 30 % < 300 ms, `same_choice` ≥ 95 % iguales, `reliable`). Botones "Todos / Solo fiables" por IAT; nada se borra. Endpoint acepta `moduleId` y `participants` y recalcula. Los filtros demográficos del panel ahora también recalculan el IAT.
-- **IAT raw data (v0.99.38):** botón "Descargar raw data" por IAT → Excel (Trials, Participantes, Leyenda) con atributo, respuesta, RT, calidad y demografía. Raw trials del backend traen `attributeLabel`, `trialNumber`, `moduleId`.
-- **Website Tracking cámara (v0.99.35):** emociones y mirada Off / Optional / Required por separado; "Saltar calibración (solo emociones)".
-- **Eye Tracking (v0.99.32–34):** warm-up de face-api (sin congelamiento), blendshapes eyeLook + ridge lineal (mejor vertical), calidad relativa al ancho de pantalla, todos los participantes visibles con filtro de fiabilidad.
-- **Infra:** cPanel tiene cuota 20 GB / 300.000 archivos. Se borraron 122 copias `public_html/*.backup.*` y los scripts de deploy de frontend ya no las crean (12,2 GB usados; archivos 294k de 300k — cerca del límite).
+Resultados:
+- Progreso: el Screener cuenta solo si tiene respuesta real; ningún participante quedaba al 100 %.
+- Aviso "ningún participante cumple el filtro" en IAT, SmartVOC, Cognitive Tasks, Eye Tracking y Screener. El Screener respeta los filtros (0–100 %).
 
-## Hallazgos del estudio "Exploracion Mercado" (dd5420e1)
+Protección de datos (Ley 21.719 / GDPR), Eye Tracking y Website Tracking, uno a la vez:
+- **Consentimiento:** se registra en `consent_records` (migración 034) con el texto exacto, su sha256, el idioma y la decisión (acepta, rechaza o retira). Tiene botón de rechazo en Eye Tracking y Emotion Analysis, y casilla de mayoría de edad antes de la cámara y del tracking.
+- **Aviso de privacidad por estudio:** responsable, email y URL de la política. Se configura en `PrivacyContactSection`.
+- **Retención:**
+  - Cron diario 03:30 con `dist/scripts/purge-expired-data.js`. Tracking 90 días por defecto; biometría 12 meses, configurable a 3, 6, 12 o 24 meses.
+  - Respaldo gzip NDJSON en `~/retention-backups`, que se borra a los 7 días (solo archivos `retention-*`).
+- **Snippet de Website Tracking:**
+  - Solo graba después de aceptar, con texto enmascarado y sin `targetText`.
+  - El visitante puede "Borrar mis datos".
+  - La config pública se eliminó.
+- **Pase de revisión:** "Ver como participante" usa un JWT de 30 minutos en el fragmento de la URL. Si caduca, se muestra un aviso (v0.99.57).
+- **Endpoints públicos:**
+  - Límite de 1000 peticiones por minuto por IP.
+  - Las respuestas del progreso público van con alias.
+- **Páginas `/test/*` y `/eye-tracking-hybrid`:** solo en desarrollo (v0.99.51).
+- **JWT del investigador:** ya no viaja en la URL. El SSE del monitor y el iframe del heatmap usan la cookie httpOnly. Se borró `/tracking/:id/live/stream`, que no tenía uso (v0.99.52).
+- **User agent de tracking:** se guarda resumido (`desktop · macOS · Chrome`). Las 934 sesiones antiguas están reescritas, con respaldo (v0.99.53).
+- **GPS del participante:** eliminado, junto con el interruptor "Track respondents location". Nunca se enviaba al servidor. Para la ubicación se usa la pregunta demográfica Country & City (v0.99.54).
+- **Derecho de acceso:** botón "Exportar datos" en la ficha del participante, que descarga un JSON con respuestas, demografía, invitación y consentimientos (v0.99.55).
+- **Registro de consentimientos:** sección en Settings y en la config de Website Tracking, con totales, últimos 10 y CSV completo (v0.99.58).
+- **Cerulean:** apagado en producción (sin variables `CERULEAN_*`). No envía datos.
 
-- Curacaví es el lugar con menos Positivo en ambos IAT (75 % / 77 % vs 80–84 %); diferencia significativa. Chicureo, Cajón del Maipo y Algarrobo sin diferencia significativa entre sí.
-- "Lejos" es el único atributo dividido (≈50 %); Semana santa y Desconexión los más débiles.
-- ~1/3 de participantes poco fiables (IAT 1: 30 siempre igual + 15 rápidos de 102; IAT 2: 14 + 21 de 101).
-- Excel hecho a mano para el reporte: `~/Downloads/Exploracion_Mercado_IAT_raw_data.xlsx`.
+Errores corregidos:
+- `participants.service.ts` leía `affectedRows` en vez de `rowCount`. Borrar un participante del panel respondía 404 y borrar todos decía 0 (v0.99.56).
+
+Tests al cierre: backend 711, research 708, participant 1162. Todos pasando.
 
 ## Qué falta
 
-1. **Inodos del hosting** al 98 % (294k/300k): mayores consumidores `~/emotioxv3/backend/node_modules`, `~/emotioxv3/backend-dev`, `~/emotioxV3` (copia antigua), `~/.npm`. Preguntar antes de borrar.
-2. **Precisión de mirada en móviles** y sesiones kiosk-8/11/14/16 trabadas tras el screener (falta pantalla y navegador exactos).
-3. **AbortError** al iniciar la cámara del segundo módulo ET.
-4. Revisar `calibrationRmsePx` de sesiones nuevas tras v0.99.33.
-5. UI de fiabilidad de Eye Tracking y del IAT no vista con sesión real (solo en página de prueba con datos reales).
-6. El "Export CSV" general (`export.service.ts`) aún entrega raw trials del IAT sin atributo y traga errores (`catch → []`).
+1. **Probar con una sesión real** (no se pudo desde aquí):
+   - el tiempo real de SmartVOC y el iframe del heatmap tras el cambio a cookie;
+   - "Exportar datos";
+   - "Registro de consentimientos".
+2. **934 grabaciones antiguas de Website Tracking sin enmascarar.** El usuario dijo "nada aún". La retención de 90 días las irá borrando.
+3. **Respaldos en `~/retention-backups`:** el del 30-oct es de 101 MB y se borra solo el 6 y 7 de noviembre.
+4. **Pendientes anteriores sin revisar en esta sesión:**
+   - inodos del hosting cerca del límite (294k de 300k);
+   - precisión de mirada en móviles;
+   - AbortError en el segundo módulo de Eye Tracking;
+   - el "Export CSV" general traga errores (`catch → []`).
+5. **`monitor/handler.ts` (WebSocket de AWS heredado):** aún lee el token por query. No está desplegado en cPanel.
 
 ## Ficheros clave
 
 | Tema | Archivo |
 |---|---|
-| Analítica IAT | `backend/src/modules/analytics/iat.analytics.ts` (`computeChoiceShares`, `computeResponseQualities`, `getIATRawTrials`) |
-| Results IAT | `research-frontend/src/components/results/implicit-association/` (`ImplicitAssociationResults.tsx`, `IATReliabilityFilter.tsx`, `iatRawDataExport.ts`) |
-| Etiquetas demográficas | `research-frontend/src/components/results/shared/demographicLabels.ts` |
-| Snippet Website Tracking | `backend/src/modules/tracking/tracking-snippet.ts` |
-| Analítica ET | `backend/src/modules/analytics/eye-tracking.analytics.ts` |
-| Deploy | `scripts/deploy-*-cpanel.sh` |
+| Consentimiento (público) | `backend/src/modules/public/public.consent.ts`, `participant-frontend/src/hooks/useConsentRecorder.ts` |
+| Registro para investigadores | `backend/src/modules/research/research-consent-records.ts`, `research-frontend/src/components/research/ConsentRecordsSection.tsx` |
+| Exportar datos de participante | `backend/src/modules/research/participant-data-export.ts` |
+| Retención | `backend/src/modules/retention/retention.service.ts`, `backend/src/scripts/purge-expired-data.ts` |
+| Aviso de privacidad | `backend/src/modules/research/research-privacy.ts` |
+| Snippet tracking | `backend/src/modules/tracking/tracking-snippet.ts`, `tracking/user-agent.ts` |
+| Rate limit | `backend/src/public-rate-limit.ts` (montado en las dos entradas cPanel) |
+| Auth (cookie, pase de revisión) | `backend/src/utils/auth.local.ts` |
+| CSV compartido | `research-frontend/src/utils/csvDownload.ts` |
 
 ## Preguntas abiertas
 
-- Umbrales de fiabilidad IAT (95 % misma respuesta, 30 % < 300 ms): ¿adecuados o configurables por estudio?
-- ¿El raw data debería respetar los filtros activos? Hoy siempre incluye a todos.
-- "Alpha heatmap" en video (Attention Prediction): pregunta sin aclarar.
-- `docs/emociones.jpeg`, `docs/net.jpeg`, `docs/problema1.jpeg` sin commitear: ¿van al repo?
+- ¿Se enmascaran o borran las 934 grabaciones antiguas antes de que caduquen?
+- ¿Algún estudio necesitará participantes menores de 18 años? Hoy solo hay autodeclaración de mayoría de edad, sin flujo de tutor.
+- `docs/emociones.jpeg`, `docs/net.jpeg` y `docs/problema1.jpeg` sin commitear: ¿van al repo?
