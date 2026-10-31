@@ -22,7 +22,6 @@ const defaultConfig = {
     captureClicks: true,
     captureScroll: true,
     captureMousemove: false,
-    consentRequired: false,
     flushIntervalMs: 2000,
     maxEventsPerFlush: 50,
     allowedDomains: ['example.com'],
@@ -55,7 +54,6 @@ describe('generateTrackingSnippet — JS validity', () => {
     it('produces valid JS with all config combinations', () => {
         const configs = [
             { ...defaultConfig, emotionsMode: 'off' as CameraFeatureMode },
-            { ...defaultConfig, consentRequired: true },
             { ...defaultConfig, allowedDomains: ['a.com', 'b.com', 'c.com'] },
             { ...defaultConfig, targetPages: ['/pricing', '/about'] },
         ];
@@ -1020,11 +1018,20 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         expect(describeFor({ emotionsMode: 'optional', gazeMode: 'optional' })).toContain('La cámara es aparte y opcional');
     });
 
-    it('starts nothing on later pages once the visitor declined or stopped, even without required consent', () => {
-        const js = generateTrackingSnippet({ ...defaultConfig, consentRequired: false });
+    it('starts nothing on later pages once the visitor declined or stopped', () => {
+        const js = generateTrackingSnippet(defaultConfig);
         const init = js.slice(js.indexOf('    loadRrweb(function(){'), js.indexOf('if(document.readyState'));
         expect(init).toContain('if(prev==="0"){renderResumePill();return;}');
         expect(init.indexOf('if(prev==="0")')).toBeLessThan(init.indexOf('startSession()'));
+    });
+
+    it('always asks first: records only after an acceptance in this visit, never by study setting', () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const init = js.slice(js.indexOf('    loadRrweb(function(){'), js.indexOf('if(document.readyState'));
+        expect(js).toContain('flushing=false,consented=false;');
+        expect(init).toContain('if(prev==="1"){consented=true;startSession();}');
+        expect(init).toContain('else showConsent();');
+        expect(js).not.toContain('C.consent');
     });
 
     it('never creates a session, records rrweb or sends the snapshot after the visitor stops', () => {
@@ -1036,7 +1043,7 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
 });
 
 function runConsentBanner() {
-    const js = generateTrackingSnippet({ ...defaultConfig, consentRequired: true });
+    const js = generateTrackingSnippet(defaultConfig);
     const source = js.slice(js.indexOf('function recordConsent('), js.indexOf('function getSelector('))
         + js.slice(js.indexOf('function showConsent('), js.indexOf('var NOTICE_MS='));
     const sent: Array<{ url: string; body: Record<string, unknown> }> = [];

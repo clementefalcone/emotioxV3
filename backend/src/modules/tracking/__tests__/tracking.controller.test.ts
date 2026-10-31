@@ -10,7 +10,6 @@ vi.mock('../tracking.service', async () => ({
         captureClicks: true,
         captureScroll: true,
         captureMousemove: false,
-        consentRequired: false,
         flushIntervalMs: 2000,
         maxEventsPerFlush: 50,
         allowedDomains: ['example.com'],

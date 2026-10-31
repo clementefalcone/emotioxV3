@@ -21,7 +21,6 @@ interface SnippetConfig {
     captureClicks: boolean;
     captureScroll: boolean;
     captureMousemove: boolean;
-    consentRequired: boolean;
     flushIntervalMs: number;
     maxEventsPerFlush: number;
     allowedDomains: string[];
@@ -58,7 +57,6 @@ var C=${JSON.stringify({
         clicks: config.captureClicks,
         scroll: config.captureScroll,
         mouse: config.captureMousemove,
-        consent: config.consentRequired,
         flush: config.flushIntervalMs,
         max: config.maxEventsPerFlush,
         domains: config.allowedDomains,
@@ -81,7 +79,7 @@ var C=${JSON.stringify({
     })};
 
 // ─── State ───────────────────────────────────────────────────────────
-var sid=null,vid=null,buf=[],flushing=false,consented=!C.consent;
+var sid=null,vid=null,buf=[],flushing=false,consented=false;
 var timer=null,pageStart=0;
 var capturing=false,rrwebStopFn=null,rrwebBuf=[];
 var RRWEB_FLUSH_MS=5000;
@@ -1131,7 +1129,7 @@ function init(){
         if(prev==="1")touchConsent();
         if(prev==="0"){renderResumePill();return;}
         if(prev==="1"&&isCameraRequired()){consented=true;openCameraCapture();return;}
-        if(prev==="1"||(!C.consent&&!isCameraRequired())){consented=true;startSession();}
+        if(prev==="1"){consented=true;startSession();}
         else showConsent();
     });
 }

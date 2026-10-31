@@ -23,7 +23,6 @@ export interface TrackingConfig {
     captureClicks: boolean;
     captureScroll: boolean;
     captureMousemove: boolean;
-    consentRequired: boolean;
     flushIntervalMs: number;
     maxEventsPerFlush: number;
     allowedDomains: string[];

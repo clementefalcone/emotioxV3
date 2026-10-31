@@ -30,7 +30,6 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
         captureClicks: existingConfig.captureClicks !== false,
         captureScroll: existingConfig.captureScroll !== false,
         captureMousemove: existingConfig.captureMousemove === true,
-        consentRequired: existingConfig.consentRequired !== false,
         flushIntervalMs: existingConfig.flushIntervalMs || 2000,
         maxEventsPerFlush: existingConfig.maxEventsPerFlush || 50,
         allowedDomains: existingConfig.allowedDomains || [],
@@ -240,7 +239,6 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                         <CompactToggle label="Clicks" enabled={config.captureClicks} onToggle={() => handleToggle('captureClicks')} />
                         <CompactToggle label="Scroll" enabled={config.captureScroll} onToggle={() => handleToggle('captureScroll')} />
                         <CompactToggle label="Mouse" enabled={config.captureMousemove} onToggle={() => handleToggle('captureMousemove')} />
-                        <CompactToggle label="Consent" enabled={config.consentRequired} onToggle={() => handleToggle('consentRequired')} />
                         <CompactModeSelect label="Emotions" mode={config.emotionsMode} onChange={(emotionsMode) => setConfig((prev) => ({ ...prev, emotionsMode }))} />
                         {config.emotionsMode !== 'off' && (
                             <p className="text-[10px] text-gray-400">{EMOTIONS_MODE_HINTS[config.emotionsMode]}</p>
@@ -261,59 +259,56 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                 />
             )}
 
-            {/* Consent customization — only when enabled, full width */}
-            {config.consentRequired && (
-                <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <h3 className="text-xs font-semibold text-slate-900 mb-2">Consent Banner</h3>
-                    <div className="grid grid-cols-[minmax(0,320px)_80px_80px_auto] gap-3 items-end">
-                        <div>
-                            <label className="text-[10px] text-slate-500 block mb-1">Text</label>
-                            <input
-                                type="text"
-                                value={config.consentText}
-                                placeholder="Automatic (ES/EN by page language)"
-                                onChange={(e) => setConfig((prev) => ({ ...prev, consentText: e.target.value }))}
-                                className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] text-slate-500 block mb-1">Accept</label>
-                            <input
-                                type="text"
-                                value={config.consentAcceptLabel}
-                                placeholder="Auto"
-                                onChange={(e) => setConfig((prev) => ({ ...prev, consentAcceptLabel: e.target.value }))}
-                                className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] text-slate-500 block mb-1">Decline</label>
-                            <input
-                                type="text"
-                                value={config.consentDeclineLabel}
-                                placeholder="Auto"
-                                onChange={(e) => setConfig((prev) => ({ ...prev, consentDeclineLabel: e.target.value }))}
-                                className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div className="flex gap-1">
-                            {(['bottom', 'top'] as const).map((pos) => (
-                                <button
-                                    key={pos}
-                                    onClick={() => setConfig((prev) => ({ ...prev, consentPosition: pos }))}
-                                    className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
-                                        config.consentPosition === pos
-                                            ? 'bg-blue-50 border-blue-300 text-blue-700'
-                                            : 'bg-white border-gray-200 text-slate-500'
-                                    }`}
-                                >
-                                    {pos === 'bottom' ? '↓' : '↑'}
-                                </button>
-                            ))}
-                        </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3">
+                <h3 className="text-xs font-semibold text-slate-900 mb-2">Consent Banner</h3>
+                <div className="grid grid-cols-[minmax(0,320px)_80px_80px_auto] gap-3 items-end">
+                    <div>
+                        <label className="text-[10px] text-slate-500 block mb-1">Text</label>
+                        <input
+                            type="text"
+                            value={config.consentText}
+                            placeholder="Automatic (ES/EN by page language)"
+                            onChange={(e) => setConfig((prev) => ({ ...prev, consentText: e.target.value }))}
+                            className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-500 block mb-1">Accept</label>
+                        <input
+                            type="text"
+                            value={config.consentAcceptLabel}
+                            placeholder="Auto"
+                            onChange={(e) => setConfig((prev) => ({ ...prev, consentAcceptLabel: e.target.value }))}
+                            className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-500 block mb-1">Decline</label>
+                        <input
+                            type="text"
+                            value={config.consentDeclineLabel}
+                            placeholder="Auto"
+                            onChange={(e) => setConfig((prev) => ({ ...prev, consentDeclineLabel: e.target.value }))}
+                            className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+                    <div className="flex gap-1">
+                        {(['bottom', 'top'] as const).map((pos) => (
+                            <button
+                                key={pos}
+                                onClick={() => setConfig((prev) => ({ ...prev, consentPosition: pos }))}
+                                className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                                    config.consentPosition === pos
+                                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                        : 'bg-white border-gray-200 text-slate-500'
+                                }`}
+                            >
+                                {pos === 'bottom' ? '↓' : '↑'}
+                            </button>
+                        ))}
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Advanced: Sampling, IP exclusion, Page targeting, Retention */}
             <div className="grid grid-cols-4 gap-3">

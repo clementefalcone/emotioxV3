@@ -217,7 +217,7 @@ describe('getTrackingConfig', () => {
 
         expect(config.captureClicks).toBe(true);
         expect(config.captureScroll).toBe(true); // default
-        expect(config.consentRequired).toBe(true); // default
+        expect(config).not.toHaveProperty('consentRequired');
         expect(config.flushIntervalMs).toBe(2000);
     });
 

@@ -69,7 +69,6 @@ interface TrackingConfig {
     captureClicks: boolean;
     captureScroll: boolean;
     captureMousemove: boolean;
-    consentRequired: boolean;
     flushIntervalMs: number;
     maxEventsPerFlush: number;
     allowedDomains: string[];
@@ -292,7 +291,6 @@ export const getTrackingConfig = async (researchId: string): Promise<TrackingCon
         captureClicks: trackingConfig.captureClicks !== false,
         captureScroll: trackingConfig.captureScroll !== false,
         captureMousemove: trackingConfig.captureMousemove === true,
-        consentRequired: trackingConfig.consentRequired !== false,
         flushIntervalMs: (trackingConfig.flushIntervalMs as number) || 2000,
         maxEventsPerFlush: (trackingConfig.maxEventsPerFlush as number) || 50,
         allowedDomains: (trackingConfig.allowedDomains as string[]) || [],

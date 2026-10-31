@@ -122,7 +122,6 @@ export const handlePublicTrackingRoutes = async (
                     captureClicks: config.captureClicks,
                     captureScroll: config.captureScroll,
                     captureMousemove: config.captureMousemove,
-                    consentRequired: config.consentRequired,
                     flushIntervalMs: config.flushIntervalMs,
                     maxEventsPerFlush: config.maxEventsPerFlush,
                     allowedDomains: config.allowedDomains,
