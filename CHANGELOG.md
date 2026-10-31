@@ -1,3 +1,11 @@
+## v0.99.47 — Privacy: website tracking always asks first (2026-10-31)
+
+### fix(privacy): always ask before tracking a visit
+- **Why.** Researchers could turn consent off; the snippet then recorded screen, clicks and movement with only a "Registrando tu navegación" notice. That processing needs consent.
+- **Change.** `consentRequired` removed from the panel toggle, `TrackingConfig`, the snippet config and `C`. The snippet starts with `consented=false` and records only after an acceptance in the current visit; the banner customization is always shown. Stored `consentRequired` values are ignored, not deleted.
+- **Impact.** "web tracker UE" (useremotion.com) had consent off and now shows the banner; recorded sessions will drop to visitors who accept. Two test studies also had it off.
+- **Check.** Live UE snippet valid, no `C.consent`, starts unconsented. Backend 698 → 699, research 705, 0 failing. Not checked in the browser.
+
 ## v0.99.46 — Privacy: tracking consent lasts one visit (2026-10-31)
 
 ### fix(privacy): expire tracking consent after a visit
