@@ -1,3 +1,10 @@
+## v0.99.57 — Fix: expired review pass explained (2026-10-31)
+
+### fix(review): explain an expired review pass
+- **Why.** When the 30-minute review pass expired or was invalid, "Ver como participante" stayed empty; the failure only reached the console.
+- **Change.** `getParticipantResponses` throws `ReviewPassRejectedError` on 401; review mode shows the error screen asking to reopen it from the panel (ES/EN), and other failures show their status.
+- **Check.** Live participant bundle carries the message. Participant 1160 → 1162, 0 failing.
+
 ## v0.99.56 — Fix: panel participant delete responses (2026-10-31)
 
 ### fix(participants): read DELETE row count correctly
