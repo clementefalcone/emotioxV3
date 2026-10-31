@@ -174,7 +174,7 @@ export const importParticipants = async (
 export const deleteParticipant = async (researchId: string, participantDbId: string): Promise<boolean> => {
   const query = `DELETE FROM participants WHERE id = ? AND research_id = ?`;
   const result = await pool.query(query, [participantDbId, researchId]);
-  return (result.rows as unknown as { affectedRows: number }).affectedRows > 0;
+  return (result.rowCount ?? 0) > 0;
 };
 
 /**
@@ -183,7 +183,7 @@ export const deleteParticipant = async (researchId: string, participantDbId: str
 export const deleteAllByResearch = async (researchId: string): Promise<number> => {
   const query = `DELETE FROM participants WHERE research_id = ?`;
   const result = await pool.query(query, [researchId]);
-  return (result.rows as unknown as { affectedRows: number }).affectedRows || 0;
+  return result.rowCount ?? 0;
 };
 
 /**
