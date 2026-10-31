@@ -1,3 +1,10 @@
+## v0.99.48 — Privacy: Emotion Analysis can be declined (2026-10-31)
+
+### fix(privacy): let participants decline emotions
+- **Why.** The Emotion Analysis intro only had "Continue": turning on the camera was the only way forward.
+- **Change.** Explicit "Acepto y activo la cámara" (records the acceptance) and "No acepto · Saltar esta actividad" (records the refusal, no camera, no saved response, skips the activity), as in Eye Tracking.
+- **Check.** Deployed participant bundle carries the decline button and texts. Participant 1158 → 1160, 0 failing. Not checked in the browser.
+
 ## v0.99.47 — Privacy: website tracking always asks first (2026-10-31)
 
 ### fix(privacy): always ask before tracking a visit
