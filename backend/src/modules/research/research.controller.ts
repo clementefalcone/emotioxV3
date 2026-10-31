@@ -4,6 +4,7 @@ import { isAuthError, requireAuth, signParticipantReviewToken } from '../../util
 import * as researchService from '.';
 import * as researchInProgressService from './research-in-progress.service';
 import * as researchActivityService from './research-activity.service';
+import { exportParticipantData } from './participant-data-export';
 import * as authService from '../auth/auth.service';
 import * as publicService from '../public/index';
 import * as researchTagsService from './research-tags.service';
@@ -385,6 +386,25 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
                 throw err;
             }
             return success({ reviewToken: signParticipantReviewToken(researchId, participantId) }, 200, undefined, origin);
+        }
+
+        const dataExportMatch = path.match(/^\/research\/([^\/]+)\/participants\/([^\/]+)\/data-export$/);
+        if (dataExportMatch && httpMethod === 'GET') {
+            const researchId = dataExportMatch[1];
+            const participantId = decodeURIComponent(dataExportMatch[2]);
+            try {
+                const dataExport = await exportParticipantData(researchId, participantId, user.id, user.role);
+                console.info(JSON.stringify({ event: 'participant_data_exported', researchId, userSub: decoded.sub }));
+                return success(dataExport, 200, undefined, origin);
+            } catch (err: unknown) {
+                if (err instanceof Error && err.message === 'Research not found') {
+                    return researchNotFound(researchId, decoded.sub, path, origin);
+                }
+                if (err instanceof Error && err.message.startsWith('Participant not found')) {
+                    return error(err.message, 404, undefined, origin);
+                }
+                throw err;
+            }
         }
 
         // GET /research/:id/participants/:participantId

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../hooks/useToast';
 import { getReviewUrl } from '../../../utils/publicTestsUrl';
+import { triggerCsvDownload } from '../../../utils/csvDownload';
 
 interface ParticipantsTableProps {
     participants: Participant[];
@@ -110,6 +111,14 @@ export function ParticipantsTable({
         } catch (err) {
             reviewWindow?.close();
             toast.error(`No se pudo abrir la revisión de ${participantId}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    };
+    const handleExportData = async (participantId: string): Promise<void> => {
+        try {
+            const dataExport = await researchInProgressService.exportParticipantData(researchId, participantId);
+            triggerCsvDownload(JSON.stringify(dataExport, null, 2), `datos-participante-${participantId}.json`, 'application/json');
+        } catch (err) {
+            toast.error(`No se pudieron exportar los datos de ${participantId}: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
     const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
@@ -546,9 +555,14 @@ export function ParticipantsTable({
                     <DrawerDetailsSkeleton />
                 ) : drawerDetails ? (
                     <div className="space-y-6">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenReview(drawerDetails.id)}>
-                            Ver como participante
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleOpenReview(drawerDetails.id)}>
+                                Ver como participante
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleExportData(drawerDetails.id)}>
+                                Exportar datos
+                            </Button>
+                        </div>
                         {/* Summary */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 bg-gray-50 rounded-lg">

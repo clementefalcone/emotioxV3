@@ -179,6 +179,10 @@ class ResearchInProgressService {
         return response.reviewToken;
     }
 
+    async exportParticipantData(researchId: string, participantId: string): Promise<unknown> {
+        return apiClient.get<unknown>(`/research/${researchId}/participants/${encodeURIComponent(participantId)}/data-export`);
+    }
+
     /**
      * Elimina un participante
      * @param researchId - ID de la investigación

@@ -637,7 +637,7 @@ export const getParticipantDetails = async (researchId: string, participantId: s
  * @param userId - ID del usuario (para verificar permisos)
  * @returns Mensaje de confirmación
  */
-const PARTICIPANT_DATA_TABLES = ['responses', 'participant_demographics', 'participants'];
+export const PARTICIPANT_DATA_TABLES = ['responses', 'participant_demographics', 'participants'];
 
 export const deleteParticipant = async (researchId: string, participantId: string, userId: string, role?: string) => {
     const client = await pool.connect();
