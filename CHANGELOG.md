@@ -1,3 +1,10 @@
+## v0.99.50 — Security: rate limit on public endpoints (2026-10-31)
+
+### fix(security): rate limit public endpoints
+- **Why.** Public routes accept writes from anyone (responses, consent, tracking events, visitor deletion) with no request limit; the unused `/public/tracking/:id/config` exposed excluded IPs and allowed domains.
+- **Change.** `publicRateLimit` (`src/public-rate-limit.ts`, express-rate-limit 7.5.1, now declared and pinned) on `/api/public` and `/public` in both cPanel entries: 1000 requests per minute per client address, keyed on the last `X-Forwarded-For` entry (appended by LiteSpeed, not client-controlled); over it, 429 with the limit in the message and `RateLimit` headers. Public tracking config route removed.
+- **Check.** Production: `RateLimit: limit=1000` on public routes; counters independent per address (laptop 999 → 998, server 999); public config 404; health 200. Local test: request 1001 from one address 429, another address 200. Backend 700 → 704, 0 failing.
+
 ## v0.99.49 — Privacy: adult confirmation before camera and tracking (2026-10-31)
 
 ### fix(privacy): require adult confirmation for camera
