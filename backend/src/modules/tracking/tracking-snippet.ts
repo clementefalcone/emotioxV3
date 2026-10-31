@@ -109,6 +109,16 @@ function load(k){
     return memStore[k]||null;
 }
 
+var CONSENT_KEY="_ecx_consent_"+C.rid,CONSENT_AT_KEY="_ecx_consent_at_"+C.rid,CONSENT_VISIT_MS=1800000;
+function touchConsent(){store(CONSENT_AT_KEY,String(Date.now()));}
+function readConsent(){
+    var decision=load(CONSENT_KEY);
+    if(decision!=="1")return decision;
+    if(Date.now()-Number(load(CONSENT_AT_KEY)||0)<CONSENT_VISIT_MS)return decision;
+    forget(CONSENT_KEY);forget(CONSENT_AT_KEY);store(CAMERA_CHOICE_KEY,"0");
+    return null;
+}
+
 // ─── Utilities ───────────────────────────────────────────────────────
 
 function checkDomain(){
@@ -203,6 +213,7 @@ function push(evt){
 
 function flush(useBeacon){
     if(!buf.length||!sid||flushing)return;
+    if(consented)touchConsent();
     flushing=true;
     var totalActive=activeMs+(activeStart>0?Date.now()-activeStart:0);
     var url=C.api+"/public/tracking/"+C.rid+"/events";
@@ -563,7 +574,7 @@ function showConsent(){
     var accept=function(isCameraOn){
         recordConsent("accepted",bannerText(isCameraOn?"_ecx_accept_camera":"_ecx_accept"));
         consented=true;d.remove();
-        store("_ecx_consent_"+C.rid,"1");
+        store(CONSENT_KEY,"1");touchConsent();
         store(CAMERA_INVITE_KEY,"1");
         if(isCameraRequired()){openCameraCapture();return;}
         startSession();
@@ -574,7 +585,7 @@ function showConsent(){
     document.getElementById("_ecx_reject").onclick=function(){
         recordConsent("declined",bannerText("_ecx_reject"));
         d.remove();
-        store("_ecx_consent_"+C.rid,"0");
+        store(CONSENT_KEY,"0");
         showNotice(copy.declined);
         renderResumePill();
     };
@@ -652,7 +663,7 @@ function stopTrackingByChoice(){
 function endParticipation(noticeText){
     flush();flushRrweb();flushEmotions();flushGaze();
     consented=false;isParticipating=false;
-    store("_ecx_consent_"+C.rid,"0");
+    store(CONSENT_KEY,"0");
     if(rrwebStopFn){try{rrwebStopFn();}catch(e){}rrwebStopFn=null;}
     stopCameraByChoice();
     removeElement("_ecx_rec");removeElement("_ecx_cam_tab");removeElement("_ecx_cam_invite");
@@ -1116,7 +1127,8 @@ function init(){
         if(!sk){var sampled=Math.random()*100<C.sampling;store("_ecx_sample_"+C.rid,sampled?"1":"0");if(!sampled)return;}
     }
     loadRrweb(function(){
-        var prev=load("_ecx_consent_"+C.rid);
+        var prev=readConsent();
+        if(prev==="1")touchConsent();
         if(prev==="0"){renderResumePill();return;}
         if(prev==="1"&&isCameraRequired()){consented=true;openCameraCapture();return;}
         if(prev==="1"||(!C.consent&&!isCameraRequired())){consented=true;startSession();}

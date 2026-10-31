@@ -4,7 +4,7 @@
  *
  * Closes the gap between unit-tested pure logic and the actual snippet output.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateTrackingSnippet } from '../tracking-snippet';
 import type { CameraFeatureMode } from '../tracking.service';
 import {
@@ -735,7 +735,7 @@ describe('generateTrackingSnippet — pending data stays with its session', () =
         const js = generateTrackingSnippet({ ...defaultConfig, maxEventsPerFlush: 2 });
         const { FakeXMLHttpRequest, bodies } = fakeXhr();
         new Function('C', 'XMLHttpRequest',
-            `var sid="old",buf=[{a:1},{a:2},{a:3},{a:4},{a:5}],flushing=false,activeMs=0,activeStart=0;${extractFunction(js, 'flush')}flush();`,
+            `var sid="old",buf=[{a:1},{a:2},{a:3},{a:4},{a:5}],flushing=false,activeMs=0,activeStart=0,consented=false;${extractFunction(js, 'flush')}flush();`,
         )({ max: 2, api: 'https://api', rid: 'r' }, FakeXMLHttpRequest);
 
         expect(bodies.map((body) => (body.events as unknown[]).length)).toEqual([2, 2, 1]);
@@ -931,7 +931,7 @@ describe('generateTrackingSnippet — visitor sees and controls the recording', 
         const recordConsent = vi.fn();
         const copy = { activeLead: 'Este sitio guarda: ', recording: 'Registrando tu navegación', stop: 'Detener', stopped: 'Dejamos de registrar tu navegación.', off: 'Registro desactivado', resume: 'Activar', eraseData: 'Borrar mis datos', erased: 'Borramos los datos.', eraseFailed: 'No pudimos borrar.' };
         const api = new Function('C', 'document', 'store', 'flush', 'flushRrweb', 'flushEmotions', 'flushGaze', 'stopCameraByChoice', 'showNotice', 'visitorCopy', 'rrwebStopFn', 'showConsent', 'consented',
-            `function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];var recordConsent=arguments[14];var load=function(k){return storage[k]||null;};var forget=function(k){delete storage[k];};var XMLHttpRequest=arguments[15];var storage=arguments[16];var describeRecording=function(lead){return lead+'clics';};${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
+            `var CONSENT_KEY="_ecx_consent_r";function removeElement(id){var el=attached(id);if(el)el.remove();}var attached=arguments[13];var recordConsent=arguments[14];var load=function(k){return storage[k]||null;};var forget=function(k){delete storage[k];};var XMLHttpRequest=arguments[15];var storage=arguments[16];var describeRecording=function(lead){return lead+'clics';};${source}return {renderRecordingPill:renderRecordingPill,isConsented:function(){return consented;},hasRrweb:function(){return rrwebStopFn!==null;}};`,
         )({ rid: 'r', api: 'https://api.example.com' }, document, (key: string, value: string) => { storage[key] = value; }, flushes, flushes, flushes, flushes, stopCameraByChoice, showNotice, () => copy, rrwebStop, showConsent, true,
             (id: string) => attached.get(id) ?? null, recordConsent, FakeXhr, storage) as { renderRecordingPill: () => void; isConsented: () => boolean; hasRrweb: () => boolean };
         return { ...api, pill: () => attached.get('_ecx_rec'), offPill: () => attached.get('_ecx_off'), storage, flushes, rrwebStop, stopCameraByChoice, showNotice, showConsent, recordConsent, sent, failErase: () => { eraseStatus = 500; } };
@@ -1069,7 +1069,7 @@ function runConsentBanner() {
     const copy = { accept: 'Aceptar', decline: 'Rechazar', acceptWithCamera: 'Aceptar y activar cámara', declined: 'No registraremos' };
     const startSession = vi.fn();
     const api = new Function('C', 'document', 'XMLHttpRequest', 'store', 'load', 'pageLanguage', 'visitorCopy', 'describeConsent', 'isCameraRequired', 'hasCameraFeatures', 'startSession', 'openCameraCapture', 'showNotice', 'renderResumePill', 'CAMERA_INVITE_KEY',
-        `var consented=false;var describePrivacy=function(){return '';};${source}return {showConsent:showConsent};`,
+        `var consented=false,CONSENT_KEY="_ecx_consent_r-1",touchConsent=function(){};var describePrivacy=function(){return '';};${source}return {showConsent:showConsent};`,
     )({ rid: 'r-1', api: 'https://api.example.com', cPos: 'bottom' }, document, FakeXhr, vi.fn(), () => 'v_visitor', () => 'es', () => copy, () => 'Este sitio participa en un estudio.',
         () => false, () => true, startSession, vi.fn(), vi.fn(), vi.fn(), 'k') as { showConsent: () => void };
     return { showConsent: api.showConsent, sent, click: (id: string) => buttons.get(id)?.onclick?.(), startSession };
@@ -1149,5 +1149,47 @@ describe('generateTrackingSnippet — the banner says who is responsible, for ho
         expect(injected).toContain('&lt;img src=x onerror=alert(1)&gt;');
         expect(injected).not.toContain('<img');
         expect(describePrivacyFor({ controllerName: '', contactEmail: '', policyUrl: '' }, 'off')).not.toMatch(/Responsable|<a /);
+    });
+});
+
+describe('generateTrackingSnippet — consent lasts one visit', () => {
+    const runConsentMemory = () => {
+        const js = generateTrackingSnippet(defaultConfig);
+        const source = js.slice(js.indexOf('var memStore='), js.indexOf('// ─── Utilities'));
+        return new Function('C', `var CAMERA_CHOICE_KEY="_ecx_cam_r";${source}return {store:store,load:load,readConsent:readConsent,touchConsent:touchConsent};`)({ rid: 'r' }) as {
+            store: (key: string, value: string) => void; load: (key: string) => string | null; readConsent: () => string | null; touchConsent: () => void;
+        };
+    };
+
+    beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-31T12:00:00Z')); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('keeps an acceptance while the visit is active, renewed on every page', () => {
+        const memory = runConsentMemory();
+        memory.store('_ecx_consent_r', '1');
+        memory.touchConsent();
+        vi.setSystemTime(new Date('2026-10-31T12:25:00Z'));
+        expect(memory.readConsent()).toBe('1');
+        memory.touchConsent();
+        vi.setSystemTime(new Date('2026-10-31T12:50:00Z'));
+        expect(memory.readConsent()).toBe('1');
+    });
+
+    it('asks again and turns the camera off after 30 minutes without activity', () => {
+        const memory = runConsentMemory();
+        memory.store('_ecx_consent_r', '1');
+        memory.store('_ecx_cam_r', '1');
+        memory.touchConsent();
+        vi.setSystemTime(new Date('2026-10-31T12:31:00Z'));
+        expect(memory.readConsent()).toBeNull();
+        expect(memory.load('_ecx_consent_r')).toBeNull();
+        expect(memory.load('_ecx_cam_r')).toBe('0');
+    });
+
+    it('remembers a refusal, so the visitor is not asked on every page', () => {
+        const memory = runConsentMemory();
+        memory.store('_ecx_consent_r', '0');
+        vi.setSystemTime(new Date('2026-12-31T12:00:00Z'));
+        expect(memory.readConsent()).toBe('0');
     });
 });
