@@ -38,7 +38,6 @@ export interface Participant {
 
 export interface ResearchConfiguration {
     allowMobileDevices: boolean;
-    trackLocation: boolean;
 }
 
 export interface ParticipantDetails {
@@ -70,7 +69,6 @@ export interface ResearchConfigResponse {
     data: {
         linkConfig?: {
             allowMobileDevices?: boolean;
-            trackLocation?: boolean;
         };
     };
 }
@@ -139,13 +137,13 @@ class ResearchInProgressService {
      */
     async getResearchConfiguration(researchId: string): Promise<ResearchConfigResponse> {
         try {
-            const response = await apiClient.get<{ linkConfig?: { allowMobileDevices?: boolean; trackLocation?: boolean } }>(
+            const response = await apiClient.get<{ linkConfig?: { allowMobileDevices?: boolean } }>(
                 `/eye-tracking-recruit/research/${researchId}`
             );
             return {
                 success: true,
                 status: 200,
-                data: response as unknown as { linkConfig?: { allowMobileDevices?: boolean; trackLocation?: boolean } }
+                data: response as unknown as { linkConfig?: { allowMobileDevices?: boolean } }
             };
         } catch (error: unknown) {
             throw this.handleError(error, 'Failed to fetch research configuration');

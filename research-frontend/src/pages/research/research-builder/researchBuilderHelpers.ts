@@ -79,7 +79,7 @@ export const transformResearchConfigComponentValues = (values: Record<string, st
         if (['age', 'country', 'gender', 'educationLevel', 'annualIncome', 'employmentStatus', 'dailyHoursOnline', 'technicalProficiency'].includes(key) || key.startsWith('customQuestion_')) {
             (config.demographics as Record<string, unknown>)[key] = tryParse(value);
         }
-        else if (['allowMobile', 'trackLocation', 'allowMultiple'].includes(key)) {
+        else if (['allowMobile', 'allowMultiple'].includes(key)) {
             (config.linkConfig as Record<string, boolean>)[key] = value === 'true';
         }
         else if (['complete', 'disqualified', 'overquota'].includes(key)) {

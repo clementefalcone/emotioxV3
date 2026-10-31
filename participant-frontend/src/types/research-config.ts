@@ -1,7 +1,6 @@
 export interface ResearchConfig {
     id: string;
     settings: {
-        enableLocationCapture: boolean;
         enableDeviceCapture: boolean;
         enableSessionRecording: boolean;
         enableInteractionTracking?: boolean;
@@ -9,7 +8,6 @@ export interface ResearchConfig {
     // Link configuration from research-frontend
     linkConfig?: {
         allowMobile?: boolean;
-        trackLocation?: boolean;
         allowMultiple?: boolean;
         allowLanguageSwitch?: boolean;
     };
@@ -31,14 +29,6 @@ export interface DeviceInfo {
     deviceType: 'mobile' | 'tablet' | 'desktop' | 'unknown';
     browserName?: string;
     osName?: string;
-}
-
-export interface LocationInfo {
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-    timestamp: number;
-    source: 'gps' | 'ip' | 'denied';
 }
 
 export interface SessionMetrics {

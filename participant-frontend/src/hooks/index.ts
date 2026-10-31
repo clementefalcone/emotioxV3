@@ -4,7 +4,6 @@
 
 // Hooks de tracking
 export { useDeviceCollector } from './useDeviceCollector';
-export { useLocationCollector } from './useLocationCollector';
 export { useSessionTimer } from './useSessionTimer';
 export { useInteractionTracker } from './useInteractionTracker';
 

@@ -17,7 +17,6 @@ type Module = ModuleConfig & {
         };
         linkConfig?: {
             allowMobile?: boolean;
-            trackLocation?: boolean;
             allowMultiple?: boolean;
         };
         participantLimit?: number;

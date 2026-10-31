@@ -1,10 +1,9 @@
 import { create } from 'zustand';
-import type { ResearchConfig, DeviceInfo, LocationInfo, SessionMetrics, UserInteraction } from '../types/research-config';
+import type { ResearchConfig, DeviceInfo, SessionMetrics, UserInteraction } from '../types/research-config';
 
 interface SessionState {
     config: ResearchConfig | null;
     deviceInfo: DeviceInfo | null;
-    location: LocationInfo | null;
     metrics: SessionMetrics;
     interactions: UserInteraction[];
     turnstileToken: string | null;
@@ -13,7 +12,6 @@ interface SessionState {
 
     setConfig: (config: ResearchConfig) => void;
     setDeviceInfo: (info: DeviceInfo) => void;
-    setLocation: (location: LocationInfo) => void;
     setTurnstileToken: (token: string) => void;
     clearTurnstileToken: () => void;
     markTurnstileTokenUsed: () => void;
@@ -24,8 +22,7 @@ interface SessionState {
     getSessionSummary: () => {
         config: ResearchConfig | null;
         device: DeviceInfo | null;
-        location: LocationInfo | null;
-        metrics: SessionMetrics;
+            metrics: SessionMetrics;
         interactionCount: number;
     };
 }
@@ -43,7 +40,6 @@ const initialMetrics: SessionMetrics = {
 export const useSessionStore = create<SessionState>((set, get) => ({
     config: null,
     deviceInfo: null,
-    location: null,
     metrics: initialMetrics,
     interactions: [],
     turnstileToken: null,
@@ -53,8 +49,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     setConfig: (config) => set({ config }),
 
     setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
-
-    setLocation: (location) => set({ location }),
 
     setTurnstileToken: (token) => set({ turnstileToken: token, turnstileVerified: true, turnstileTokenUsed: false }),
 
@@ -108,11 +102,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     },
     
     getSessionSummary: () => {
-        const { config, deviceInfo, location, metrics, interactions } = get();
+        const { config, deviceInfo, metrics, interactions } = get();
         return {
             config,
             device: deviceInfo,
-            location,
             metrics,
             interactionCount: interactions.length,
         };

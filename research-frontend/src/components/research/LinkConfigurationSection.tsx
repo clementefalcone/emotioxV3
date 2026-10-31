@@ -78,17 +78,6 @@ export const LinkConfigurationSection = ({
                     <label className={`flex items-center gap-2 text-sm ${!linkConfigEnabled ? 'opacity-50' : ''}`}>
                         <input
                             type="checkbox"
-                            checked={linkConfig.trackLocation || false}
-                            onChange={(e) => handleLinkConfigChange('trackLocation', e.target.checked)}
-                            disabled={!linkConfigEnabled}
-                            className="rounded border-gray-300"
-                            aria-label="Track respondent location"
-                        />
-                        <span>Track respondents location</span>
-                    </label>
-                    <label className={`flex items-center gap-2 text-sm ${!linkConfigEnabled ? 'opacity-50' : ''}`}>
-                        <input
-                            type="checkbox"
                             checked={linkConfig.allowMultiple || false}
                             onChange={(e) => handleLinkConfigChange('allowMultiple', e.target.checked)}
                             disabled={!linkConfigEnabled}

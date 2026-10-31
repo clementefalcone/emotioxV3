@@ -15,7 +15,6 @@ import { useSessionStore } from '../stores/useSessionStore';
 import { useParticipantStore } from '../stores/useParticipantStore';
 import { useNavigation } from '../hooks/useNavigation';
 import { useDeviceCollector } from '../hooks/useDeviceCollector';
-import { useLocationCollector } from '../hooks/useLocationCollector';
 import { useSessionTimer } from '../hooks/useSessionTimer';
 import { usePreviewMode } from '../hooks/usePreviewMode';
 import { useButtonConfig } from '../hooks/useButtonConfig';
@@ -114,9 +113,6 @@ export const ResearchPage = () => {
 
   // Initialize device collector
   useDeviceCollector();
-
-  // Initialize location collector (will be called manually when needed)
-  useLocationCollector();
 
   // Check for participant change (session persistence fix)
   useEffect(() => {
@@ -392,7 +388,6 @@ export const ResearchPage = () => {
         setConfig({
           id: researchId,
           settings: {
-            enableLocationCapture: true,
             enableDeviceCapture: true,
             enableSessionRecording: true,
             enableInteractionTracking: true,

@@ -126,7 +126,6 @@ export function ResearchInProgressContent({ researchId: propResearchId }: Resear
                 const config = configResponse.data;
                 setResearchConfig({
                     allowMobileDevices: config.linkConfig?.allowMobileDevices ?? true,
-                    trackLocation: config.linkConfig?.trackLocation ?? true
                 });
             }
         } catch (error: unknown) {
