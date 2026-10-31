@@ -1,3 +1,11 @@
+## v0.99.49 — Privacy: adult confirmation before camera and tracking (2026-10-31)
+
+### fix(privacy): require adult confirmation for camera
+- **Why.** Nothing stopped a minor from turning on the camera or being tracked; data of minors under 14 needs guardian consent (Ley 21.719).
+- **Change.** `AdultConfirmation` checkbox ("Confirmo que tengo 18 años o más") on the Eye Tracking consent and the Emotion Analysis intro; accept stays disabled until checked. The tracking banner has the same checkbox; accept buttons are disabled and ignored until checked, "Rechazar" always works. The confirmation is part of the recorded consent text.
+- **Limit.** Self-declaration, not age verification. Studies with minors would need a guardian consent flow.
+- **Check.** Live snippet valid with the checkbox; participant bundle carries the text. Backend 699 → 700, participant 1160, 0 failing. Not checked in the browser.
+
 ## v0.99.48 — Privacy: Emotion Analysis can be declined (2026-10-31)
 
 ### fix(privacy): let participants decline emotions
