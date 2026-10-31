@@ -1,3 +1,12 @@
+## v0.99.43 — Privacy: right to erasure (2026-10-31)
+
+### feat(privacy): erase all data of a person
+- **Why.** "Delete participant" only removed responses; demographics and the panel invitation (name, email) stayed. Website visitors had no way to have their data removed.
+- **Participant.** `deleteParticipant` deletes from `responses`, `participant_demographics` and `participants` in one transaction; a participant with only demographics (e.g. disqualified) can now be deleted. `consent_records` are kept so consent can still be proven (Ley 21.719 / GDPR).
+- **Visitor.** `POST /public/tracking/:id/visitor-data/delete { visitorId }` deletes that visitor's sessions for the study (events cascade). The snippet's "Registro desactivado" pill shows "Borrar mis datos"; on success it forgets `_ecx_vid`, on failure it keeps it and says so.
+- **Check.** Production: unknown visitor → `{ deletedSessions: 0 }`, missing visitorId 400, live snippet has the link. Backend 679 → 686, 0 failing. Not checked in the browser.
+- **Known.** `participants.service.ts` reads `affectedRows` from DELETE results, which this pool returns as `rowCount`, so deleting panel invitations always answers "not found". Not changed here. Data export for the person is still pending.
+
 ## v0.99.42 — Privacy: expired data purged daily (2026-10-31)
 
 ### feat(privacy): purge expired data daily
