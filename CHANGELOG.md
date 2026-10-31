@@ -1,3 +1,12 @@
+## v0.99.46 — Privacy: tracking consent lasts one visit (2026-10-31)
+
+### fix(privacy): expire tracking consent after a visit
+- **Why.** The snippet kept `_ecx_consent_<id> = 1` in localStorage forever: returning visitors were recorded weeks later without being asked, and an emotions-only camera turned itself back on.
+- **Change.** `readConsent()` honours an acceptance only while `_ecx_consent_at_<id>` is under 30 minutes old; it is renewed on each page and each event flush. An expired acceptance is forgotten and the camera choice set to off, so the banner shows again. Refusals are still remembered.
+- **Not changed.** Consecutive Eye Tracking modules of the same study still reuse a calibration from the last 2 minutes: same study, consent just recorded, camera still on.
+- **Effect.** Visitors who accepted before this have no timestamp and will see the banner on their next visit.
+- **Check.** Fake-clock tests on the real snippet code (accepted at 25 / 50 min with activity, asked again at 31 idle min with camera off, refusal kept months later). Live snippet valid. Backend 695 → 698, 0 failing. Not checked in the browser.
+
 ## v0.99.45 — Privacy: consent informs controller, retention and rights (2026-10-31)
 
 ### feat(privacy): inform controller, retention, rights
