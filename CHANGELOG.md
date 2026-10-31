@@ -1,3 +1,10 @@
+## v0.99.55 — Privacy: participant data export (2026-10-31)
+
+### feat(privacy): export a participant's data
+- **Why.** Ley 21.719 gives data subjects the right to obtain a copy of their personal data; there was no way to produce one.
+- **Change.** `GET /research/:id/participants/:participantId/data-export` (`participant-data-export.ts`) returns, for one study, the participant's rows in `responses`, `participant_demographics`, `participants` and `consent_records`. Same access rule as deleting a participant (owner or collaborator); 404 when the participant has no data; each export logs `participant_data_exported` without personal data. Participant drawer gets "Exportar datos", which downloads `datos-participante-<id>.json`. Participants have no account, so the researcher, as controller, verifies identity and hands over the file.
+- **Check.** Production: endpoint without session 401, live bundle has the button, health 200. Backend 705 → 707, research 705, 0 failing. Not tried with a real session.
+
 ## v0.99.54 — Privacy: participant GPS capture removed (2026-10-31)
 
 ### fix(privacy): remove unused participant GPS capture
