@@ -5,6 +5,7 @@ import * as researchService from '.';
 import * as researchInProgressService from './research-in-progress.service';
 import * as researchActivityService from './research-activity.service';
 import { exportParticipantData } from './participant-data-export';
+import { listConsentRecords } from './research-consent-records';
 import * as authService from '../auth/auth.service';
 import * as publicService from '../public/index';
 import * as researchTagsService from './research-tags.service';
@@ -330,6 +331,21 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
             await researchService.getById(researchId, user.id, user.role);
             const activities = await researchActivityService.listResearchActivity(researchId);
             return success({ activities }, 200, undefined, origin);
+        }
+
+        const consentRecordsMatch = path.match(/^\/research\/([^\/]+)\/consent-records$/);
+        if (consentRecordsMatch && httpMethod === 'GET') {
+            const researchId = consentRecordsMatch[1];
+            try {
+                await researchService.getById(researchId, user.id, user.role);
+            } catch (err: unknown) {
+                if (err instanceof Error && err.message === 'Research not found') {
+                    return researchNotFound(researchId, decoded.sub, path, origin);
+                }
+                throw err;
+            }
+            const records = await listConsentRecords(researchId);
+            return success({ records }, 200, undefined, origin);
         }
 
         // GET /research/:id/detail

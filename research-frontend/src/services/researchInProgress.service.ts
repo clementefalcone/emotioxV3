@@ -36,6 +36,17 @@ export interface Participant {
     lastActivity: string;
 }
 
+export interface ConsentRecord {
+    id: string;
+    subject_id: string;
+    context: 'eye_tracking' | 'emotion_analysis' | 'website_tracking';
+    decision: 'accepted' | 'declined' | 'withdrawn';
+    consent_text: string;
+    consent_text_sha256: string;
+    locale: string;
+    created_at: string;
+}
+
 export interface ResearchConfiguration {
     allowMobileDevices: boolean;
 }
@@ -177,6 +188,11 @@ class ResearchInProgressService {
             `/research/${researchId}/participants/${encodeURIComponent(participantId)}/review-token`
         );
         return response.reviewToken;
+    }
+
+    async getConsentRecords(researchId: string): Promise<ConsentRecord[]> {
+        const response = await apiClient.get<{ records: ConsentRecord[] }>(`/research/${researchId}/consent-records`);
+        return response.records;
     }
 
     async exportParticipantData(researchId: string, participantId: string): Promise<unknown> {

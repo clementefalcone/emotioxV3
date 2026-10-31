@@ -24,6 +24,7 @@ import { TrackingEmotionsTab } from './TrackingEmotionsTab';
 import { TrackingAttentionTab } from './TrackingAttentionTab';
 import { TrackingFrictionTab } from './TrackingFrictionTab';
 import { CaptureErrorBadges } from './CaptureErrorBadges';
+import { buildCsv } from '../../../utils/csvDownload';
 
 const formatDateTime = (iso: string): string => {
     const d = new Date(iso);
@@ -65,13 +66,13 @@ export const WebsiteTrackingResults = ({ researchId }: WebsiteTrackingResultsPro
         try {
             const data = await trackingService.getExportData(researchId);
             // Sessions CSV
-            const sessionsCsv = toCsv(data.sessions, [
+            const sessionsCsv = buildCsv(data.sessions, [
                 'id', 'visitor_id', 'page_url', 'page_title', 'viewport_width', 'viewport_height',
                 'user_agent', 'referrer', 'started_at', 'ended_at',
             ]);
             downloadCsv(sessionsCsv, `tracking-sessions-${researchId}.csv`);
             // Events CSV
-            const eventsCsv = toCsv(data.events, [
+            const eventsCsv = buildCsv(data.events, [
                 'session_id', 'event_type', 'x', 'y', 'scroll_y', 'scroll_depth_pct',
                 'target_selector', 'target_text', 'timestamp_ms',
             ]);
@@ -517,21 +518,6 @@ const shortenUrl = (url: string): string => {
     } catch {
         return url.length > 50 ? url.slice(0, 50) + '...' : url;
     }
-};
-
-const toCsv = (rows: Array<Record<string, unknown>>, columns: string[]): string => {
-    const header = columns.join(',');
-    const body = rows.map((row) =>
-        columns.map((col) => {
-            const val = row[col];
-            if (val == null) return '';
-            const str = String(val);
-            return str.includes(',') || str.includes('"') || str.includes('\n')
-                ? `"${str.replace(/"/g, '""')}"`
-                : str;
-        }).join(',')
-    ).join('\n');
-    return `${header}\n${body}`;
 };
 
 const downloadCsv = (csv: string, filename: string) => {

@@ -14,6 +14,7 @@ import { ScreeningQuestionsSection } from './ScreeningQuestionsSection';
 import { StudyLogoSection } from './StudyLogoSection';
 import { BiometricRetentionSection } from './BiometricRetentionSection';
 import { PrivacyContactSection } from './PrivacyContactSection';
+import { ConsentRecordsSection } from './ConsentRecordsSection';
 import { LinkConfigurationSection } from './LinkConfigurationSection';
 import { DemographicModals } from './DemographicModals';
 import {
@@ -528,6 +529,7 @@ export const ResearchConfigurationModule = ({ config, researchStatus, researchNa
                 />
                 {researchId && <PrivacyContactSection researchId={researchId} />}
                 {researchId && <BiometricRetentionSection researchId={researchId} />}
+                {researchId && <ConsentRecordsSection researchId={researchId} />}
             </div>
             )}
 

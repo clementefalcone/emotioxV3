@@ -14,6 +14,7 @@ import { researchKeys } from '../../hooks/useResearchQuery';
 import { CopyButton } from '../ui/CopyButton';
 import { TrackingZonesEditor } from './TrackingZonesEditor';
 import type { Research } from '../../services/research.service';
+import { ConsentRecordsSection } from './ConsentRecordsSection';
 
 interface WebsiteTrackingConfigProps {
     research: Research;
@@ -444,6 +445,8 @@ export const WebsiteTrackingConfig = ({ research }: WebsiteTrackingConfigProps) 
                     </div>
                 </div>
             </div>
+
+            <ConsentRecordsSection researchId={research.id} />
 
             {/* Auto-save indicator */}
             {saving && (
