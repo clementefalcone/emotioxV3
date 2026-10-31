@@ -1,3 +1,13 @@
+## v0.99.45 — Privacy: consent informs controller, retention and rights (2026-10-31)
+
+### feat(privacy): inform controller, retention, rights
+- **Why.** Consent screens listed what was captured but not the purpose, retention, controller, rights or a privacy policy, which Ley 21.719 / GDPR require for sensitive biometric data.
+- **Panel.** Settings → "Privacidad": controller, privacy contact email, policy link, saved per study in `settings.privacy`; amber warning while any is empty.
+- **Backend.** `readPrivacyNotice` (`research-privacy.ts`) drops a policy link that is not http(s) and an invalid email. `GET /public/research/:id` returns `research.privacy` (+ `biometricRetentionMonths`); the snippet gets `privacy` and `dataRetentionDays`.
+- **Participant.** `ConsentDisclosure` on the Eye Tracking consent and the Emotion Analysis intro: purpose, sensitive biometric data, retention in months, controller · email, rights, policy link. The recorded consent text includes it.
+- **Snippet.** `describePrivacy()` appended to the banner (also after a custom `consentText`): purpose, retention in days, sensitivity when the camera is used, controller, rights, link; researcher input HTML-escaped.
+- **Check.** Production: public research returns `privacy`, live snippet valid with `describePrivacy`, both bundles carry the texts. Backend 689 → 695, research 703 → 705, participant 1156 → 1158, 0 failing. Not checked in the browser. Studies still need their privacy fields filled in.
+
 ## v0.99.44 — Privacy: website tracking masks page text (2026-10-31)
 
 ### fix(privacy): mask page text in website tracking
