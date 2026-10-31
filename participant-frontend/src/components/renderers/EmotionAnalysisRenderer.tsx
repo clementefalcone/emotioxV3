@@ -73,6 +73,11 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
             setConsentError(t('eyeTracking.consent.recordFailed', 'We could not save your consent. Check your connection and try again.'));
         }
     }, [recordConsent, t]);
+
+    const handleIntroDecline = useCallback(() => {
+        recordConsent('declined', introRef.current?.innerText ?? introRef.current?.textContent ?? '').catch((err: unknown) => console.error(err));
+        onComplete?.();
+    }, [recordConsent, onComplete]);
     const allSamplesRef = useRef<Array<{ stimulusIndex: number; samples: ReturnType<typeof faceEmotions.getSamples> }>>([]);
 
     const faceEmotions = useFaceApiEmotions({
@@ -230,7 +235,13 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
                         onClick={handleIntroContinue}
                         className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
                     >
-                        {t('Continue')}
+                        {t('eyeTracking.consent.accept', 'I accept and turn on the camera')}
+                    </button>
+                    <button
+                        onClick={handleIntroDecline}
+                        className="block mx-auto text-sm text-red-500 underline"
+                    >
+                        {t('eyeTracking.consent.decline', 'I do not accept · Skip this activity')}
                     </button>
                 </div>
             </div>
