@@ -1,3 +1,10 @@
+## v0.99.51 — Privacy: lab camera pages out of production (2026-10-31)
+
+### fix(privacy): keep lab camera pages out of prod
+- **Why.** Lab pages (`/eye-tracking-hybrid`, `/test/eye-tracking-v2`, `/test/gaze-compare`, `/test/gaze-capture`, `/test/expression-capture`, `/test/expression-eval`) were public in production and turned on the camera with no consent or notice.
+- **Change.** `participant-frontend/src/App.tsx` registers them only when `import.meta.env.DEV`; the production build drops their code. They depend on the Vite dev server (`/api/eval`, local datasets, Playwright on localhost), so dev use is unchanged.
+- **Check.** Live bundle `index-DpTKp2es.js` has no lab route strings and keeps `/research/:researchId`. Participant 1160 passing, 0 failing.
+
 ## v0.99.50 — Security: rate limit on public endpoints (2026-10-31)
 
 ### fix(security): rate limit public endpoints
