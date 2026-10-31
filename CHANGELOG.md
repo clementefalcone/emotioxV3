@@ -1,3 +1,10 @@
+## v0.99.59 — IAT: values on attribute bars (2026-10-31)
+
+### fix(iat): show percentage on attribute bars
+- **Why.** "% Positivo por atributo" only showed values on hover, so it could not be read at a glance or used in reports.
+- **Change.** Each bar carries its rounded percentage on top (`LabelList`).
+- **Check.** Research 708 passing, 0 failing. Not seen in the browser; labels may crowd with many objects × attributes.
+
 ## v0.99.58 — Privacy: consent records for researchers (2026-10-31)
 
 ### feat(privacy): show consent records to researchers
