@@ -1,3 +1,10 @@
+## v0.99.54 — Privacy: participant GPS capture removed (2026-10-31)
+
+### fix(privacy): remove unused participant GPS capture
+- **Why.** With "Track respondents location" on (12 studies in production), the participant page asked for precise GPS one second after loading, with no explanation, logged the coordinates to the console and never sent them to the server: personal data collected with no purpose (Ley 21.719 purpose limitation and minimization).
+- **Change.** `useLocationCollector` and the session-store location removed from the participant frontend; the toggle removed from the link configuration panel. Stored `linkConfig.trackLocation` values are left as they are and no longer read. Researchers who need location use the Country & City demographic question.
+- **Check.** Live participant bundle has no `geolocation` call; live research bundle has no location toggle. Participant 1160, research 705, 0 failing.
+
 ## v0.99.53 — Privacy: summarized user agent in Website Tracking (2026-10-31)
 
 ### fix(privacy): store summarized tracking user agent
