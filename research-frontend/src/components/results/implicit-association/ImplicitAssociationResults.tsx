@@ -328,6 +328,7 @@ const CriteriaAssociationCharts = ({ module: mod, colors }: { module: IATModuleR
               ) : null
             ))}
             <Tooltip
+              cursor={false}
               formatter={(value: number, name: string) => [`${value}%`, name]}
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: 12 }}
             />
