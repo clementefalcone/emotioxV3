@@ -1,6 +1,6 @@
 import pool from '../../config/database';
 import { getMediaUrl } from '../../config/local-storage';
-import { computeAoiMetrics } from './aoi-metrics';
+import { computeAoiMetrics, type GazeUncertainty } from './aoi-metrics';
 import { aggregateEmotions, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression } from './emotion-metrics';
 
 /**
@@ -340,13 +340,20 @@ export function placeInShelfColumn(xPercent: number, columnOrder: readonly numbe
   return xPercent + (columnOrder[position] - position) * columnWidth;
 }
 
+export const readGazeUncertainty = (rmsePx: unknown, viewportWidth: unknown, viewportHeight: unknown): GazeUncertainty | undefined => {
+  if (typeof rmsePx !== 'number' || typeof viewportWidth !== 'number' || typeof viewportHeight !== 'number') return undefined;
+  if (rmsePx <= 0 || viewportWidth <= 0 || viewportHeight <= 0) return undefined;
+  const perAxisPx = rmsePx / Math.SQRT2;
+  return { x: (perAxisPx / viewportWidth) * 100, y: (perAxisPx / viewportHeight) * 100 };
+};
+
 const computeEyeTrackingMetrics = (
   responses: any[],
   configAois: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>,
   options: { hasEmotionRecognition: boolean; includedParticipantIds?: ReadonlySet<string> },
 ) => {
   const { hasEmotionRecognition, includedParticipantIds } = options;
-  type Fixation = { x: number; y: number; duration: number; participantId: string; timestamp: number };
+  type Fixation = { x: number; y: number; duration: number; participantId: string; timestamp: number; uncertainty?: GazeUncertainty };
   const allFixationsRaw: Fixation[] = [];
   const participantMap = new Map<string, {
     calibrationQuality: string;
@@ -377,12 +384,13 @@ const computeEyeTrackingMetrics = (
       const scaleX = vpW ? vpW : (needsNormalization ? maxCoord * 1.05 : 1);
       const scaleY = vpH ? vpH : (needsNormalization ? maxCoord * 1.05 : 1);
 
+      const uncertainty = readGazeUncertainty(parsed?.calibrationRmsePx, vpW, vpH);
       let totalDwell = 0;
       for (const f of fixations) {
         const nx = needsNormalization ? (f.x / scaleX) * 100 : f.x;
         const ny = needsNormalization ? (f.y / scaleY) * 100 : f.y;
         const x = shelfColumnOrder ? placeInShelfColumn(nx, shelfColumnOrder) : nx;
-        allFixationsRaw.push({ x, y: ny, duration: f.duration, participantId: pid, timestamp: f.timestamp ?? 0 });
+        allFixationsRaw.push({ x, y: ny, duration: f.duration, participantId: pid, timestamp: f.timestamp ?? 0, uncertainty });
         totalDwell += f.duration;
       }
 

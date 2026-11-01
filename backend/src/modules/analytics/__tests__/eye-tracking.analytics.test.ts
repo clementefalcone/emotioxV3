@@ -12,7 +12,7 @@ vi.mock('../../../config/local-storage', () => ({
   getMediaUrl: vi.fn((key: string) => `/api/media/${key}`),
 }));
 
-import { getEyeTrackingResults, getBenchmarkResults } from '../eye-tracking.analytics';
+import { getEyeTrackingResults, getBenchmarkResults, readGazeUncertainty } from '../eye-tracking.analytics';
 import pool from '../../../config/database';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
@@ -553,6 +553,27 @@ describe('getEyeTrackingResults', () => {
       for (const aoi of result.stimuli[0].aois) {
         expect(aoi.dwellTimePercent).toBe(0);
       }
+    });
+
+    it('spreads the dwell of an imprecise calibration to nearby AOIs and keeps a precise one on its AOI', async () => {
+      const dwellByAoi = async (calibrationRmsePx: number) => {
+        const row = buildRow('p1', {
+          fixations: [{ x: 50, y: 50, duration: 1000, timestamp: 0 }],
+          calibrationRmsePx,
+          integrityScore: 0.9,
+          viewportWidth: 1000,
+          viewportHeight: 1000,
+        });
+        setupStandardMocks({
+          modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
+          responses: [[row]],
+        });
+        const result = await getEyeTrackingResults('research-1');
+        return Object.fromEntries(result.stimuli[0].aois.map(aoi => [aoi.label, aoi.dwellTimePercent]));
+      };
+
+      expect(await dwellByAoi(10)).toEqual({ Logo: 100, CTA: 0 });
+      expect(await dwellByAoi(380)).toEqual({ Logo: 58, CTA: 42 });
     });
 
     it('soft Gaussian: fixation just outside AOI contributes partial weight', async () => {
@@ -1753,5 +1774,19 @@ describe('TTFF (Time To First Fixation)', () => {
     const aoi = result.stimuli[0].aois[0];
 
     expect((aoi as Record<string, unknown>).avgTTFF).toBe(0);
+  });
+});
+
+describe('readGazeUncertainty', () => {
+  it('turns the calibration error into a per-axis spread in percent of the screen', () => {
+    const phone = readGazeUncertainty(152.6, 402, 714);
+    expect(phone?.x).toBeCloseTo(26.8, 1);
+    expect(phone?.y).toBeCloseTo(15.1, 1);
+  });
+
+  it('has no spread when the error or the screen size was not saved', () => {
+    expect(readGazeUncertainty(null, 402, 714)).toBeUndefined();
+    expect(readGazeUncertainty(152.6, undefined, 714)).toBeUndefined();
+    expect(readGazeUncertainty(0, 402, 714)).toBeUndefined();
   });
 });

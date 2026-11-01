@@ -22,6 +22,15 @@ describe('computeAoiMetrics', () => {
     expect(dwellOf(left, [fixation(10)])).toBe(100);
   });
 
+  it('spreads an imprecise session across nearby AOIs and keeps a precise one sharp', () => {
+    const preciseFixation = fixation(10);
+    const imprecisePhoneFixation = { ...fixation(10), uncertainty: { x: 27, y: 15 } };
+
+    expect(dwellOf(left, [preciseFixation])).toBe(100);
+    expect(dwellOf(left, [imprecisePhoneFixation])).toBe(75);
+    expect(dwellOf(right, [imprecisePhoneFixation])).toBe(25);
+  });
+
   it('keeps counting the participant as having noticed the AOI when the fixation is shared', () => {
     const nested = { x: 0, y: 0, width: 30, height: 100 };
     const metrics = computeAoiMetrics({ fixations: [fixation(10)], rectFor: () => nested, allRectsFor: () => [left, nested], emotionsByParticipant: new Map() });
@@ -48,5 +57,11 @@ describe('softAoiWeight', () => {
     const wide = { x: 0, y: 40, width: 100, height: 20 };
     expect(softAoiWeight(50, 90, wide)).toBeLessThan(0.01);
     expect(softAoiWeight(50, 62, wide)).toBeGreaterThan(0.9);
+  });
+
+  it('widens the falloff to the gaze uncertainty when it is larger than the AOI', () => {
+    const column = { x: 40, y: 0, width: 20, height: 100 };
+    expect(softAoiWeight(90, 50, column)).toBeLessThan(0.01);
+    expect(softAoiWeight(90, 50, column, { x: 27, y: 15 })).toBeGreaterThan(0.2);
   });
 });

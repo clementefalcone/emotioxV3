@@ -7,12 +7,18 @@ export interface AoiRect {
   height: number;
 }
 
+export interface GazeUncertainty {
+  x: number;
+  y: number;
+}
+
 export interface AoiFixation {
   participantId: string;
   x: number;
   y: number;
   duration: number;
   timestamp: number;
+  uncertainty?: GazeUncertainty;
 }
 
 export interface AoiMetrics {
@@ -30,10 +36,12 @@ const SOFT_AOI_MIN_WEIGHT = 0.15;
 const NOTICED_WEIGHT = 0.5;
 const EMOTION_WINDOW_MS = 100;
 
-export const softAoiWeight = (fx: number, fy: number, aoi: AoiRect): number => {
+const NO_UNCERTAINTY: GazeUncertainty = { x: 0, y: 0 };
+
+export const softAoiWeight = (fx: number, fy: number, aoi: AoiRect, uncertainty: GazeUncertainty = NO_UNCERTAINTY): number => {
   if (fx >= aoi.x && fx <= aoi.x + aoi.width && fy >= aoi.y && fy <= aoi.y + aoi.height) return 1.0;
-  const sigmaX = aoi.width * 0.35;
-  const sigmaY = aoi.height * 0.35;
+  const sigmaX = Math.max(aoi.width * 0.35, uncertainty.x);
+  const sigmaY = Math.max(aoi.height * 0.35, uncertainty.y);
   if (sigmaX <= 0 || sigmaY <= 0) return 0;
   const distX = Math.max(0, Math.abs(fx - (aoi.x + aoi.width / 2)) - aoi.width / 2) / sigmaX;
   const distY = Math.max(0, Math.abs(fy - (aoi.y + aoi.height / 2)) - aoi.height / 2) / sigmaY;
@@ -79,7 +87,7 @@ const emotionsDuringFixations = (
 
 const sharedWeight = (fixation: AoiFixation, rect: AoiRect, allRects: readonly AoiRect[]): number => {
   const weightFor = (candidate: AoiRect) => {
-    const weight = softAoiWeight(fixation.x, fixation.y, candidate);
+    const weight = softAoiWeight(fixation.x, fixation.y, candidate, fixation.uncertainty);
     return weight >= SOFT_AOI_MIN_WEIGHT ? weight : 0;
   };
   const totalWeight = allRects.reduce((sum, candidate) => sum + weightFor(candidate), 0);
@@ -96,7 +104,7 @@ export const computeAoiMetrics = ({ fixations, rectFor, allRectsFor, emotionsByP
   const totalParticipants = new Set(fixations.map((fixation) => fixation.participantId)).size;
   const candidates = fixations.flatMap((fixation) => {
     const rect = rectFor(fixation);
-    const proximity = rect ? softAoiWeight(fixation.x, fixation.y, rect) : 0;
+    const proximity = rect ? softAoiWeight(fixation.x, fixation.y, rect, fixation.uncertainty) : 0;
     return rect && proximity >= SOFT_AOI_MIN_WEIGHT ? [{ fixation, rect, proximity }] : [];
   });
   const weighted = candidates.map(({ fixation, rect }) => ({ fixation, weight: sharedWeight(fixation, rect, allRectsFor(fixation)) }));
