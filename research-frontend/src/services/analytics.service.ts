@@ -546,7 +546,7 @@ export interface EyeTrackingStimulus {
     avgFixationCount: number;
     heatmapData: Array<{ x: number; y: number; duration: number }>;
     zoneMass?: Record<string, number>;
-    fixations: Array<{ x: number; y: number; duration: number; participantId: string; timestamp: number }>;
+    fixations: Array<{ x: number; y: number; duration: number; participantId: string; timestamp: number; uncertainty?: { x: number; y: number } }>;
     aois: EyeTrackingAOI[];
     participants: EyeTrackingParticipant[];
     qualitySummary?: { total: number; good: number; fair: number; low: number };

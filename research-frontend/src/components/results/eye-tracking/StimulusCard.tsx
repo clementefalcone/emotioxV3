@@ -22,6 +22,7 @@ import { AllExcludedNotice } from './AllExcludedNotice';
 import { ReliabilityFilter } from './ReliabilityFilter';
 import { useScopedEyeTrackingStimulus } from './useScopedEyeTrackingStimulus';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
+import { gazePrecisionWeight } from './gazePrecisionWeight';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
   const stimulus = { ...rawStimulus, stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl) };
@@ -119,7 +120,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
       const col = Math.floor(f.x / cellSize);
       const row = Math.floor(f.y / cellSize);
       const key = `${col},${row}`;
-      grid.set(key, (grid.get(key) ?? 0) + 1);
+      grid.set(key, (grid.get(key) ?? 0) + gazePrecisionWeight(f.uncertainty));
     }
     let max = 0;
     for (const v of grid.values()) if (v > max) max = v;
@@ -139,7 +140,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
     if (src.length === 0) return stimulus.heatmapData.map(p => ({ x: p.x, y: p.y, value: p.duration }));
     return src
       .filter(f => !excludedParticipants.has(f.participantId))
-      .map(f => ({ x: f.x, y: f.y, value: f.duration }));
+      .map(f => ({ x: f.x, y: f.y, value: f.duration * gazePrecisionWeight(f.uncertainty) }));
   }, [stimulus.fixations, stimulus.heatmapData, excludedParticipants]);
 
   const [shelfCompositeUrl, setShelfCompositeUrl] = useState<string | null>(null);

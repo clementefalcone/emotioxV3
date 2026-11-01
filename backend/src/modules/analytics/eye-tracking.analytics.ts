@@ -26,7 +26,7 @@ interface EyeTrackingStimulus {
   avgDwellTime: number;
   avgFixationCount: number;
   heatmapData: Array<{ x: number; y: number; duration: number }>;
-  fixations: Array<{ x: number; y: number; duration: number; participantId: string; timestamp: number }>;
+  fixations: Array<{ x: number; y: number; duration: number; participantId: string; timestamp: number; uncertainty?: GazeUncertainty }>;
   aois: Array<{
     id: string;
     label: string;
