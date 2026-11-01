@@ -1,3 +1,10 @@
+## v0.99.66 — IAT: no gray hover band on attribute bars (2026-11-01)
+
+### fix(iat): remove gray hover band on attribute bars
+- **Why.** In IAT - Comparing Attribute the default Recharts tooltip cursor painted a gray band over the hovered column.
+- **Change.** `cursor={false}` on the bar chart tooltip in `CriteriaAssociationCharts`; the tooltip still shows. The same chart is "% Positivo por atributo" in Objects Comparing, which also loses the band.
+- **Check.** Live bundle matches the local build. IAT results tests pass (6). Not seen in the browser.
+
 ## v0.99.65 — Eye Tracking: gaze error margin shown per device (2026-11-01)
 
 ### feat(eye-tracking): show gaze error margin per device
