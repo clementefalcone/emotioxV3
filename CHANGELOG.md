@@ -1,3 +1,10 @@
+## v0.99.65 — Eye Tracking: gaze error margin shown per device (2026-11-01)
+
+### feat(eye-tracking): show gaze error margin per device
+- **Why.** AOI percentages were shown with no hint that the gaze behind them is off by about a third of the screen.
+- **Change.** Backend participants carry `deviceType` and `calibrationErrorPercent` (RMSE as % of viewport width, already computed for the quality grade). `GazePrecisionNotice` under the reliability bar shows the median error per device for the included sessions ("Escritorio ±30 % · Móvil ±38 %") and names AOIs narrower than the overall median. Hidden when no session has a measured error.
+- **Check.** Live backend and bundle carry it; health 200. Backend 717 → 718, research 712 → 715, 0 failing. Not seen in the browser.
+
 ## v0.99.64 — Eye Tracking: heatmap weighted by gaze precision (2026-11-01)
 
 ### feat(eye-tracking): weigh heatmap by gaze precision

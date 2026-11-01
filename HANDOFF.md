@@ -1,6 +1,6 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-11-01 · Versión: v0.99.62 · Producción = `main` = `origin/main` (backend, research y participant desplegados hoy).
+Actualizado: 2026-11-01 · Versión: v0.99.65 · Producción = `main` = `origin/main` (backend, research y participant desplegados hoy).
 
 ## Hecho en esta sesión (v0.99.39 → v0.99.58)
 
@@ -45,7 +45,7 @@ Tests al cierre: backend 711, research 708, participant 1162. Todos pasando.
 3. **Respaldos en `~/retention-backups`:** el del 30-oct es de 101 MB y se borra solo el 6 y 7 de noviembre.
 4. **Inodos del hosting resueltos (2026-11-01):** de 294.632 a 172.953 archivos. Se borraron `backend/node_modules.backup`, la copia vieja `~/emotioxV3` y el entorno dev muerto (`backend-dev` + `public_html/dev`). Respaldos en `~/cleanup-backups-2026-11-01`. Base de datos `emotvehe_emotiox_dev` borrada (era una copia vieja: 16 usuarios y 8 empresas, todos existentes en producción; volcado en `~/cleanup-backups-2026-11-01/emotiox_dev.sql.gz`). **Falta quitar el subdominio `dev.emotio.cx` desde la interfaz de cPanel** (Dominios); desde la terminal no se puede por CageFS. Hoy responde 404.
 5. **Pendientes anteriores sin revisar en esta sesión:**
-   - precisión de mirada en móviles;
+   - precisión de mirada: medida en producción (error mediano 30 % del ancho en escritorio, 38 % en móvil; techo físico en teléfonos). v0.99.63–65: zonas y mapa de calor ponderados por el error de cada sesión, y aviso del margen por dispositivo. Falta la medición de campo de v0.99.33 (no hay sesiones posteriores).
    - (resuelto en v0.99.61: AbortError del segundo módulo de Eye Tracking y cámara que no se apagaba al salir a mitad de módulo). `EmotionAnalysisRenderer` corregido en v0.99.62 (no registraba emociones y dejaba la cámara encendida; ningún estudio en producción lo usa).
    - (resuelto en v0.99.60: el Export CSV ya no traga errores, incluye el Screener y el atributo del IAT). El export a PPTX aún omite secciones que fallan sin avisar.
 6. **`monitor/handler.ts` (WebSocket de AWS heredado):** aún lee el token por query. No está desplegado en cPanel.
