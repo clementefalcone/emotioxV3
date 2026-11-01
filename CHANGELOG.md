@@ -1,3 +1,10 @@
+## v0.99.64 — Eye Tracking: heatmap weighted by gaze precision (2026-11-01)
+
+### feat(eye-tracking): weigh heatmap by gaze precision
+- **Why.** A session whose gaze error spans a quarter of the screen drew spots as sharp and hot as a precise one.
+- **Change.** `gazePrecisionWeight` (results/eye-tracking): each fixation counts by k²/(k²+σ²) per axis, k = 5 % heatmap kernel, σ = the session uncertainty sent since v0.99.63. Applied to both the density and duration heatmaps in `StimulusCard`. Sessions without a measured error keep weight 1. Precise ≈ 0.96, typical phone ≈ 0.06; when every session is equally imprecise the normalized map looks the same.
+- **Check.** Live bundle matches the local build; health 200. Research 710 → 712, backend analytics 145, 0 failing. Not seen in the browser.
+
 ## v0.99.63 — Eye Tracking: AOIs weighted by each session's error (2026-11-01)
 
 ### feat(eye-tracking): weigh AOIs by session error
