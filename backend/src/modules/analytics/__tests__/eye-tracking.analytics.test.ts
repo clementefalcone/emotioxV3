@@ -75,6 +75,7 @@ function buildRow(pid: string, opts: {
   fixationUnit?: string;
   shelfColumnOrder?: unknown;
   gazeTimelineUnit?: string | null;
+  deviceType?: string;
 } = {}) {
   const gazeTimelineUnit = opts.gazeTimelineUnit === undefined ? 'stimulus-percent' : opts.gazeTimelineUnit;
   return {
@@ -96,6 +97,7 @@ function buildRow(pid: string, opts: {
       ...(opts.viewportHeight !== undefined ? { viewportHeight: opts.viewportHeight } : {}),
       ...(opts.fixationUnit !== undefined ? { fixationUnit: opts.fixationUnit } : {}),
       ...(opts.shelfColumnOrder !== undefined ? { shelfColumnOrder: opts.shelfColumnOrder } : {}),
+      ...(opts.deviceType !== undefined ? { deviceType: opts.deviceType } : {}),
     }),
     created_at: new Date(),
   };
@@ -1774,6 +1776,24 @@ describe('TTFF (Time To First Fixation)', () => {
     const aoi = result.stimuli[0].aois[0];
 
     expect((aoi as Record<string, unknown>).avgTTFF).toBe(0);
+  });
+});
+
+describe('participant precision fields', () => {
+  it('reports each participant device and calibration error as percent of screen width', async () => {
+    const row = buildRow('p-phone', {
+      fixations: [{ x: 50, y: 50, duration: 500, timestamp: 0 }],
+      calibrationRmsePx: 152.6,
+      integrityScore: 0.9,
+      viewportWidth: 402,
+      viewportHeight: 714,
+      deviceType: 'mobile',
+    });
+    setupStandardMocks({ modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({}) }], responses: [[row]] });
+
+    const result = await getEyeTrackingResults('research-1');
+
+    expect(result.stimuli[0].participants[0]).toMatchObject({ deviceType: 'mobile', calibrationErrorPercent: 38 });
   });
 });
 

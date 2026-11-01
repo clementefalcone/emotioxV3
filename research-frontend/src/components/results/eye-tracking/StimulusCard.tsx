@@ -23,6 +23,7 @@ import { ReliabilityFilter } from './ReliabilityFilter';
 import { useScopedEyeTrackingStimulus } from './useScopedEyeTrackingStimulus';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 import { gazePrecisionWeight } from './gazePrecisionWeight';
+import { GazePrecisionNotice } from './GazePrecisionNotice';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
   const stimulus = { ...rawStimulus, stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl) };
@@ -246,6 +247,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
               onChange={setExcludedParticipants}
             />
           </div>
+          <GazePrecisionNotice participants={stimulus.participants} excludedParticipants={excludedParticipants} aois={stimulus.aois} />
           {showQualityTable && stimulus.participants.length > 0 && (
             <div className="px-4 py-3 bg-white overflow-x-auto">
               <table className="w-full text-xs">

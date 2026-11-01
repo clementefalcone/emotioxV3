@@ -484,8 +484,10 @@ export interface EyeTrackingAOI {
 
 export interface EyeTrackingParticipant {
     participantId: string;
+    deviceType: string;
     calibrationQuality: string;
     calibrationRmsePx: number | null;
+    calibrationErrorPercent: number | null;
     integrityScore: number;
     totalFixations: number;
     totalDwellTime: number;

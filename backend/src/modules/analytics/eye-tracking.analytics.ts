@@ -45,8 +45,10 @@ interface EyeTrackingStimulus {
   }>;
   participants: Array<{
     participantId: string;
+    deviceType: string;
     calibrationQuality: string;
     calibrationRmsePx: number | null;
+    calibrationErrorPercent: number | null;
     integrityScore: number;
     totalFixations: number;
     totalDwellTime: number;
@@ -356,8 +358,10 @@ const computeEyeTrackingMetrics = (
   type Fixation = { x: number; y: number; duration: number; participantId: string; timestamp: number; uncertainty?: GazeUncertainty };
   const allFixationsRaw: Fixation[] = [];
   const participantMap = new Map<string, {
+    deviceType: string;
     calibrationQuality: string;
     calibrationRmsePx: number | null;
+    calibrationErrorPercent: number | null;
     integrityScore: number;
     totalFixations: number;
     totalDwellTime: number;
@@ -410,8 +414,10 @@ const computeEyeTrackingMetrics = (
       const grade = classifyQuality(calibrationErrorRatio, integrity, fixations.length, calQuality);
 
       participantMap.set(pid, {
+        deviceType: typeof parsed?.deviceType === 'string' ? parsed.deviceType : 'unknown',
         calibrationQuality: calQuality,
         calibrationRmsePx: rmsePx,
+        calibrationErrorPercent: calibrationErrorRatio !== null ? Math.round(calibrationErrorRatio * 1000) / 10 : null,
         integrityScore: integrity,
         totalFixations: fixations.length,
         totalDwellTime: totalDwell,
