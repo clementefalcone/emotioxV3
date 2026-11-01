@@ -1,3 +1,10 @@
+## v0.99.61 — Fix: Eye Tracking camera opened once and always released (2026-11-01)
+
+### fix(eye-tracking): one camera stream, always released
+- **Why.** The second Eye Tracking module (reused calibration) starts the camera from an effect. Starting twice (StrictMode in dev, a double "Acepto" click in prod) opened two streams: the second load aborted the first `play()` (`AbortError: … interrupted by a new load request`) and orphaned the first stream, camera on. Separately, the unmount cleanup read the video ref after React had cleared it, so leaving a module midway never released the camera (normal completion released it explicitly).
+- **Change.** `startCamera` reuses an in-flight start; the stream lives in its own ref and `stopCamera` (also used on unmount) stops it; a stream granted after the module closed is stopped at once.
+- **Check.** Live chunk matches the local build. New tests: one stream under StrictMode and released on unmount (failed on the old code: 2 streams), late grant stopped. Participant 1162 → 1164, 0 failing. Not tried with a real camera. `EmotionAnalysisRenderer` may share the cleanup pattern.
+
 ## v0.99.60 — Fix: study export fails loudly and includes Screener (2026-11-01)
 
 ### fix(export): fail loudly and include screener
