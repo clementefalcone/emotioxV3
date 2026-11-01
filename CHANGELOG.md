@@ -1,3 +1,11 @@
+## v0.99.63 — Eye Tracking: AOIs weighted by each session's error (2026-11-01)
+
+### feat(eye-tracking): weigh AOIs by session error
+- **Why.** Production calibration error is 30 % of the screen width on desktop and 38 % on phones (median, all sessions before v0.99.33), yet every fixation counted as exact: an imprecise phone session claimed the same AOI detail as a precise one.
+- **Change.** Each fixation carries its session's uncertainty (`readGazeUncertainty`: calibration RMSE / √2 per axis, as % of viewport width/height). `softAoiWeight` uses the larger of the AOI-based falloff and that uncertainty, so imprecise gaze spreads over nearby AOIs and precise gaze stays sharp. Sessions without a saved error, and Website Tracking zones, are unchanged.
+- **Note.** AOI numbers of existing studies change: small, close AOIs lose share to their neighbours when sessions are imprecise. Stimulus size is not saved, so the error is taken as % of the viewport (exact when the stimulus fills the screen).
+- **Check.** Live `dist` carries it; health 200. Example: a fixation inside "Logo" next to "CTA" gives 100/0 with 1 % error and 58/42 with 38 %. Backend 712 → 717 (new tests fail on the old code), 0 failing.
+
 ## v0.99.62 — Fix: Emotion Analysis gets the camera while stimuli are shown (2026-11-01)
 
 ### fix(emotion-analysis): feed camera to viewing phase
