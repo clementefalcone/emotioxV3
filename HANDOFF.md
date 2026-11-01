@@ -41,9 +41,9 @@ Tests al cierre: backend 711, research 708, participant 1162. Todos pasando.
    - el tiempo real de SmartVOC y el iframe del heatmap tras el cambio a cookie;
    - "Exportar datos";
    - "Registro de consentimientos".
-2. **934 grabaciones antiguas de Website Tracking sin enmascarar.** El usuario dijo "nada aún". La retención de 90 días las irá borrando.
+2. **934 grabaciones antiguas de Website Tracking sin enmascarar:** decidido esperar (2026-11-01); la retención de 90 días las borra sola.
 3. **Respaldos en `~/retention-backups`:** el del 30-oct es de 101 MB y se borra solo el 6 y 7 de noviembre.
-4. **Inodos del hosting resueltos (2026-11-01):** de 294.632 a 172.953 archivos. Se borraron `backend/node_modules.backup`, la copia vieja `~/emotioxV3` y el entorno dev muerto (`backend-dev` + `public_html/dev`). Respaldos en `~/cleanup-backups-2026-11-01`. Se mantienen el subdominio `dev.emotio.cx` y la base de datos vacía `emotvehe_emotiox_dev`.
+4. **Inodos del hosting resueltos (2026-11-01):** de 294.632 a 172.953 archivos. Se borraron `backend/node_modules.backup`, la copia vieja `~/emotioxV3` y el entorno dev muerto (`backend-dev` + `public_html/dev`). Respaldos en `~/cleanup-backups-2026-11-01`. Base de datos `emotvehe_emotiox_dev` borrada (era una copia vieja: 16 usuarios y 8 empresas, todos existentes en producción; volcado en `~/cleanup-backups-2026-11-01/emotiox_dev.sql.gz`). **Falta quitar el subdominio `dev.emotio.cx` desde la interfaz de cPanel** (Dominios); desde la terminal no se puede por CageFS. Hoy responde 404.
 5. **Pendientes anteriores sin revisar en esta sesión:**
    - precisión de mirada en móviles;
    - AbortError en el segundo módulo de Eye Tracking;
@@ -66,6 +66,4 @@ Tests al cierre: backend 711, research 708, participant 1162. Todos pasando.
 
 ## Preguntas abiertas
 
-- ¿Se enmascaran o borran las 934 grabaciones antiguas antes de que caduquen?
-- ¿Algún estudio necesitará participantes menores de 18 años? Hoy solo hay autodeclaración de mayoría de edad, sin flujo de tutor.
-- `docs/emociones.jpeg`, `docs/net.jpeg` y `docs/problema1.jpeg` sin commitear: ¿van al repo?
+- Ninguna. Decidido el 2026-11-01: no habrá estudios con menores (basta la casilla de 18+). Las imágenes `docs/emociones.jpeg`, `net.jpeg` y `problema1.jpeg` se movieron a la Papelera del Mac; `emociones.jpeg` es la pirámide de valor emocional citada en el CHANGELOG (NEV).
