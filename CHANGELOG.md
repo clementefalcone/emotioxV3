@@ -1,3 +1,11 @@
+## v0.99.60 — Fix: study export fails loudly and includes Screener (2026-11-01)
+
+### fix(export): fail loudly and include screener
+- **Why.** `export.service.ts` caught every Screener, IAT, SmartVOC, Eye Tracking and IAT raw-trial failure and returned empty data, so a failing section shipped as a silently partial export; the button only logged to the console. This hid that the Screener column was always empty (the backend never returned per-participant answers) and that IAT raw trials lacked the attribute and trial number.
+- **Change.** Silent catches removed: any failing section stops the export and the button shows "No se pudo exportar el estudio: …". `getScreenerResults` returns `responses` (participant + chosen labels). IAT raw-trial CSV adds `trialNumber` and `attributeLabel`.
+- **Note.** With public results enabled, the public Screener route now also returns per-participant answers, as Cognitive Tasks already does. The PPTX export still skips failing sections silently.
+- **Check.** Live backend and bundle carry the change; health 200. Backend 711 → 712, research 708 → 710 (new tests fail on the old code), 0 failing.
+
 ## v0.99.59 — IAT: values on attribute bars (2026-10-31)
 
 ### fix(iat): show percentage on attribute bars

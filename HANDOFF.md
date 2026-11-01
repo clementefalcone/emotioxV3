@@ -1,6 +1,6 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-10-31 · Versión: v0.99.58 · Producción = `main` = `origin/main` (backend, research y participant desplegados hoy).
+Actualizado: 2026-11-01 · Versión: v0.99.60 · Producción = `main` = `origin/main` (backend, research y participant desplegados hoy).
 
 ## Hecho en esta sesión (v0.99.39 → v0.99.58)
 
@@ -47,7 +47,7 @@ Tests al cierre: backend 711, research 708, participant 1162. Todos pasando.
 5. **Pendientes anteriores sin revisar en esta sesión:**
    - precisión de mirada en móviles;
    - AbortError en el segundo módulo de Eye Tracking;
-   - el "Export CSV" general traga errores (`catch → []`).
+   - (resuelto en v0.99.60: el Export CSV ya no traga errores, incluye el Screener y el atributo del IAT). El export a PPTX aún omite secciones que fallan sin avisar.
 6. **`monitor/handler.ts` (WebSocket de AWS heredado):** aún lee el token por query. No está desplegado en cPanel.
 
 ## Ficheros clave
