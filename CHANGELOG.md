@@ -1,3 +1,10 @@
+## v0.99.62 — Fix: Emotion Analysis gets the camera while stimuli are shown (2026-11-01)
+
+### fix(emotion-analysis): feed camera to viewing phase
+- **Why.** The webcam stream was attached to the setup preview `<video>`; the viewing phase mounted a second hidden `<video>` that never received it, so face-api read an empty element and recorded no emotions. The preview stream stayed on, orphaned, and the unmount cleanup (reading the cleared ref) never released the camera when leaving midway. No production study has an Emotion Analysis module, so nobody was affected.
+- **Change.** Stream kept in its own ref and attached to whichever webcam `<video>` mounts (callback ref); one start at a time; stopped on completion, unmount, or when granted after the module closed. Same pattern as v0.99.61.
+- **Check.** Live chunk matches the local build. New tests (both failed on the old code): the viewing webcam carries the stream, leaving midway stops it. Participant 1164 → 1166, 0 failing. Not tried with a real camera.
+
 ## v0.99.61 — Fix: Eye Tracking camera opened once and always released (2026-11-01)
 
 ### fix(eye-tracking): one camera stream, always released
