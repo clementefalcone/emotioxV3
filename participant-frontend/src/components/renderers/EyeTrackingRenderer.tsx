@@ -203,44 +203,46 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const microGazeSamplesRef = useRef<{ x: number; y: number }[]>([]);
 
     // Camera management
-    const startCamera = useCallback(async (): Promise<boolean> => {
+    const cameraStreamRef = useRef<MediaStream | null>(null);
+    const cameraStartRef = useRef<Promise<boolean> | null>(null);
+    const startCamera = useCallback((): Promise<boolean> => {
         // Skip if camera is already running (prevents orphaned MediaStreams)
-        if (videoRef.current?.srcObject) return true;
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia(BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS);
-            if (videoRef.current) {
+        if (cameraStreamRef.current) return Promise.resolve(true);
+        cameraStartRef.current ??= (async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS);
+                if (!videoRef.current) {
+                    stream.getTracks().forEach(track => track.stop());
+                    return false;
+                }
+                cameraStreamRef.current = stream;
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
+                return true;
+            } catch (err) {
+                console.error('[EyeTrackingRenderer] Camera error:', err);
+                return false;
+            } finally {
+                cameraStartRef.current = null;
             }
-            return true;
-        } catch (err) {
-            console.error('[EyeTrackingRenderer] Camera error:', err);
-            return false;
-        }
+        })();
+        return cameraStartRef.current;
     }, []);
 
     const stopCamera = useCallback(() => {
-        const video = videoRef.current;
-        if (video?.srcObject) {
-            (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-            video.srcObject = null;
-        }
+        cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+        cameraStreamRef.current = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
     }, []);
 
     // Cleanup on unmount — release camera, stop BlazeGaze + face-api.
     // Critical for consecutive ET modules: without this, the 2nd module's
     // getUserMedia hangs because the previous stream is still active (Safari especially).
-    const videoRefForCleanup = videoRef;
     useEffect(() => {
         const blazeRef = blaze;
         const faceRef = faceEmotions;
-        const vidRef = videoRefForCleanup;
         return () => {
-            const video = vidRef.current;
-            if (video?.srcObject) {
-                (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-                video.srcObject = null;
-            }
+            stopCamera();
             blazeRef.stop();
             faceRef.stop();
         };

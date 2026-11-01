@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { render, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { GazePredictor } from '../../lib/eyeTracking/gazePredictor';
@@ -209,6 +210,39 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         vi.restoreAllMocks();
         mockMPGaze.gazeState = 'closed';
         mockMPGaze.gazePosRef = { current: [0, 0] } as unknown as typeof mockMPGaze.gazePosRef;
+    });
+
+    it('opens one camera stream when the preparing phase starts twice, and releases it on unmount', async () => {
+        const stopTrack = vi.fn();
+        let grantCamera = () => {};
+        mockGetUserMedia.mockImplementation(() => new Promise((resolve) => {
+            grantCamera = () => resolve({ getTracks: () => [{ stop: stopTrack }] });
+        }));
+        const { unmount } = render(
+            <StrictMode>
+                <EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />
+            </StrictMode>
+        );
+
+        await act(async () => { grantCamera(); });
+        expect(mockGetUserMedia).toHaveBeenCalledTimes(1);
+
+        unmount();
+        expect(stopTrack).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops a camera stream granted after the module already closed', async () => {
+        const stopTrack = vi.fn();
+        let grantCamera = () => {};
+        mockGetUserMedia.mockImplementation(() => new Promise((resolve) => {
+            grantCamera = () => resolve({ getTracks: () => [{ stop: stopTrack }] });
+        }));
+        const { unmount } = render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+
+        unmount();
+        await act(async () => { grantCamera(); });
+
+        expect(stopTrack).toHaveBeenCalledTimes(1);
     });
 
     it('mobile + emotion recognition: faceEmotions.start() called when phase reaches viewing', async () => {
