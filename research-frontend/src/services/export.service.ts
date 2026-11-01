@@ -89,14 +89,10 @@ async function fetchCognitiveTasks(researchId: string) {
 }
 
 async function fetchScreener(researchId: string) {
-    try {
-        const res = await apiClient.get<{
-            results: { responses?: Array<{ participantId: string; value: string }> };
-        }>(`/analytics/research/${researchId}/screener`);
-        return res.results?.responses || [];
-    } catch {
-        return [];
-    }
+    const res = await apiClient.get<{
+        results: { responses: Array<{ participantId: string; value: string }> };
+    }>(`/analytics/research/${researchId}/screener`);
+    return res.results?.responses || [];
 }
 
 interface IATModule {
@@ -119,14 +115,10 @@ interface IATModule {
 }
 
 async function fetchIAT(researchId: string): Promise<IATModule[]> {
-    try {
-        const res = await apiClient.get<{ results: { modules: IATModule[] } }>(
-            `/analytics/research/${researchId}/implicit-association`
-        );
-        return res.results?.modules || [];
-    } catch {
-        return [];
-    }
+    const res = await apiClient.get<{ results: { modules: IATModule[] } }>(
+        `/analytics/research/${researchId}/implicit-association`
+    );
+    return res.results?.modules || [];
 }
 
 interface SmartVOCData {
@@ -138,15 +130,11 @@ interface SmartVOCData {
     nevResponsesData: Array<{ emotions: string[]; date: string; participantId: string }>;
 }
 
-async function fetchSmartVOC(researchId: string): Promise<SmartVOCData | null> {
-    try {
-        const res = await apiClient.get<{ results: SmartVOCData }>(
-            `/analytics/research/${researchId}/smartvoc`
-        );
-        return res.results;
-    } catch {
-        return null;
-    }
+async function fetchSmartVOC(researchId: string): Promise<SmartVOCData> {
+    const res = await apiClient.get<{ results: SmartVOCData }>(
+        `/analytics/research/${researchId}/smartvoc`
+    );
+    return res.results;
 }
 
 interface ETStimulus {
@@ -164,14 +152,10 @@ interface ETStimulus {
 }
 
 async function fetchEyeTracking(researchId: string): Promise<ETStimulus[]> {
-    try {
-        const res = await apiClient.get<{ results: { stimuli: ETStimulus[] } }>(
-            `/analytics/research/${researchId}/eye-tracking`
-        );
-        return res.results?.stimuli || [];
-    } catch {
-        return [];
-    }
+    const res = await apiClient.get<{ results: { stimuli: ETStimulus[] } }>(
+        `/analytics/research/${researchId}/eye-tracking`
+    );
+    return res.results?.stimuli || [];
 }
 
 /* ─── IAT Raw Trials ───────────────────────────────────────────── */
@@ -183,34 +167,34 @@ interface IATRawTrial {
     phase: string;
     targetId: string;
     targetName: string;
+    trialNumber: number;
     criterionId: string;
     criterionLabel: string;
+    attributeLabel: string;
     rt: number;
     correct: boolean;
 }
 
 async function fetchIATRawTrials(researchId: string): Promise<IATRawTrial[]> {
-    try {
-        const res = await apiClient.get<{ results: { trials: IATRawTrial[] } }>(
-            `/analytics/research/${researchId}/implicit-association/raw-trials`
-        );
-        return res.results?.trials || [];
-    } catch {
-        return [];
-    }
+    const res = await apiClient.get<{ results: { trials: IATRawTrial[] } }>(
+        `/analytics/research/${researchId}/implicit-association/raw-trials`
+    );
+    return res.results?.trials || [];
 }
 
 function buildIATRawTrialsSheet(trials: IATRawTrial[]) {
-    const headers = ['participantId', 'module', 'testType', 'phase', 'targetId', 'targetName', 'criterionId', 'criterionLabel', 'rt', 'correct'];
+    const headers = ['participantId', 'module', 'testType', 'phase', 'trialNumber', 'targetId', 'targetName', 'criterionId', 'criterionLabel', 'attributeLabel', 'rt', 'correct'];
     const rows = trials.map(t => ({
         participantId: t.participantId,
         module: t.module,
         testType: t.testType,
         phase: t.phase,
+        trialNumber: t.trialNumber,
         targetId: t.targetId,
         targetName: t.targetName,
         criterionId: t.criterionId,
         criterionLabel: t.criterionLabel,
+        attributeLabel: t.attributeLabel,
         rt: t.rt,
         correct: t.correct ? 'TRUE' : 'FALSE',
     }));

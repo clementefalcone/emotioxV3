@@ -51,4 +51,13 @@ describe('getScreenerResults', () => {
         expect(results.disqualified).toBe(1);
         expect(results.choiceDistribution.find(c => c.choiceId === 'yes')?.count).toBe(1);
     });
+
+    it('returns each participant answer with the choice label for exports', async () => {
+        mockScreenerStudy();
+        const results = await getScreenerResults('research-1', new Set(['p-yes-1', 'p-no']));
+        expect(results.responses).toEqual([
+            { participantId: 'p-yes-1', value: 'Yes' },
+            { participantId: 'p-no', value: 'No' },
+        ]);
+    });
 });

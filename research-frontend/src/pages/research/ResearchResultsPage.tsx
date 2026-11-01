@@ -96,11 +96,11 @@ export const ResearchResultsPage = () => {
         try {
             await downloadResearchExport(id, research?.name || 'research', filteredPidsArray);
         } catch (error) {
-            console.error('Export failed:', error);
+            toast.error(`No se pudo exportar el estudio: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
             setExporting(false);
         }
-    }, [id, exporting, research?.name, filteredPidsArray]);
+    }, [id, exporting, research?.name, filteredPidsArray, toast]);
 
     const handleExportPptx = useCallback(async () => {
         if (!id || exportingPptx) return;

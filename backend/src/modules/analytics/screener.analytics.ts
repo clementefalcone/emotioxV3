@@ -20,7 +20,7 @@ export const getScreenerResults = async (researchId: string, participantIds?: Re
   `;
   const stageResult = await pool.query(stageQuery, [researchId]);
   if (stageResult.rows.length === 0) {
-    return { totalResponses: 0, qualified: 0, disqualified: 0, overquota: 0, choiceDistribution: [], dailyDistribution: [], bestDay: null, slowestDay: null, weeklyTimeSeries: [] };
+    return { totalResponses: 0, qualified: 0, disqualified: 0, overquota: 0, choiceDistribution: [], dailyDistribution: [], bestDay: null, slowestDay: null, weeklyTimeSeries: [], responses: [] };
   }
   const stageId = stageResult.rows[0].stage_id;
 
@@ -70,7 +70,7 @@ export const getScreenerResults = async (researchId: string, participantIds?: Re
   }
 
   if (moduleIds.length === 0) {
-    return { totalResponses: 0, qualified: 0, disqualified: 0, overquota: 0, choiceDistribution: [], dailyDistribution: [], bestDay: null, slowestDay: null, weeklyTimeSeries: [], questionText };
+    return { totalResponses: 0, qualified: 0, disqualified: 0, overquota: 0, choiceDistribution: [], dailyDistribution: [], bestDay: null, slowestDay: null, weeklyTimeSeries: [], questionText, responses: [] };
   }
 
   const isInScope = (participantId: string) => !participantIds || participantIds.has(participantId);
@@ -247,5 +247,6 @@ export const getScreenerResults = async (researchId: string, participantIds?: Re
     bestDay,
     slowestDay,
     weeklyTimeSeries,
+    responses: responses.map(r => ({ participantId: r.participantId, value: r.choices.map(choice => choiceLabels[choice] || choice).join(', ') })),
   };
 };
