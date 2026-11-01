@@ -43,12 +43,12 @@ Tests al cierre: backend 711, research 708, participant 1162. Todos pasando.
    - "Registro de consentimientos".
 2. **934 grabaciones antiguas de Website Tracking sin enmascarar.** El usuario dijo "nada aún". La retención de 90 días las irá borrando.
 3. **Respaldos en `~/retention-backups`:** el del 30-oct es de 101 MB y se borra solo el 6 y 7 de noviembre.
-4. **Pendientes anteriores sin revisar en esta sesión:**
-   - inodos del hosting cerca del límite (294k de 300k);
+4. **Inodos del hosting resueltos (2026-11-01):** de 294.632 a 172.953 archivos. Se borraron `backend/node_modules.backup`, la copia vieja `~/emotioxV3` y el entorno dev muerto (`backend-dev` + `public_html/dev`). Respaldos en `~/cleanup-backups-2026-11-01`. Se mantienen el subdominio `dev.emotio.cx` y la base de datos vacía `emotvehe_emotiox_dev`.
+5. **Pendientes anteriores sin revisar en esta sesión:**
    - precisión de mirada en móviles;
    - AbortError en el segundo módulo de Eye Tracking;
    - el "Export CSV" general traga errores (`catch → []`).
-5. **`monitor/handler.ts` (WebSocket de AWS heredado):** aún lee el token por query. No está desplegado en cPanel.
+6. **`monitor/handler.ts` (WebSocket de AWS heredado):** aún lee el token por query. No está desplegado en cPanel.
 
 ## Ficheros clave
 
