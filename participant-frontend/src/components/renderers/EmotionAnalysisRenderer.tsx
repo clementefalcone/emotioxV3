@@ -101,40 +101,47 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
         Promise.all(urls.map(key => mediaService.getMediaUrl(key))).then(setResolvedUrls);
     }, [stimulusUrls, randomize]);
 
-    // Start webcam
-    const startWebcam = useCallback(async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-            });
-            if (webcamVideoRef.current) {
+    const webcamStreamRef = useRef<MediaStream | null>(null);
+    const webcamStartRef = useRef<Promise<void> | null>(null);
+
+    const attachWebcam = useCallback((video: HTMLVideoElement | null) => {
+        webcamVideoRef.current = video;
+        if (video && webcamStreamRef.current) video.srcObject = webcamStreamRef.current;
+    }, []);
+
+    const startWebcam = useCallback((): Promise<void> => {
+        if (webcamStreamRef.current) return Promise.resolve();
+        webcamStartRef.current ??= (async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                });
+                if (!webcamVideoRef.current) {
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
+                webcamStreamRef.current = stream;
                 webcamVideoRef.current.srcObject = stream;
                 await webcamVideoRef.current.play();
                 setWebcamReady(true);
+            } catch (err) {
+                console.error('[EmotionAnalysis] Webcam error:', err);
+            } finally {
+                webcamStartRef.current = null;
             }
-        } catch (err) {
-            console.error('[EmotionAnalysis] Webcam error:', err);
-        }
+        })();
+        return webcamStartRef.current;
     }, []);
 
-    // Stop webcam
     const stopWebcam = useCallback(() => {
-        const video = webcamVideoRef.current;
-        if (video?.srcObject) {
-            (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-            video.srcObject = null;
-        }
+        webcamStreamRef.current?.getTracks().forEach(track => track.stop());
+        webcamStreamRef.current = null;
+        if (webcamVideoRef.current) webcamVideoRef.current.srcObject = null;
     }, []);
 
-    // Setup phase: start webcam
     useEffect(() => {
-        if (phase === 'setup') {
-            startWebcam();
-        }
-        return () => {
-            if (phase === 'setup') stopWebcam();
-        };
-    }, [phase, startWebcam, stopWebcam]);
+        if (phase === 'setup') void startWebcam();
+    }, [phase, startWebcam]);
 
     // Viewing: timer countdown
     useEffect(() => {
@@ -261,7 +268,7 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
 
                     <div className="w-64 h-48 bg-gray-800 rounded-xl mx-auto overflow-hidden relative">
                         <video
-                            ref={webcamVideoRef}
+                            ref={attachWebcam}
                             autoPlay
                             playsInline
                             muted
@@ -323,7 +330,7 @@ export const EmotionAnalysisRenderer: React.FC<EmotionAnalysisRendererProps> = (
                 </div>
 
                 {/* Hidden webcam (still capturing) */}
-                <video ref={webcamVideoRef} className="hidden" autoPlay playsInline muted />
+                <video ref={attachWebcam} className="hidden" autoPlay playsInline muted />
             </div>
         );
     }
