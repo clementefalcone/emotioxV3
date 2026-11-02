@@ -20,6 +20,7 @@ import { HeatmapSettingsModal, DEFAULT_HEATMAP_SETTINGS } from './HeatmapSetting
 import { buildShelfColumns } from '../../../utils/shelfLayout';
 import { AllExcludedNotice } from './AllExcludedNotice';
 import { ReliabilityFilter } from './ReliabilityFilter';
+import { QUALITY_GRADES, QUALITY_GRADE_DISPLAY } from './qualityGrade';
 import { useScopedEyeTrackingStimulus } from './useScopedEyeTrackingStimulus';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 import { gazePrecisionWeight } from './gazePrecisionWeight';
@@ -225,21 +226,24 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
 
       {/* Quality summary + participant table */}
       {stimulus.qualitySummary && (
-        <div className="border-b border-amber-100">
-          <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-amber-50">
+        <div className="border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-slate-50">
             <button
               type="button"
               onClick={() => setShowQualityTable(prev => !prev)}
               className="flex flex-1 items-center gap-2 text-xs text-left hover:opacity-80 transition-opacity"
             >
-              <ShieldCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span className="text-amber-700 flex-1">
-                Fiabilidad: <span className="font-medium text-green-700">{stimulus.qualitySummary.good} buena</span>
-                {' · '}<span className="font-medium text-amber-700">{stimulus.qualitySummary.fair} regular</span>
-                {' · '}<span className="font-medium text-red-700">{stimulus.qualitySummary.low} baja</span>
-                {' · '}se muestran {stimulus.qualitySummary.total - excludedParticipants.size} de {stimulus.qualitySummary.total}
+              <ShieldCheck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+              <span className="text-slate-600 flex-1">
+                Precisión:{' '}
+                {QUALITY_GRADES.map(grade => (
+                  <span key={grade} className={cn('font-medium', QUALITY_GRADE_DISPLAY[grade].textClass)}>
+                    {stimulus.qualitySummary?.[grade]} {QUALITY_GRADE_DISPLAY[grade].label} ·{' '}
+                  </span>
+                ))}
+                se muestran {stimulus.qualitySummary.total - excludedParticipants.size} de {stimulus.qualitySummary.total}
               </span>
-              <span className="text-amber-500">{showQualityTable ? '▲' : '▼'}</span>
+              <span className="text-slate-400">{showQualityTable ? '▲' : '▼'}</span>
             </button>
             <ReliabilityFilter
               participants={stimulus.participants}
@@ -254,7 +258,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-1.5 pr-3 font-medium text-gray-600">Participant</th>
-                    <th className="text-center py-1.5 px-2 font-medium text-gray-600">Grade</th>
+                    <th className="text-center py-1.5 px-2 font-medium text-gray-600">Precisión</th>
                     <th className="text-center py-1.5 px-2 font-medium text-gray-600">Calibration</th>
                     <th className="text-center py-1.5 px-2 font-medium text-gray-600">RMSE</th>
                     <th className="text-center py-1.5 px-2 font-medium text-gray-600">Integrity</th>
@@ -282,13 +286,12 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                 </thead>
                 <tbody>
                   {stimulus.participants.map(p => {
-                    const gradeColor = p.qualityGrade === 'good' ? 'text-green-700 bg-green-50' : p.qualityGrade === 'fair' ? 'text-amber-700 bg-amber-50' : 'text-red-700 bg-red-50';
                     const isExcluded = excludedParticipants.has(p.participantId);
                     return (
                       <tr key={p.participantId} className={cn('border-b border-gray-100', isExcluded && 'opacity-40')}>
                         <td className="py-1.5 pr-3 text-gray-800 font-mono">{p.participantId.slice(0, 12)}</td>
                         <td className="text-center py-1.5 px-2">
-                          <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', gradeColor)}>{p.qualityGrade}</span>
+                          <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium capitalize', QUALITY_GRADE_DISPLAY[p.qualityGrade].badgeClass)}>{QUALITY_GRADE_DISPLAY[p.qualityGrade].label}</span>
                         </td>
                         <td className="text-center py-1.5 px-2 text-gray-500">{p.calibrationQuality}</td>
                         <td className="text-center py-1.5 px-2 text-gray-500">{p.calibrationRmsePx != null ? `${Math.round(p.calibrationRmsePx)}px` : '—'}</td>

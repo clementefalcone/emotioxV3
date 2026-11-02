@@ -20,17 +20,17 @@ describe('ReliabilityFilter', () => {
     renderFilter(new Set());
 
     expect(screen.getByRole('button', { name: 'Todos (4)' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Regular o mejor (2)' }).getAttribute('aria-pressed')).toBe('false');
-    expect(screen.getByRole('button', { name: 'Solo buena (1)' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Media o alta (2)' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Solo alta (1)' }).getAttribute('aria-pressed')).toBe('false');
   });
 
   it('excludes the participants below the chosen level', () => {
     const onChange = renderFilter(new Set());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Regular o mejor (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Media o alta (2)' }));
     expect(onChange).toHaveBeenCalledWith(new Set(['p-low-1', 'p-low-2']));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Solo buena (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solo alta (1)' }));
     expect(onChange).toHaveBeenLastCalledWith(new Set(['p-fair', 'p-low-1', 'p-low-2']));
   });
 

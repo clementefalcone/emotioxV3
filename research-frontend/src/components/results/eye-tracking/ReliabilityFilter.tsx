@@ -1,6 +1,5 @@
 import { cn } from '../../../lib/utils';
-
-type QualityGrade = 'good' | 'fair' | 'low';
+import type { QualityGrade } from './qualityGrade';
 
 interface ReliabilityParticipant {
   participantId: string;
@@ -9,8 +8,8 @@ interface ReliabilityParticipant {
 
 const RELIABILITY_FILTERS: ReadonlyArray<{ id: string; label: string; accepts: (grade: QualityGrade) => boolean }> = [
   { id: 'all', label: 'Todos', accepts: () => true },
-  { id: 'fair', label: 'Regular o mejor', accepts: (grade) => grade !== 'low' },
-  { id: 'good', label: 'Solo buena', accepts: (grade) => grade === 'good' },
+  { id: 'fair', label: 'Media o alta', accepts: (grade) => grade !== 'low' },
+  { id: 'good', label: 'Solo alta', accepts: (grade) => grade === 'good' },
 ];
 
 interface ReliabilityFilterProps {
@@ -27,7 +26,7 @@ const isSameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean =>
 
 export function ReliabilityFilter({ participants, excludedParticipants, onChange }: ReliabilityFilterProps) {
   return (
-    <div className="flex items-center gap-1" role="group" aria-label="Filtrar por fiabilidad">
+    <div className="flex items-center gap-1" role="group" aria-label="Filtrar por precisión">
       {RELIABILITY_FILTERS.map((filter) => {
         const excluded = excludedBy(participants, filter.accepts);
         const isActive = isSameSet(excluded, excludedParticipants);
