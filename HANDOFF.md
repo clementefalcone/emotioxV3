@@ -1,6 +1,10 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-11-01 · Versión: v0.99.65 · Producción = `main` = `origin/main` (backend, research y participant desplegados hoy).
+Actualizado: 2026-11-02 · Versión: v0.99.67 · Producción = `main` = `origin/main`.
+
+## Sesión 2026-11-02
+- v0.99.67: caras de Action Units rediseñadas (`ActionUnitFace.tsx`), research desplegado. Falta verlas dentro de Resultados.
+- Feedback "sale Fair, no hay auto-focus ni zoom al rostro": la sesión de escritorio (`kiosk-18`, 01-nov) tuvo un error de 193 px / 1698 px = 11,4 % (Fair empieza en 10 %), la mejor de escritorio registrada. Zoom/auto-focus nunca existió; la guía de rostro (`FacePositionPhase`) sí. Decisión: no hacer zoom de cámara (no mejora la precisión). Pendiente si se quiere zoom visual en el círculo de la guía.
 
 ## Hecho en esta sesión (v0.99.39 → v0.99.58)
 
