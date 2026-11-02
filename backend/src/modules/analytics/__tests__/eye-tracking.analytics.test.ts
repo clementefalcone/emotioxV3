@@ -321,7 +321,7 @@ describe('getEyeTrackingResults', () => {
       expect(result.stimuli[0].participants[0].qualityGrade).toBe('fair');
     });
 
-    it('classifies as fair when RMSE is between 10% and 20% of the screen width', async () => {
+    it('classifies as good when RMSE is 11% of the screen width, typical of a desktop webcam', async () => {
       const row = buildRow('p1', {
         fixations: [
           { x: 10, y: 10, duration: 100, timestamp: 0 },
@@ -329,6 +329,24 @@ describe('getEyeTrackingResults', () => {
           { x: 30, y: 30, duration: 100, timestamp: 200 },
         ],
         calibrationRmsePx: 191,
+        viewportWidth: 1680,
+        integrityScore: 0.9,
+        calibrationQuality: 'good',
+      });
+      setupStandardMocks({ responses: [[row]] });
+
+      const result = await getEyeTrackingResults('research-1');
+      expect(result.stimuli[0].participants[0].qualityGrade).toBe('good');
+    });
+
+    it('classifies as fair when RMSE is between 15% and 25% of the screen width', async () => {
+      const row = buildRow('p1', {
+        fixations: [
+          { x: 10, y: 10, duration: 100, timestamp: 0 },
+          { x: 20, y: 20, duration: 100, timestamp: 100 },
+          { x: 30, y: 30, duration: 100, timestamp: 200 },
+        ],
+        calibrationRmsePx: 336,
         viewportWidth: 1680,
         integrityScore: 0.9,
         calibrationQuality: 'good',
@@ -356,14 +374,14 @@ describe('getEyeTrackingResults', () => {
       expect(result.stimuli[0].participants[0].qualityGrade).toBe('fair');
     });
 
-    it('classifies as low when RMSE is above 20% of the screen width', async () => {
+    it('classifies as low when RMSE is above 25% of the screen width', async () => {
       const row = buildRow('p1', {
         fixations: [
           { x: 10, y: 10, duration: 100, timestamp: 0 },
           { x: 20, y: 20, duration: 100, timestamp: 100 },
           { x: 30, y: 30, duration: 100, timestamp: 200 },
         ],
-        calibrationRmsePx: 350,
+        calibrationRmsePx: 450,
         viewportWidth: 1680,
         integrityScore: 0.9,
       });

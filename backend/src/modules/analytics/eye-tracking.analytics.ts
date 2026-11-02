@@ -297,9 +297,9 @@ const computeEmotionMetrics = (
  */
 const ET_QUALITY_THRESHOLDS = {
   /** Max calibration RMSE as a fraction of the screen width. Above = low quality. */
-  maxCalibrationErrorRatio: 0.2,
+  maxCalibrationErrorRatio: 0.25,
   /** Calibration RMSE as a fraction of the screen width above which quality is only fair. */
-  fairCalibrationErrorRatio: 0.1,
+  fairCalibrationErrorRatio: 0.15,
   /** Min integrity score (0-1). Below = low quality. */
   minIntegrityScore: 0.4,
   /** Min fixation count. Below = insufficient data. */
