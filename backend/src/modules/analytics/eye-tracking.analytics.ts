@@ -49,6 +49,7 @@ interface EyeTrackingStimulus {
     calibrationQuality: string;
     calibrationRmsePx: number | null;
     calibrationErrorPercent: number | null;
+    faceDetectedPercent: number | null;
     integrityScore: number;
     totalFixations: number;
     totalDwellTime: number;
@@ -362,6 +363,7 @@ const computeEyeTrackingMetrics = (
     calibrationQuality: string;
     calibrationRmsePx: number | null;
     calibrationErrorPercent: number | null;
+    faceDetectedPercent: number | null;
     integrityScore: number;
     totalFixations: number;
     totalDwellTime: number;
@@ -418,6 +420,7 @@ const computeEyeTrackingMetrics = (
         calibrationQuality: calQuality,
         calibrationRmsePx: rmsePx,
         calibrationErrorPercent: calibrationErrorRatio !== null ? Math.round(calibrationErrorRatio * 1000) / 10 : null,
+        faceDetectedPercent: typeof parsed?.faceDetectedPercent === 'number' ? parsed.faceDetectedPercent : null,
         integrityScore: integrity,
         totalFixations: fixations.length,
         totalDwellTime: totalDwell,

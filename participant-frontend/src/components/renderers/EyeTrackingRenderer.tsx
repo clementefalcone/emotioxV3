@@ -5,6 +5,7 @@ import { useConsentRecorder } from '../../hooks/useConsentRecorder';
 import { mediaService } from '../../services/media.service';
 import { useBlazeGaze } from '../../hooks/useBlazeGaze';
 import { useMediaPipeGaze } from '../../hooks/useMediaPipeGaze';
+import { faceDetectedPercent } from '../../lib/eyeTracking/faceDetectedPercent';
 import { useFaceApiEmotions } from '../../hooks/useFaceApiEmotions';
 import {
     BLAZE_GAZE_MEDIA_STREAM_CONSTRAINTS,
@@ -684,6 +685,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 gazePipeline: 'hybrid-zone-idt',
                 calibrationRmsePx: calibrationRmsePxRef.current,
                 calibrationInterruptions: calibrationSequence.interruptionCount,
+                faceDetectedPercent: useMP ? faceDetectedPercent(mpGaze.getFrameStats()) : null,
                 faceDistanceCm: calibrationDistancesCmRef.current.length > 0
                     ? Math.round(calibrationDistancesCmRef.current.reduce((sum, d) => sum + d, 0) / calibrationDistancesCmRef.current.length)
                     : null,

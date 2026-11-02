@@ -76,6 +76,7 @@ function buildRow(pid: string, opts: {
   shelfColumnOrder?: unknown;
   gazeTimelineUnit?: string | null;
   deviceType?: string;
+  faceDetectedPercent?: number;
 } = {}) {
   const gazeTimelineUnit = opts.gazeTimelineUnit === undefined ? 'stimulus-percent' : opts.gazeTimelineUnit;
   return {
@@ -98,6 +99,7 @@ function buildRow(pid: string, opts: {
       ...(opts.fixationUnit !== undefined ? { fixationUnit: opts.fixationUnit } : {}),
       ...(opts.shelfColumnOrder !== undefined ? { shelfColumnOrder: opts.shelfColumnOrder } : {}),
       ...(opts.deviceType !== undefined ? { deviceType: opts.deviceType } : {}),
+      ...(opts.faceDetectedPercent !== undefined ? { faceDetectedPercent: opts.faceDetectedPercent } : {}),
     }),
     created_at: new Date(),
   };
@@ -1806,12 +1808,13 @@ describe('participant precision fields', () => {
       viewportWidth: 402,
       viewportHeight: 714,
       deviceType: 'mobile',
+      faceDetectedPercent: 92.5,
     });
     setupStandardMocks({ modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({}) }], responses: [[row]] });
 
     const result = await getEyeTrackingResults('research-1');
 
-    expect(result.stimuli[0].participants[0]).toMatchObject({ deviceType: 'mobile', calibrationErrorPercent: 38 });
+    expect(result.stimuli[0].participants[0]).toMatchObject({ deviceType: 'mobile', calibrationErrorPercent: 38, faceDetectedPercent: 92.5 });
   });
 });
 

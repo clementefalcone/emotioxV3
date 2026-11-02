@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useMediaPipeGaze } from '../useMediaPipeGaze';
+import { faceDetectedPercent } from '../../lib/eyeTracking/faceDetectedPercent';
 import { EYE_LOOK_BLENDSHAPES } from '../../lib/eyeTracking/constants';
 
 const face = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
@@ -10,9 +11,11 @@ const eyes: Record<number, [number, number]> = {
 };
 for (const [index, [x, y]] of Object.entries(eyes)) face[Number(index)] = { x, y, z: 0 };
 
+const camera = vi.hoisted(() => ({ isFaceVisible: true }));
+
 vi.mock('../../lib/eyeTracking/faceLandmarker', () => ({
     createFaceLandmarker: vi.fn(async () => ({
-        detectForVideo: () => ({ faceLandmarks: [face], facialTransformationMatrixes: [], faceBlendshapes: [{ categories: EYE_LOOK_BLENDSHAPES.map((categoryName, index) => ({ categoryName, score: 0, index, displayName: '' })) }] }),
+        detectForVideo: () => ({ faceLandmarks: camera.isFaceVisible ? [face] : [], facialTransformationMatrixes: [], faceBlendshapes: [{ categories: EYE_LOOK_BLENDSHAPES.map((categoryName, index) => ({ categoryName, score: 0, index, displayName: '' })) }] }),
         close: vi.fn(),
     })),
 }));
@@ -32,7 +35,7 @@ describe('useMediaPipeGaze calibration sampling', () => {
         vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frameCallbacks.push(callback); return frameCallbacks.length; });
         vi.stubGlobal('cancelAnimationFrame', vi.fn());
     });
-    afterEach(() => vi.unstubAllGlobals());
+    afterEach(() => { vi.unstubAllGlobals(); camera.isFaceVisible = true; });
 
     it('adds one calibration sample per tracked frame while a target is set', async () => {
         const videoRef = { current: { readyState: 4, videoWidth: 1280, videoHeight: 720 } as HTMLVideoElement };
@@ -48,5 +51,18 @@ describe('useMediaPipeGaze calibration sampling', () => {
 
         act(() => { result.current.collectCalibrationSamples(null); runFrames(4); });
         expect(result.current.predictorRef.current.sampleCount).toBe(5);
+    });
+
+    it('reports the share of analyzed frames where a face was found', async () => {
+        const videoRef = { current: { readyState: 4, videoWidth: 1280, videoHeight: 720 } as HTMLVideoElement };
+        const { result } = renderHook(() => useMediaPipeGaze(videoRef));
+        await waitFor(() => expect(result.current.isLoaded).toBe(true));
+        act(() => result.current.start());
+
+        act(() => runFrames(3));
+        camera.isFaceVisible = false;
+        act(() => runFrames(1));
+
+        expect(faceDetectedPercent(result.current.getFrameStats())).toBe(75);
     });
 });

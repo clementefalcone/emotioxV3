@@ -56,6 +56,7 @@ export interface UseMediaPipeGazeOptions {
 
 export interface MediaPipeGazeFrameStats {
   invalidFrames: number;
+  noFaceFrames: number;
   noValidGazeFrames: number;
   validGazeFrames: number;
   captureWidthPx: number | null;
@@ -101,8 +102,8 @@ export function useMediaPipeGaze(
   const runningRef = useRef(false);
   const lastStateUpdateRef = useRef(0);
   const lastEmittedGazeStateRef = useRef<'open' | 'closed'>('closed');
-  const frameStatsRef = useRef<Pick<MediaPipeGazeFrameStats, 'invalidFrames' | 'noValidGazeFrames' | 'validGazeFrames'>>({
-    invalidFrames: 0, noValidGazeFrames: 0, validGazeFrames: 0,
+  const frameStatsRef = useRef<Pick<MediaPipeGazeFrameStats, 'invalidFrames' | 'noFaceFrames' | 'noValidGazeFrames' | 'validGazeFrames'>>({
+    invalidFrames: 0, noFaceFrames: 0, noValidGazeFrames: 0, validGazeFrames: 0,
   });
   const lastCaptureDimensionsRef = useRef<{ w: number; h: number } | null>(null);
 
@@ -180,7 +181,7 @@ export function useMediaPipeGaze(
   }, []);
 
   const resetFrameStats = useCallback((): void => {
-    frameStatsRef.current = { invalidFrames: 0, noValidGazeFrames: 0, validGazeFrames: 0 };
+    frameStatsRef.current = { invalidFrames: 0, noFaceFrames: 0, noValidGazeFrames: 0, validGazeFrames: 0 };
     lastCaptureDimensionsRef.current = null;
   }, []);
 
@@ -188,7 +189,7 @@ export function useMediaPipeGaze(
   const start = useCallback(() => {
     if (runningRef.current) return;
     runningRef.current = true;
-    frameStatsRef.current = { invalidFrames: 0, noValidGazeFrames: 0, validGazeFrames: 0 };
+    frameStatsRef.current = { invalidFrames: 0, noFaceFrames: 0, noValidGazeFrames: 0, validGazeFrames: 0 };
     lastCaptureDimensionsRef.current = null;
     lastEmittedGazeStateRef.current = 'closed';
     filterXRef.current?.reset();
@@ -220,6 +221,7 @@ export function useMediaPipeGaze(
       lastLandmarksRef.current = landmarks ?? null;
 
       if (!landmarks || landmarks.length < LANDMARK_INDICES.rightIrisCenter + 1) {
+        frameStatsRef.current.noFaceFrames += 1;
         frameStatsRef.current.noValidGazeFrames += 1;
         if (lastEmittedGazeStateRef.current !== 'closed') {
           lastEmittedGazeStateRef.current = 'closed';

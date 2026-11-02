@@ -488,6 +488,7 @@ export interface EyeTrackingParticipant {
     calibrationQuality: string;
     calibrationRmsePx: number | null;
     calibrationErrorPercent: number | null;
+    faceDetectedPercent: number | null;
     integrityScore: number;
     totalFixations: number;
     totalDwellTime: number;

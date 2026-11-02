@@ -5,7 +5,7 @@ import { summarizeGazePrecision } from '../gazePrecisionSummary';
 import type { EyeTrackingParticipant } from '../../../../services/analytics.service';
 
 const participant = (participantId: string, deviceType: string, calibrationErrorPercent: number | null): EyeTrackingParticipant => ({
-    participantId, deviceType, calibrationErrorPercent, calibrationQuality: 'mediapipe-13pt', calibrationRmsePx: null,
+    participantId, deviceType, calibrationErrorPercent, faceDetectedPercent: null, calibrationQuality: 'mediapipe-13pt', calibrationRmsePx: null,
     integrityScore: 1, totalFixations: 10, totalDwellTime: 1000, qualityGrade: 'low',
 });
 
@@ -33,5 +33,15 @@ describe('GazePrecisionNotice', () => {
     it('stays hidden when no session has a measured error', () => {
         const { container } = render(<GazePrecisionNotice participants={[participant('old', 'desktop', null)]} excludedParticipants={new Set()} aois={[]} />);
         expect(container.textContent).toBe('');
+    });
+
+    it('shows how often the face was found per device', () => {
+        const tracked = [
+            { ...participant('d1', 'desktop', null), faceDetectedPercent: 96 },
+            { ...participant('m1', 'mobile', null), faceDetectedPercent: 81.4 },
+        ];
+        render(<GazePrecisionNotice participants={tracked} excludedParticipants={new Set()} aois={[]} />);
+        expect(screen.getByText(/Rostro detectado durante la visualización: Escritorio 96 % · Móvil 81 % de los cuadros/)).toBeTruthy();
+        expect(screen.queryByText(/Margen de error/)).toBeNull();
     });
 });
