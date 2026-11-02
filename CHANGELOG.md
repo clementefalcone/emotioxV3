@@ -1,3 +1,10 @@
+## v0.99.67 — Eye Tracking: redesigned Action Unit faces (2026-11-02)
+
+### feat(eye-tracking): redesign action unit faces
+- **Why.** The researcher liked the AU hover faces but asked for a more current look than the bare line sketches.
+- **Change.** `ActionUnitFace` draws an avatar (hair, ears, neck, shoulders) on a soft indigo backdrop. The moving region glows (pulses unless reduced motion is on) and arrows show the muscle direction; AU4 adds frown lines. Same props, `role="img"` and aria-label.
+- **Check.** Live bundle `index-CgCoQsA8.js` matches the local build; `/research/` 200. Research 715 → 715, 0 failing. The 9 faces were rendered to PNG and reviewed; not seen inside the Results page.
+
 ## v0.99.66 — IAT: no gray hover band on attribute bars (2026-11-01)
 
 ### fix(iat): remove gray hover band on attribute bars
