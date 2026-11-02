@@ -1,3 +1,17 @@
+## v0.99.68 — Eye Tracking: precision grades for webcams, face detection rate (2026-11-02)
+
+### feat(analytics): grade gaze precision for webcams
+- **Why.** A desktop session at 11 % error, the best on record, graded fair; the researcher read the grade as doubt about data whose heatmaps look consistent.
+- **Change.** Cuts move from 10 % / 20 % to 15 % (media) and 25 % (básica) of the screen width. Existing studies regrade on the next load.
+
+### feat(eye-tracking): name grades by precision
+- **Change.** Good/fair/low in green/amber/red become precisión alta/media/básica in blue and slate (`qualityGrade.ts`). Filter: "Todos / Media o alta / Solo alta". The summary bar and margin notice lose the amber background. CSV keeps the `good/fair/low` keys.
+
+### feat(eye-tracking): measure face detection rate
+- **Why.** Whether desktop webcams lose the face more than phones (the case for a face crop / "zoom") was never measured.
+- **Change.** `useMediaPipeGaze` counts frames with no face; each session saves `faceDetectedPercent` over the viewing phase. Results shows the median per device under the margin: "Rostro detectado durante la visualización: Escritorio X % · Móvil Y % de los cuadros". Only new sessions carry it.
+- **Check.** Live backend `dist`, research `index-CSjZgFAV.js` and participant `ResearchPage-ZyMYXOJW.js` match the local build; health 200. Backend 718 → 719, research 715 → 716, participant 1166 → 1167, 0 failing. Not seen in the browser; no session has the new field yet.
+
 ## v0.99.67 — Eye Tracking: redesigned Action Unit faces (2026-11-02)
 
 ### feat(eye-tracking): redesign action unit faces

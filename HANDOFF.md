@@ -1,10 +1,13 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-11-02 · Versión: v0.99.67 · Producción = `main` = `origin/main`.
+Actualizado: 2026-11-02 · Versión: v0.99.68 · Producción = `main` = `origin/main`.
 
 ## Sesión 2026-11-02
 - v0.99.67: caras de Action Units rediseñadas (`ActionUnitFace.tsx`), research desplegado. Falta verlas dentro de Resultados.
 - Feedback "sale Fair, no hay auto-focus ni zoom al rostro": la sesión de escritorio (`kiosk-18`, 01-nov) tuvo un error de 193 px / 1698 px = 11,4 % (Fair empieza en 10 %), la mejor de escritorio registrada. Zoom/auto-focus nunca existió; la guía de rostro (`FacePositionPhase`) sí. Decisión: no hacer zoom de cámara (no mejora la precisión). Pendiente si se quiere zoom visual en el círculo de la guía.
+- v0.99.68 (desplegado en los 3): cortes de precisión 15 % / 25 %, nombres alta/media/básica en azul/gris, y `faceDetectedPercent` por sesión con mediana por dispositivo en Resultados.
+- **Siguiente:** juntar sesiones nuevas en escritorio y móvil, comparar % de rostro detectado. Si escritorio queda claramente bajo, implementar recorte de la cara (ROI) antes de MediaPipe.
+- SSH de cPanel corta conexiones seguidas (timeouts). Desplegar con un wrapper `ssh` con `ControlMaster` en el PATH (ver sesión); el `scp` del deploy de research no lo usa y puede requerir reintento.
 
 ## Hecho en esta sesión (v0.99.39 → v0.99.58)
 
