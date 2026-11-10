@@ -400,6 +400,17 @@ const collectResearchMediaPaths = async (researchId: string): Promise<string[]> 
         for (const m of matches) paths.push(m[1]);
     }
 
+    const webcamResponses = await pool.query(
+        `SELECT value FROM responses
+         WHERE research_id = ? AND component_id = 'eye-tracking-data' AND value LIKE '%"webcamRecording"%'`,
+        [researchId]
+    );
+    for (const row of webcamResponses.rows) {
+        const valueStr = typeof row.value === 'string' ? row.value : JSON.stringify(row.value);
+        const matches = valueStr.matchAll(/"mediaPath"\s*:\s*"(research\/[^"]+\/webcam\/[^"]+)"/g);
+        for (const m of matches) paths.push(m[1]);
+    }
+
     // Deduplicate
     return [...new Set(paths)];
 };
