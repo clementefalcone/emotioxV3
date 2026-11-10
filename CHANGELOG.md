@@ -1,3 +1,13 @@
+## v0.99.69 — Eye Tracking results: stimulus fits any screen (2026-11-10)
+
+### fix(eye-tracking): keep stimulus inside the card
+- **Why.** On a 13" screen the stimulus was cut: its width came from `innerWidth - 400`, wider than the real results panel, and the card's `overflow-hidden` clipped it. The shelf composite stretched each product to the first image's cell.
+- **Change.** `StimulusCard` sizes the stimulus with CSS `min(100%, 1200px, natural × 1.2, 72vh × ratio)` from the displayed image (shelf composite included). Shelf products are letterboxed like the participant `ShelfGrid`. Transparency uses the same width as the other tabs.
+
+### fix(eye-tracking): crop AOI thumbnails to the AOI
+- **Change.** New `AoiThumbnail` (SVG viewBox in image pixels) replaces the `object-fit: cover` thumbnails in `AOIRow` and `AOIDrawer`, which showed almost the whole stimulus. The AOI drawer image no longer overflows the modal.
+- **Check.** Research 716 → 717, 0 failing. In the browser (iframe at 1280×720, 1440×800, 1920×950) on a study with 15 responses: shelf and stand-alone stimulus keep their ratio in every tab, stay inside the card, no horizontal scroll. Live research `index-yBALm9ds.js` matches the local build.
+
 ## v0.99.68 — Eye Tracking: precision grades for webcams, face detection rate (2026-11-02)
 
 ### feat(analytics): grade gaze precision for webcams
