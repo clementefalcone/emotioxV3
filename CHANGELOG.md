@@ -1,3 +1,19 @@
+## v0.99.73 — Eye Tracking: participant webcam recording (2026-11-10)
+
+### feat(eye-tracking): store webcam recordings
+- **Why.** Researchers want to compare where the gaze lands with what the participant actually did.
+- **Change.** `PUT /api/public/research/:id/webcam-recording?moduleId&participantId` (both Passenger entry points, `express.raw` video/*, 20 MB). Requires active research, module with `webcam-recording = 'true'`, accepted `eye_tracking` consent; rejects bad type/empty body/unsafe participant id (400), unknown module (404), toggle off (422), no consent (403). Stored on cPanel at `media/research/<id>/webcam/<uuid>.<webm|mp4>` — never AWS. Analytics adds `participants[].webcamRecording { url, offsetMs }`.
+
+### fix(research): trash webcam videos on delete
+- **Change.** `collectResearchMediaPaths` also reads `webcamRecording.mediaPath` from eye-tracking responses, so deleting a study moves its recordings to `_trash/` like the rest of its media.
+
+### feat(eye-tracking): record participant webcam
+- **Change.** With the toggle on, consent drops "no guardamos video", explains the recording and adds an optional opt-in checkbox; the stored consent text ends with the decision. Opt-in records the existing camera stream (video only, 300 kbps) from viewing start, uploads at the end and saves `webcamRecording { mediaPath, offsetMs }`. Failed upload → session saved without video. Preview never uploads.
+
+### feat(eye-tracking): webcam toggle and synced player
+- **Change.** Builder checkbox **Record participant webcam video** (persisted via `injectVirtual`, no template migration). Replay shows the participant's webcam beside the stimulus, synced with play/pause/scrub/speed (`WebcamRecordingPlayer`). Video export does not include it.
+- **Check.** Backend 719 → 727, participant 1168 → 1170, research 727 → 728, 0 failing. Live endpoint returned 404 / 422 / 400 / 400 for unknown module, toggle off, `image/png`, `../etc` (1-byte bodies, nothing stored). Live research `index-fJ3zYa83.js` and participant `index-qfLlnTdv.js` match local; models re-uploaded (69 MB + 34 MB). Not tested end to end: no real session recorded yet.
+
 ## v0.99.72 — Results on 13" screens, replay of all participants (2026-11-10)
 
 ### fix(results): fit header actions on 13in screens
