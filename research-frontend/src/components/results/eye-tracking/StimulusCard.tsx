@@ -25,6 +25,8 @@ import { useScopedEyeTrackingStimulus } from './useScopedEyeTrackingStimulus';
 import type { HeatmapSettings } from './HeatmapSettingsModal';
 import { gazePrecisionWeight } from './gazePrecisionWeight';
 import { GazePrecisionNotice } from './GazePrecisionNotice';
+import { GazeReplayPanel } from './GazeReplayPanel';
+import { buildGridZones } from './gazeReplay';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
   const stimulus = { ...rawStimulus, stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl) };
@@ -173,6 +175,15 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   }, [isShelf, resolvedShelfUrls, stimulus.shelfItems, stimulus.shelfCount, stimulus.shelfRepetitions]);
 
   const effectiveStimulusUrl = isShelf && shelfCompositeUrl ? shelfCompositeUrl : stimulus.stimulusUrl;
+
+  const includedFixations = useMemo(
+    () => stimulus.fixations.filter(f => !excludedParticipants.has(f.participantId)),
+    [stimulus.fixations, excludedParticipants],
+  );
+  const replayZones = useMemo(
+    () => shownStimulus.aois.length > 0 ? shownStimulus.aois : buildGridZones(),
+    [shownStimulus.aois],
+  );
 
   useEffect(() => {
     if (!effectiveStimulusUrl || isVideo) return;
@@ -377,6 +388,13 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
               />
             </>
           )}
+          {!isVideo && stimulus.fixations.length > 0 && (
+            <ViewModeTab
+              active={viewMode === 'replay'}
+              onClick={() => setViewMode('replay')}
+              label="Replay"
+            />
+          )}
           {stimulus.sequenceAnalysis && !isShelf && (
             <ViewModeTab
               active={viewMode === 'sequence'}
@@ -541,6 +559,12 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
           <ScanpathOverlay
             imageUrl={effectiveStimulusUrl}
             fixations={stimulus.fixations.filter(f => !excludedParticipants.has(f.participantId))}
+          />
+        ) : viewMode === 'replay' && stimulus.stimulusUrl ? (
+          <GazeReplayPanel
+            imageUrl={effectiveStimulusUrl}
+            fixations={includedFixations}
+            zones={replayZones}
           />
         ) : viewMode === 'comparison' && shownStimulus.aois.length > 0 ? (
           <ShelfComparison

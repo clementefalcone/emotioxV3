@@ -4,7 +4,7 @@ import type { EyeTrackingAOI, EkmanEmotion } from '../../../services/analytics.s
 import { resolveMediaUrl } from '../../../services/media.service';
 import { AoiThumbnail } from '../../research/AoiThumbnail';
 
-export type ViewMode = 'heatmap' | 'density' | 'image' | 'emotions' | 'prediction' | 'video' | 'scanpath' | 'firstlook' | 'transparency' | 'sequence' | 'comparison';
+export type ViewMode = 'heatmap' | 'density' | 'image' | 'emotions' | 'prediction' | 'video' | 'scanpath' | 'firstlook' | 'transparency' | 'sequence' | 'comparison' | 'replay';
 
 /** Resolve stimulusUrl: may be a clean URL or a JSON array string from the backend. */
 export const resolveStimulusUrl = (raw: string): string => {
