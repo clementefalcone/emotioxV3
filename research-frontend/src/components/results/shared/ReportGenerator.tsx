@@ -155,17 +155,19 @@ export const ReportGeneratorButton = ({ researchId, filteredParticipantIds }: { 
         <button
             onClick={handleGenerate}
             disabled={generating}
+            title="PDF"
+            aria-label="PDF"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
         >
             {generating ? (
                 <>
                     <FileText className="h-3.5 w-3.5 animate-pulse" />
-                    ...
+                    <span className="hidden 2xl:inline">...</span>
                 </>
             ) : (
                 <>
                     <Download className="h-3.5 w-3.5" />
-                    PDF
+                    <span className="hidden 2xl:inline">PDF</span>
                 </>
             )}
         </button>

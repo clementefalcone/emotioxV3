@@ -47,10 +47,11 @@ export const ShareResultsButton = ({ research }: { research: Research }) => {
                 onClick={handleShare}
                 disabled={setPublicResults.isPending}
                 title="Anyone with the link can view the results without signing in"
+                aria-label={isPublic ? 'Copy public link' : 'Share'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors disabled:opacity-50 ${isPublic ? 'rounded-l-lg' : 'rounded-lg'}`}
             >
                 {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Share2 className="h-3.5 w-3.5" />}
-                {copied ? 'Copied!' : isPublic ? 'Copy public link' : 'Share'}
+                <span className="hidden 2xl:inline">{copied ? 'Copied!' : isPublic ? 'Copy public link' : 'Share'}</span>
             </button>
             {isPublic && (
                 <button

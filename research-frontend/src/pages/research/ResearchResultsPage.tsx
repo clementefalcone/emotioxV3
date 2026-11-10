@@ -176,8 +176,8 @@ export const ResearchResultsPage = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             {/* Top bar: Tabs + Export — fixed height */}
-            <div className="shrink-0 px-6 pt-4 pb-0 border-b border-gray-200 flex items-center justify-between">
-                <nav className="flex gap-1 overflow-x-auto">
+            <div className="shrink-0 px-6 pt-4 pb-0 border-b border-gray-200 flex items-center justify-between gap-4">
+                <nav className="flex gap-1 min-w-0 overflow-x-auto scrollbar-hide">
                     {dynamicTabs.map(tab => (
                         <button
                             key={tab.key}
@@ -196,22 +196,26 @@ export const ResearchResultsPage = () => {
                         </button>
                     ))}
                 </nav>
-                <div className="flex items-center gap-2 pb-1">
+                <div className="flex shrink-0 items-center gap-2 pb-1 whitespace-nowrap">
                     <button
                         onClick={handleExport}
                         disabled={exporting}
+                        title="Export CSV"
+                        aria-label="Export CSV"
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
                         <Download className="h-3.5 w-3.5" />
-                        {exporting ? '...' : 'Export CSV'}
+                        <span className="hidden 2xl:inline">{exporting ? '...' : 'Export CSV'}</span>
                     </button>
                     <button
                         onClick={handleExportPptx}
                         disabled={exportingPptx}
+                        title="Slides"
+                        aria-label="Slides"
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
                         <Presentation className="h-3.5 w-3.5" />
-                        {exportingPptx ? '...' : 'Slides'}
+                        <span className="hidden 2xl:inline">{exportingPptx ? '...' : 'Slides'}</span>
                     </button>
                     <ReportGeneratorButton researchId={id} filteredParticipantIds={filteredPidsArray} />
                     <div className="w-px h-5 bg-gray-200" />
