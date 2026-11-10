@@ -12,7 +12,7 @@ vi.mock('../../../config/local-storage', () => ({
   getMediaUrl: vi.fn((key: string) => `/api/media/${key}`),
 }));
 
-import { getEyeTrackingResults, getBenchmarkResults, readGazeUncertainty } from '../eye-tracking.analytics';
+import { getEyeTrackingResults, getBenchmarkResults, readGazeUncertainty, readWebcamRecording } from '../eye-tracking.analytics';
 import pool from '../../../config/database';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
@@ -1829,5 +1829,16 @@ describe('readGazeUncertainty', () => {
     expect(readGazeUncertainty(null, 402, 714)).toBeUndefined();
     expect(readGazeUncertainty(152.6, undefined, 714)).toBeUndefined();
     expect(readGazeUncertainty(0, 402, 714)).toBeUndefined();
+  });
+});
+
+describe('readWebcamRecording', () => {
+  it('exposes the stored webcam video as a media url with its offset from stimulus onset', () => {
+    expect(readWebcamRecording({ mediaPath: 'research/r1/webcam/a.webm', offsetMs: 12 })).toEqual({ url: '/api/media/research/r1/webcam/a.webm', offsetMs: 12 });
+  });
+
+  it('ignores sessions without a recording or with a path outside research media', () => {
+    expect(readWebcamRecording(undefined)).toBeNull();
+    expect(readWebcamRecording({ mediaPath: '../secrets' })).toBeNull();
   });
 });

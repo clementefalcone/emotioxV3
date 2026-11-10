@@ -54,6 +54,7 @@ interface EyeTrackingStimulus {
     totalFixations: number;
     totalDwellTime: number;
     qualityGrade: 'good' | 'fair' | 'low';
+    webcamRecording: { url: string; offsetMs: number } | null;
   }>;
   qualitySummary: {
     total: number;
@@ -350,6 +351,12 @@ export const readGazeUncertainty = (rmsePx: unknown, viewportWidth: unknown, vie
   return { x: (perAxisPx / viewportWidth) * 100, y: (perAxisPx / viewportHeight) * 100 };
 };
 
+export const readWebcamRecording = (value: unknown): { url: string; offsetMs: number } | null => {
+  const recording = value as { mediaPath?: unknown; offsetMs?: unknown } | null | undefined;
+  if (typeof recording?.mediaPath !== 'string' || !recording.mediaPath.startsWith('research/')) return null;
+  return { url: getMediaUrl(recording.mediaPath), offsetMs: typeof recording.offsetMs === 'number' ? recording.offsetMs : 0 };
+};
+
 const computeEyeTrackingMetrics = (
   responses: any[],
   configAois: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>,
@@ -368,6 +375,7 @@ const computeEyeTrackingMetrics = (
     totalFixations: number;
     totalDwellTime: number;
     qualityGrade: QualityGrade;
+    webcamRecording: { url: string; offsetMs: number } | null;
   }>();
   // Emotion samples per participant (for Emotion × AOI correlation)
   const emotionsByParticipant = new Map<string, EmotionSample[]>();
@@ -425,6 +433,7 @@ const computeEyeTrackingMetrics = (
         totalFixations: fixations.length,
         totalDwellTime: totalDwell,
         qualityGrade: grade,
+        webcamRecording: readWebcamRecording(parsed?.webcamRecording),
       });
     } catch { /* skip malformed */ }
   }

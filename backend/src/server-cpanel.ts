@@ -145,6 +145,29 @@ app.put('/api/media/upload-direct', express.raw({ type: '*/*', limit: '50mb' }),
     }
 });
 
+app.put('/api/public/research/:researchId/webcam-recording', express.raw({ type: 'video/*', limit: '20mb' }), async (req: Request, res: Response) => {
+    const { saveWebcamRecording, WebcamRecordingRejectedError } = await import('./modules/public/public.webcam-recording');
+    const researchId = String(req.params.researchId);
+    try {
+        const result = await saveWebcamRecording({
+            researchId,
+            moduleId: String(req.query.moduleId ?? ''),
+            participantId: String(req.query.participantId ?? ''),
+            contentType: req.headers['content-type'] ?? '',
+            data: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
+        });
+        res.status(201).json(result);
+    } catch (error) {
+        if (error instanceof WebcamRecordingRejectedError) {
+            console.warn(JSON.stringify({ event: 'webcam_recording_rejected', researchId, reason: error.message }));
+            res.status(error.statusCode).json({ error: error.message });
+            return;
+        }
+        console.error(JSON.stringify({ event: 'webcam_recording_failed', researchId, error: error instanceof Error ? error.message : String(error) }));
+        res.status(500).json({ error: `Could not store webcam recording for research ${researchId}` });
+    }
+});
+
 // ─── Upload heatmap video from external renderer (Colab) ─────────
 app.post('/api/attention-prediction/upload-heatmap-video', upload.single('file'), async (req: Request, res: Response) => {
     try {

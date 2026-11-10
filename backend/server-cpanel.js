@@ -158,6 +158,27 @@ app.put('/api/media/upload-direct', express.raw({ type: '*/*', limit: '50mb' }),
     }
 });
 
+app.put('/api/public/research/:researchId/webcam-recording', express.raw({ type: 'video/*', limit: '20mb' }), async (req, res) => {
+    const { saveWebcamRecording, WebcamRecordingRejectedError } = require('./dist/modules/public/public.webcam-recording');
+    try {
+        const result = await saveWebcamRecording({
+            researchId: req.params.researchId,
+            moduleId: String(req.query.moduleId || ''),
+            participantId: String(req.query.participantId || ''),
+            contentType: req.headers['content-type'] || '',
+            data: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
+        });
+        res.status(201).json(result);
+    } catch (error) {
+        if (error instanceof WebcamRecordingRejectedError) {
+            console.warn(JSON.stringify({ event: 'webcam_recording_rejected', researchId: req.params.researchId, reason: error.message }));
+            return res.status(error.statusCode).json({ error: error.message });
+        }
+        console.error(JSON.stringify({ event: 'webcam_recording_failed', researchId: req.params.researchId, error: error instanceof Error ? error.message : String(error) }));
+        res.status(500).json({ error: `Could not store webcam recording for research ${req.params.researchId}` });
+    }
+});
+
 // ─── Upload heatmap video from external renderer (Colab) ─────────
 // POST /api/attention-prediction/upload-heatmap-video
 // Body: multipart/form-data with file + researchId + stimulusMediaId + secret
