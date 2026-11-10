@@ -1,14 +1,16 @@
 import {
   countStartedFixations,
-  findActiveFixationIndex,
-  findZoneAt,
+  resolveGazeFocus,
+  selectRecentGazeSamples,
   type ReplayFixation,
+  type ReplayGazeSample,
   type ReplayZone,
 } from './gazeReplay';
 
 export interface GazeReplayFrame {
   readonly image: CanvasImageSource;
   readonly fixations: readonly ReplayFixation[];
+  readonly gazeSamples: readonly ReplayGazeSample[];
   readonly zones: readonly ReplayZone[];
   readonly timeMs: number;
 }
@@ -16,25 +18,22 @@ export interface GazeReplayFrame {
 const ACCENT = '#006AFF';
 const ACTIVE_FIXATION = '#EF4444';
 const FIXATION_GROWTH_MS = 300;
-
-const describeGazeState = (fixation: ReplayFixation | null, zone: ReplayZone | null): string => {
-  if (!fixation) return 'Sin fijación';
-  return zone?.label ?? 'Fuera de zonas';
-};
+const GAZE_TRAIL_MS = 500;
 
 export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeReplayFrame): void => {
   const { width, height } = ctx.canvas;
   const unit = Math.min(width, height) / 100;
-  const toPx = (fixation: ReplayFixation) => ({ px: (fixation.x / 100) * width, py: (fixation.y / 100) * height });
+  const toPx = (point: { x: number; y: number }) => ({ px: (point.x / 100) * width, py: (point.y / 100) * height });
 
   ctx.clearRect(0, 0, width, height);
   ctx.drawImage(frame.image, 0, 0, width, height);
   ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
   ctx.fillRect(0, 0, width, height);
 
-  const activeIndex = findActiveFixationIndex(frame.fixations, frame.timeMs);
+  const focus = resolveGazeFocus(frame.fixations, frame.gazeSamples, frame.zones, frame.timeMs);
+  const activeIndex = focus.fixationIndex;
   const activeFixation = activeIndex >= 0 ? frame.fixations[activeIndex] : null;
-  const activeZone = activeFixation ? findZoneAt(frame.zones, activeFixation.x, activeFixation.y) : null;
+  const activeZone = focus.zone;
 
   ctx.font = `600 ${Math.max(11, unit * 2.2)}px Inter, system-ui, sans-serif`;
   ctx.textBaseline = 'top';
@@ -91,7 +90,28 @@ export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeRe
     ctx.stroke();
   }
 
-  const hudText = `${(frame.timeMs / 1000).toFixed(1)} s · ${describeGazeState(activeFixation, activeZone)}`;
+  const trail = selectRecentGazeSamples(frame.gazeSamples, frame.timeMs, GAZE_TRAIL_MS);
+  trail.forEach((sample, index) => {
+    const { px, py } = toPx(sample);
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(2, unit * 0.6), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0, 106, 255, ${0.15 + (0.5 * (index + 1)) / trail.length})`;
+    ctx.fill();
+  });
+  if (focus.gazeSample) {
+    const { px, py } = toPx(focus.gazeSample);
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(5, unit * 1.4), 0, Math.PI * 2);
+    ctx.strokeStyle = ACCENT;
+    ctx.lineWidth = Math.max(2, unit * 0.5);
+    ctx.stroke();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = Math.max(1, unit * 0.2);
+    ctx.stroke();
+  }
+
+  const fixationTag = activeFixation && frame.gazeSamples.length > 0 ? ' · fijando' : '';
+  const hudText = `${(frame.timeMs / 1000).toFixed(1)} s · ${focus.stateLabel}${fixationTag}`;
   const hudFontSize = Math.max(13, unit * 3);
   ctx.font = `600 ${hudFontSize}px Inter, system-ui, sans-serif`;
   const hudPadding = hudFontSize * 0.5;
@@ -99,6 +119,6 @@ export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeRe
   const hudY = height - hudFontSize - hudPadding * 3;
   ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
   ctx.fillRect(hudPadding, hudY, hudWidth, hudFontSize + hudPadding * 2);
-  ctx.fillStyle = activeFixation ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
+  ctx.fillStyle = activeZone ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
   ctx.fillText(hudText, hudPadding * 2, hudY + hudPadding);
 };

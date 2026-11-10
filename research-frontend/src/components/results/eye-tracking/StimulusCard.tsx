@@ -180,6 +180,10 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
     () => stimulus.fixations.filter(f => !excludedParticipants.has(f.participantId)),
     [stimulus.fixations, excludedParticipants],
   );
+  const includedGazeTimeline = useMemo(
+    () => (stimulus.gazeTimeline ?? []).filter(sample => !excludedParticipants.has(sample.participantId)),
+    [stimulus.gazeTimeline, excludedParticipants],
+  );
   const replayZones = useMemo(
     () => shownStimulus.aois.length > 0 ? shownStimulus.aois : buildGridZones(),
     [shownStimulus.aois],
@@ -564,6 +568,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
           <GazeReplayPanel
             imageUrl={effectiveStimulusUrl}
             fixations={includedFixations}
+            gazeTimeline={includedGazeTimeline}
             zones={replayZones}
           />
         ) : viewMode === 'comparison' && shownStimulus.aois.length > 0 ? (

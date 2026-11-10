@@ -5,9 +5,8 @@ import { CustomSelect } from '../../ui/CustomSelect';
 import { loadCachedStimulusImage } from '../../../utils/stimulusImageCache';
 import {
   accumulateZoneDwell,
-  findActiveFixationIndex,
-  findZoneAt,
   getReplayDurationMs,
+  resolveGazeFocus,
   sortFixationsByTime,
   type ReplayZone,
 } from './gazeReplay';
@@ -47,10 +46,11 @@ const downloadBlob = (blob: Blob, fileName: string): void => {
 interface GazeReplayPanelProps {
   readonly imageUrl: string;
   readonly fixations: EyeTrackingStimulus['fixations'];
+  readonly gazeTimeline: NonNullable<EyeTrackingStimulus['gazeTimeline']>;
   readonly zones: readonly ReplayZone[];
 }
 
-export function GazeReplayPanel({ imageUrl, fixations, zones }: GazeReplayPanelProps) {
+export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: GazeReplayPanelProps) {
   const participantIds = useMemo(() => rankParticipantsByFixationCount(fixations), [fixations]);
   const [chosenParticipantId, setChosenParticipantId] = useState<string | null>(null);
   const participantId = chosenParticipantId && participantIds.includes(chosenParticipantId) ? chosenParticipantId : participantIds[0];
@@ -58,7 +58,11 @@ export function GazeReplayPanel({ imageUrl, fixations, zones }: GazeReplayPanelP
     () => sortFixationsByTime(fixations.filter(fixation => fixation.participantId === participantId)),
     [fixations, participantId],
   );
-  const durationMs = getReplayDurationMs(replayFixations);
+  const replayGazeSamples = useMemo(
+    () => gazeTimeline.filter(sample => sample.participantId === participantId).sort((a, b) => a.t - b.t),
+    [gazeTimeline, participantId],
+  );
+  const durationMs = Math.max(getReplayDurationMs(replayFixations), replayGazeSamples.at(-1)?.t ?? 0);
 
   const [timeMs, setTimeMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -97,8 +101,8 @@ export function GazeReplayPanel({ imageUrl, fixations, zones }: GazeReplayPanelP
     }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawGazeReplayFrame(ctx, { image, fixations: replayFixations, zones, timeMs });
-  }, [image, replayFixations, zones, timeMs]);
+    drawGazeReplayFrame(ctx, { image, fixations: replayFixations, gazeSamples: replayGazeSamples, zones, timeMs });
+  }, [image, replayFixations, replayGazeSamples, zones, timeMs]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -158,9 +162,7 @@ export function GazeReplayPanel({ imageUrl, fixations, zones }: GazeReplayPanelP
     );
   }
 
-  const activeIndex = findActiveFixationIndex(replayFixations, timeMs);
-  const activeFixation = activeIndex >= 0 ? replayFixations[activeIndex] : null;
-  const activeZoneId = activeFixation ? findZoneAt(zones, activeFixation.x, activeFixation.y)?.id ?? null : null;
+  const activeZoneId = resolveGazeFocus(replayFixations, replayGazeSamples, zones, timeMs).zone?.id ?? null;
   const dwellByZone = accumulateZoneDwell(replayFixations, zones, timeMs);
 
   return (
@@ -175,7 +177,9 @@ export function GazeReplayPanel({ imageUrl, fixations, zones }: GazeReplayPanelP
             disabled={isRecording}
           />
         </div>
-        <span className="text-xs text-gray-400">{replayFixations.length} fijaciones · {(durationMs / 1000).toFixed(1)} s</span>
+        <span className="text-xs text-gray-400">
+          {replayFixations.length} fijaciones · {(durationMs / 1000).toFixed(1)} s · {replayGazeSamples.length > 0 ? 'mirada continua' : 'solo fijaciones (sesión sin mirada continua)'}
+        </span>
       </div>
 
       <div className="relative rounded-lg overflow-hidden border bg-gray-100">

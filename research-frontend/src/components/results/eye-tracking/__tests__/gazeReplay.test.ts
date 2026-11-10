@@ -4,8 +4,11 @@ import {
   buildGridZones,
   countStartedFixations,
   findActiveFixationIndex,
+  findGazeSampleAt,
   findZoneAt,
   getReplayDurationMs,
+  resolveGazeFocus,
+  selectRecentGazeSamples,
   sortFixationsByTime,
 } from '../gazeReplay';
 
@@ -38,6 +41,22 @@ describe('gazeReplay', () => {
     expect(findActiveFixationIndex(fixations, 500)).toBe(-1);
     expect(countStartedFixations(fixations, 650)).toBe(2);
     expect(getReplayDurationMs(fixations)).toBe(1200);
+  });
+
+  it('follows the raw gaze sample when the session recorded one, and reports tracking loss', () => {
+    const samples = [
+      { x: 20, y: 50, t: 100 },
+      { x: 70, y: 50, t: 500 },
+    ];
+    expect(resolveGazeFocus(fixations, samples, shelfZones, 520)).toMatchObject({ fixationIndex: -1, zone: { id: 'b' }, stateLabel: 'B' });
+    expect(resolveGazeFocus(fixations, samples, shelfZones, 300)).toMatchObject({ gazeSample: null, zone: null, stateLabel: 'Sin mirada registrada' });
+    expect(selectRecentGazeSamples(samples, 520, 300)).toEqual([{ x: 70, y: 50, t: 500 }]);
+  });
+
+  it('falls back to fixations when the session has no raw gaze', () => {
+    expect(resolveGazeFocus(fixations, [], shelfZones, 250)).toMatchObject({ fixationIndex: 0, zone: { id: 'a' }, stateLabel: 'A' });
+    expect(resolveGazeFocus(fixations, [], shelfZones, 500).stateLabel).toBe('Sin fijación');
+    expect(findGazeSampleAt([], 100)).toBeNull();
   });
 
   it('accumulates dwell per zone up to the playhead, counting the fixation in progress partially', () => {

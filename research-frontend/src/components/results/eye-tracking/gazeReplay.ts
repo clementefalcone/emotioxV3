@@ -14,6 +14,21 @@ export interface ReplayZone {
   readonly height: number;
 }
 
+export interface ReplayGazeSample {
+  readonly x: number;
+  readonly y: number;
+  readonly t: number;
+}
+
+export interface GazeFocus {
+  readonly fixationIndex: number;
+  readonly gazeSample: ReplayGazeSample | null;
+  readonly zone: ReplayZone | null;
+  readonly stateLabel: string;
+}
+
+const GAZE_SAMPLE_STALE_MS = 150;
+
 export interface ZoneDwell {
   readonly dwellMs: number;
   readonly firstEntryMs: number | null;
@@ -55,6 +70,36 @@ export const findActiveFixationIndex = (sortedFixations: readonly ReplayFixation
 
 export const countStartedFixations = (sortedFixations: readonly ReplayFixation[], timeMs: number): number =>
   sortedFixations.filter(fixation => fixation.timestamp <= timeMs).length;
+
+export const findGazeSampleAt = (sortedSamples: readonly ReplayGazeSample[], timeMs: number): ReplayGazeSample | null => {
+  let latest: ReplayGazeSample | null = null;
+  for (const sample of sortedSamples) {
+    if (sample.t > timeMs) break;
+    latest = sample;
+  }
+  return latest && timeMs - latest.t <= GAZE_SAMPLE_STALE_MS ? latest : null;
+};
+
+export const selectRecentGazeSamples = (
+  sortedSamples: readonly ReplayGazeSample[],
+  timeMs: number,
+  windowMs: number,
+): ReplayGazeSample[] => sortedSamples.filter(sample => sample.t <= timeMs && sample.t > timeMs - windowMs);
+
+export const resolveGazeFocus = (
+  sortedFixations: readonly ReplayFixation[],
+  sortedSamples: readonly ReplayGazeSample[],
+  zones: readonly ReplayZone[],
+  timeMs: number,
+): GazeFocus => {
+  const fixationIndex = findActiveFixationIndex(sortedFixations, timeMs);
+  const gazeSample = findGazeSampleAt(sortedSamples, timeMs);
+  const hasGazeSamples = sortedSamples.length > 0;
+  const focusPoint = hasGazeSamples ? gazeSample : sortedFixations[fixationIndex] ?? null;
+  const zone = focusPoint ? findZoneAt(zones, focusPoint.x, focusPoint.y) : null;
+  const idleLabel = hasGazeSamples ? 'Sin mirada registrada' : 'Sin fijación';
+  return { fixationIndex, gazeSample, zone, stateLabel: focusPoint ? zone?.label ?? 'Fuera de zonas' : idleLabel };
+};
 
 export const accumulateZoneDwell = (
   sortedFixations: readonly ReplayFixation[],

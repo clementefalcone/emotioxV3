@@ -11,7 +11,7 @@ export function ZoneDwellList({ zones, dwellByZone, activeZoneId }: ZoneDwellLis
 
   return (
     <div className="flex flex-col gap-1.5">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tiempo por zona hasta este momento</h4>
+      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tiempo de fijación por zona hasta este momento</h4>
       {zones.map(zone => {
         const dwell = dwellByZone.get(zone.id) ?? { dwellMs: 0, firstEntryMs: null };
         const isActive = zone.id === activeZoneId;
