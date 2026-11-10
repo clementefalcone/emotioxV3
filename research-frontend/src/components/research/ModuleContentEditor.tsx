@@ -576,6 +576,20 @@ export const ModuleContentEditor = ({
                                     {comp.label}
                                 </label>
                             ))}
+                            <div className="space-y-1">
+                                <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-blue-600 h-4 w-4"
+                                        checked={componentValues['webcam-recording'] === 'true'}
+                                        onChange={(e) => onValueChange('webcam-recording', e.target.checked ? 'true' : 'false')}
+                                    />
+                                    Record participant webcam video
+                                </label>
+                                <p className="pl-6 text-xs text-gray-400">
+                                    Each participant opts in at consent. Without consent the session is saved without video.
+                                </p>
+                            </div>
                         </div>
                         {/* Priming display time as tab buttons */}
                         {primingComp && (

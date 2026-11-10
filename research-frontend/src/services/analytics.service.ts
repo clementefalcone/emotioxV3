@@ -493,6 +493,7 @@ export interface EyeTrackingParticipant {
     totalFixations: number;
     totalDwellTime: number;
     qualityGrade: 'good' | 'fair' | 'low';
+    webcamRecording: { url: string; offsetMs: number } | null;
 }
 
 export type EkmanEmotion = 'joy' | 'sadness' | 'surprise' | 'anger' | 'disgust' | 'fear' | 'neutral';

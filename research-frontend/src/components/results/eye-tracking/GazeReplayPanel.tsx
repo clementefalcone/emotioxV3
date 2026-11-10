@@ -15,6 +15,7 @@ import {
 } from './gazeReplay';
 import { drawGazeReplayFrame, drawGroupReplayFrame, getParticipantColor } from './drawGazeReplayFrame';
 import { ZoneDwellList, type ZoneDwellRow } from './ZoneDwellList';
+import { WebcamRecordingPlayer } from './WebcamRecordingPlayer';
 
 const ALL_PARTICIPANTS = '__all__';
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4];
@@ -79,9 +80,10 @@ interface GazeReplayPanelProps {
   readonly fixations: EyeTrackingStimulus['fixations'];
   readonly gazeTimeline: NonNullable<EyeTrackingStimulus['gazeTimeline']>;
   readonly zones: readonly ReplayZone[];
+  readonly webcamRecordings: ReadonlyMap<string, { url: string; offsetMs: number }>;
 }
 
-export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: GazeReplayPanelProps) {
+export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webcamRecordings }: GazeReplayPanelProps) {
   const tracks = useMemo(() => buildParticipantTracks(fixations, gazeTimeline), [fixations, gazeTimeline]);
   const [chosenParticipantId, setChosenParticipantId] = useState<string | null>(null);
   const isAllParticipants = chosenParticipantId === ALL_PARTICIPANTS;
@@ -193,6 +195,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
     );
   }
 
+  const webcamRecording = isAllParticipants ? undefined : webcamRecordings.get(selectedTrack.participantId);
   const zoneRows = isAllParticipants ? buildGroupRows(tracks, zones, timeMs) : buildParticipantRows(selectedTrack, zones, timeMs);
   const tracksWithGaze = tracks.filter(track => track.samples.length > 0).length;
   const summary = isAllParticipants
@@ -217,12 +220,19 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
         <span className="text-xs text-gray-400">{summary}</span>
       </div>
 
-      <div className="relative rounded-lg overflow-hidden border bg-gray-100">
-        <canvas ref={canvasRef} className="block w-full h-auto" />
-        {!image && !imageError && <div className="absolute inset-0 animate-pulse bg-gray-200" />}
-        {imageError && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-sm text-gray-500">{imageError}</p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+        <div className="relative flex-[2] rounded-lg overflow-hidden border bg-gray-100">
+          <canvas ref={canvasRef} className="block w-full h-auto" />
+          {!image && !imageError && <div className="absolute inset-0 animate-pulse bg-gray-200" />}
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-sm text-gray-500">{imageError}</p>
+            </div>
+          )}
+        </div>
+        {webcamRecording && (
+          <div className="flex-1">
+            <WebcamRecordingPlayer url={webcamRecording.url} offsetMs={webcamRecording.offsetMs} timeMs={timeMs} isPlaying={isPlaying} speed={speed} />
           </div>
         )}
       </div>

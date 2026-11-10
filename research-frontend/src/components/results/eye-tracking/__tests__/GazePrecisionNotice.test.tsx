@@ -6,7 +6,7 @@ import type { EyeTrackingParticipant } from '../../../../services/analytics.serv
 
 const participant = (participantId: string, deviceType: string, calibrationErrorPercent: number | null): EyeTrackingParticipant => ({
     participantId, deviceType, calibrationErrorPercent, faceDetectedPercent: null, calibrationQuality: 'mediapipe-13pt', calibrationRmsePx: null,
-    integrityScore: 1, totalFixations: 10, totalDwellTime: 1000, qualityGrade: 'low',
+    integrityScore: 1, totalFixations: 10, totalDwellTime: 1000, qualityGrade: 'low', webcamRecording: null,
 });
 
 const participants = [
