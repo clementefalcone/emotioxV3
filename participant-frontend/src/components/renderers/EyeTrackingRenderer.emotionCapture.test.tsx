@@ -591,6 +591,23 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.gazeTimeline[0]).toMatchObject({ x: 30, y: 26.67 });
     });
 
+    it('saves the gaze timeline for image stimuli so results can replay gaze between fixations', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+
+        render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.stimulusType).toBe('image');
+        expect(saved.gazeTimelineUnit).toBe('stimulus-percent');
+        expect(saved.gazeTimeline.length).toBeGreaterThan(0);
+        expect(saved.gazeTimeline[0]).toMatchObject({ x: 30, y: 26.67 });
+        expect(saved.gazeTimeline[0]).not.toHaveProperty('videoTime');
+    });
+
     it('saves the shelf column order shown to the participant', async () => {
         vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
         mockMPGaze.gazeState = 'open';

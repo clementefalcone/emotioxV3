@@ -696,13 +696,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 stimulusType: isShelf ? 'shelf' : isVideo ? 'video' : 'image',
                 ...(isVideo && { videoEnded: videoEndedRef.current }),
                 ...(isShelf && { displayMode, shelfCount, shelfItems, shelfRepetitions, shelfColumnOrder, stimulusCount: resolvedShelfUrls.length }),
-                gazeTimeline: isVideo ? gazePointsRef.current.map(p => ({
+                gazeTimeline: gazePointsRef.current.map(p => ({
                     x: toStimulusPercent(p.x - effectiveRect.left, effectiveRect.width),
                     y: toStimulusPercent(p.y - effectiveRect.top, effectiveRect.height),
                     t: p.t,
-                    videoTime: p.videoTime,
-                })) : undefined,
-                ...(isVideo && { gazeTimelineUnit: 'stimulus-percent' }),
+                    ...(isVideo && { videoTime: p.videoTime }),
+                })),
+                gazeTimelineUnit: 'stimulus-percent',
             };
 
             // V2 zone-event response (when enabled, alongside V1 for backward compat)
