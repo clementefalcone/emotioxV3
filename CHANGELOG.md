@@ -1,3 +1,32 @@
+## v0.99.72 — Results on 13" screens, replay of all participants (2026-11-10)
+
+### fix(results): fit header actions on 13in screens
+- **Change.** Below 2xl (1536 px) Export CSV, Slides, PDF and Share show only their icon (name in `title`/`aria-label`); the action row never shrinks or wraps; tabs hide their scrollbar. Summary keeps its label.
+
+### feat(eye-tracking): open filters in a drawer
+- **Change.** Below 2xl the filter column becomes a **Filtros** button that opens the existing `Drawer`; wider screens keep the column.
+
+### fix(eye-tracking): explain gaze precision plainly
+- **Change.** "La mirada registrada puede desviarse hasta un 30 % del ancho de la pantalla en escritorio y un 36 % en móvil." Narrow zones are counted ("Todas las zonas (5)…", names on hover) with how to read them; face detection reads "La cámara detectó el rostro el X % del tiempo…".
+
+### fix(eye-tracking): smooth precision table
+- **Change.** `CollapsibleContent` moved from `ExecutiveSummaryPanel` to `components/ui` and reused for the precision table; rotating chevron. Heatmap and prediction sliders wrap.
+
+### feat(eye-tracking): replay all participants
+- **Change.** Replay selector gains **Todos (N)**: one coloured dot per participant on the stimulus-onset clock, zones shaded by current occupancy, zone list with average fixation time and "X de N miraron · Y ahora", colour legend. Export works in this mode.
+- **Check.** Research 723 → 727, 0 failing. Seen in Chrome on a 14-participant shelf study (fixation-only sessions, so 1–2 dots at a time). Header, drawer and sliders not seen below 1536 px. Live research `index-tptn20TT.js` matches the local build.
+
+## v0.99.71 — Eye Tracking: continuous gaze for images (2026-11-10)
+
+### feat(eye-tracking): save gaze timeline for images
+- **Why.** Image sessions stored only fixations, so the replay showed nothing between them (gaps up to 13 s).
+- **Change.** `EyeTrackingRenderer` saves `gazeTimeline` (20 Hz, stimulus percent) for every stimulus; `videoTime` only for video. Backend already aggregates it.
+
+### feat(eye-tracking): replay continuous gaze
+- **Change.** With a timeline, the replay follows raw gaze (point + 500 ms trail), the highlighted zone follows it and the HUD says "Sin mirada registrada" on tracking loss. Dwell list still counts fixations to match AOI metrics.
+- **Limit.** The analytics payload now carries image gaze too (~200 points per 10 s per participant); at hundreds of participants per stimulus, fetch it per participant on Replay.
+- **Check.** Participant 1167 → 1168, research 721 → 723, 0 failing. Replay with a synthetic timeline injected in the browser (no DB write). No real image session with a timeline yet. Live research `index-C36k-Rr4.js` and participant `index-CBRiEzcE.js` match the local builds; models re-uploaded (69 MB + 34 MB).
+
 ## v0.99.70 — Eye Tracking: gaze replay by zone (2026-11-10)
 
 ### feat(eye-tracking): replay gaze by zone
