@@ -1,3 +1,11 @@
+## v0.99.70 — Eye Tracking: gaze replay by zone (2026-11-10)
+
+### feat(eye-tracking): replay gaze by zone
+- **Why.** A client asked to see, as video, how gaze is registered across zones.
+- **Change.** New **Replay** tab (image and shelf). Plays one participant's fixations in real time from stimulus onset: active fixation grows with its duration, past path traced, zone under the gaze highlighted (AOIs, or the 3×3 `zoneMass` grid when the stimulus has none). HUD shows time + zone or "Sin fijación". Side list accumulates dwell and first entry per zone up to the playhead. Speeds 0.5×–4×, scrubber, participant selector. **Exportar video** records the canvas (`MediaRecorder`, webm / mp4 on Safari). Logic in `gazeReplay.ts`, drawing in `drawGazeReplayFrame.ts`.
+- **Limit.** Image stimuli store fixations only, so gaps between fixations (up to 13 s in real data) show nothing. Raw gaze for images is the next step.
+- **Check.** Research 717 → 721, 0 failing. In the browser on a study with 15 responses: shelf (5 product zones) and stand-alone (3×3 grid) play, highlight and accumulate; 1 s canvas recordings produce video in both (~240 KB/s). The export button itself was not clicked. Live research `index-BhQmqujk.js` matches the local build.
+
 ## v0.99.69 — Eye Tracking results: stimulus fits any screen (2026-11-10)
 
 ### fix(eye-tracking): keep stimulus inside the card
