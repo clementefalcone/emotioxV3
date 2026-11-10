@@ -59,18 +59,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
     ? { ...stimulus, aois: scopedStimulus.aois, avgDwellTime: scopedStimulus.avgDwellTime, avgFixationCount: scopedStimulus.avgFixationCount }
     : stimulus;
 
-  useEffect(() => {
-    if (!stimulus.stimulusUrl || isVideo) return;
-    const img = new window.Image();
-    img.onload = () => {
-      const maxH = window.innerHeight * 0.72;
-      const maxW = Math.min(window.innerWidth - 400, 1200);
-      const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1.2);
-      setStimulusSize({ width: Math.round(img.naturalWidth * scale), height: Math.round(img.naturalHeight * scale) });
-    };
-    img.src = stimulus.stimulusUrl;
-  }, [stimulus.stimulusUrl, isVideo]);
-
   /** Decode a base64 Float64Array grid into cell-center points with values. */
   const decodeGridToPoints = useCallback((base64: string, cols: number, rows: number, cellW: number, cellH: number, minVal = 0.01) => {
     try {
@@ -172,8 +160,11 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
       const columnImages = buildShelfColumns(images, cols, stimulus.shelfRepetitions ?? 1);
       columnImages.forEach((img, col) => {
         if (img.naturalWidth === 0) return;
+        const scale = Math.min(cellW / img.naturalWidth, cellH / img.naturalHeight);
+        const drawW = img.naturalWidth * scale;
+        const drawH = img.naturalHeight * scale;
         for (let row = 0; row < rows; row++) {
-          ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH);
+          ctx.drawImage(img, col * cellW + (cellW - drawW) / 2, row * cellH + (cellH - drawH) / 2, drawW, drawH);
         }
       });
       setShelfCompositeUrl(canvas.toDataURL('image/jpeg', 0.85));
@@ -182,6 +173,13 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   }, [isShelf, resolvedShelfUrls, stimulus.shelfItems, stimulus.shelfCount, stimulus.shelfRepetitions]);
 
   const effectiveStimulusUrl = isShelf && shelfCompositeUrl ? shelfCompositeUrl : stimulus.stimulusUrl;
+
+  useEffect(() => {
+    if (!effectiveStimulusUrl || isVideo) return;
+    const img = new window.Image();
+    img.onload = () => setStimulusSize({ width: img.naturalWidth, height: img.naturalHeight });
+    img.src = effectiveStimulusUrl;
+  }, [effectiveStimulusUrl, isVideo]);
 
   const handleDownload = useCallback(async () => {
     if (!imageContainerRef) return;
@@ -450,7 +448,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         <div
           className="mx-auto"
           style={stimulusSize
-            ? { width: stimulusSize.width }
+            ? { width: `min(100%, 1200px, ${stimulusSize.width * 1.2}px, calc(72vh * ${stimulusSize.width / stimulusSize.height}))` }
             : undefined}
         >
         {viewMode === 'density' && stimulus.stimulusUrl ? (
