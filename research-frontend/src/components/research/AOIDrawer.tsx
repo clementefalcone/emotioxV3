@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { AoiThumbnail } from './AoiThumbnail';
 
 export interface AOI {
     id: string;
@@ -196,7 +197,7 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
             <div
                 ref={containerRef}
                 className={cn(
-                    'relative rounded-lg overflow-hidden border bg-gray-100 w-fit select-none',
+                    'relative rounded-lg overflow-hidden border bg-gray-100 w-fit max-w-full select-none',
                     drawing ? 'cursor-crosshair' : dragMode ? cursorForMode(dragMode) : ''
                 )}
                 onMouseDown={handleMouseDown}
@@ -207,7 +208,7 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
                 <img
                     src={imageUrl}
                     alt="Stimulus"
-                    className="block"
+                    className="block max-w-full h-auto"
                     style={{ maxHeight }}
                     draggable={false}
                 />
@@ -265,15 +266,7 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
                     {aois.map(aoi => (
                         <div key={aoi.id} className="flex items-center gap-3 p-2.5 bg-white border border-gray-200 rounded-lg">
                             <div className="w-14 h-10 rounded overflow-hidden flex-shrink-0 border bg-gray-50">
-                                <img
-                                    src={imageUrl}
-                                    alt={aoi.label}
-                                    className="w-full h-full"
-                                    style={{
-                                        objectFit: 'cover',
-                                        objectPosition: `${aoi.x + aoi.width / 2}% ${aoi.y + aoi.height / 2}%`,
-                                    }}
-                                />
+                                <AoiThumbnail imageUrl={imageUrl} aoi={aoi} alt={aoi.label} />
                             </div>
                             <span className="text-sm font-medium text-gray-900 flex-1 min-w-0 truncate">
                                 {aoi.label}

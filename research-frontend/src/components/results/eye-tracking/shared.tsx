@@ -2,6 +2,7 @@
 import { Crosshair, Users } from 'lucide-react';
 import type { EyeTrackingAOI, EkmanEmotion } from '../../../services/analytics.service';
 import { resolveMediaUrl } from '../../../services/media.service';
+import { AoiThumbnail } from '../../research/AoiThumbnail';
 
 export type ViewMode = 'heatmap' | 'density' | 'image' | 'emotions' | 'prediction' | 'video' | 'scanpath' | 'firstlook' | 'transparency' | 'sequence' | 'comparison';
 
@@ -75,14 +76,10 @@ export const AOIRow = ({ aoi, index, stimulusUrl, subtitle }: { aoi: AOIRowData;
     {/* Thumbnail: cropped preview of the AOI region */}
     {stimulusUrl && aoi.x !== undefined && aoi.y !== undefined && aoi.width !== undefined && aoi.height !== undefined && (
       <div className="w-16 h-12 rounded overflow-hidden flex-shrink-0 border bg-gray-50">
-        <img
-          src={stimulusUrl}
+        <AoiThumbnail
+          imageUrl={stimulusUrl}
+          aoi={{ x: aoi.x, y: aoi.y, width: aoi.width, height: aoi.height }}
           alt={`AOI ${index + 1}`}
-          className="w-full h-full"
-          style={{
-            objectFit: 'cover',
-            objectPosition: `${aoi.x + aoi.width / 2}% ${aoi.y + aoi.height / 2}%`,
-          }}
         />
       </div>
     )}
