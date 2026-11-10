@@ -1,7 +1,10 @@
 import {
   countStartedFixations,
+  countZoneOccupancy,
+  findTrackPoint,
   resolveGazeFocus,
   selectRecentGazeSamples,
+  type ParticipantTrack,
   type ReplayFixation,
   type ReplayGazeSample,
   type ReplayZone,
@@ -15,46 +18,101 @@ export interface GazeReplayFrame {
   readonly timeMs: number;
 }
 
+export interface GroupReplayFrame {
+  readonly image: CanvasImageSource;
+  readonly tracks: readonly ParticipantTrack[];
+  readonly zones: readonly ReplayZone[];
+  readonly timeMs: number;
+}
+
+interface ZoneStyle {
+  readonly fillAlpha: number;
+  readonly isActive: boolean;
+  readonly suffix: string;
+}
+
+interface CanvasFrame {
+  readonly width: number;
+  readonly height: number;
+  readonly unit: number;
+  readonly toPx: (point: { x: number; y: number }) => { px: number; py: number };
+}
+
 const ACCENT = '#006AFF';
 const ACTIVE_FIXATION = '#EF4444';
 const FIXATION_GROWTH_MS = 300;
 const GAZE_TRAIL_MS = 500;
 
-export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeReplayFrame): void => {
-  const { width, height } = ctx.canvas;
-  const unit = Math.min(width, height) / 100;
-  const toPx = (point: { x: number; y: number }) => ({ px: (point.x / 100) * width, py: (point.y / 100) * height });
+export const getParticipantColor = (index: number): string => `hsl(${(index * 137.5) % 360}, 85%, 55%)`;
 
+const drawBackground = (ctx: CanvasRenderingContext2D, image: CanvasImageSource): CanvasFrame => {
+  const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(frame.image, 0, 0, width, height);
+  ctx.drawImage(image, 0, 0, width, height);
   ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
   ctx.fillRect(0, 0, width, height);
+  return {
+    width,
+    height,
+    unit: Math.min(width, height) / 100,
+    toPx: point => ({ px: (point.x / 100) * width, py: (point.y / 100) * height }),
+  };
+};
 
-  const focus = resolveGazeFocus(frame.fixations, frame.gazeSamples, frame.zones, frame.timeMs);
-  const activeIndex = focus.fixationIndex;
-  const activeFixation = activeIndex >= 0 ? frame.fixations[activeIndex] : null;
-  const activeZone = focus.zone;
-
+const drawZones = (
+  ctx: CanvasRenderingContext2D,
+  canvas: CanvasFrame,
+  zones: readonly ReplayZone[],
+  styleZone: (zone: ReplayZone) => ZoneStyle,
+): void => {
+  const { width, height, unit } = canvas;
   ctx.font = `600 ${Math.max(11, unit * 2.2)}px Inter, system-ui, sans-serif`;
   ctx.textBaseline = 'top';
-  for (const zone of frame.zones) {
+  for (const zone of zones) {
     const zx = (zone.x / 100) * width;
     const zy = (zone.y / 100) * height;
     const zw = (zone.width / 100) * width;
     const zh = (zone.height / 100) * height;
-    const isActive = zone.id === activeZone?.id;
-    if (isActive) {
-      ctx.fillStyle = 'rgba(0, 106, 255, 0.22)';
+    const style = styleZone(zone);
+    if (style.fillAlpha > 0) {
+      ctx.fillStyle = `rgba(0, 106, 255, ${style.fillAlpha})`;
       ctx.fillRect(zx, zy, zw, zh);
     }
-    ctx.setLineDash(isActive ? [] : [unit * 1.2, unit * 0.8]);
-    ctx.strokeStyle = isActive ? ACCENT : 'rgba(255, 255, 255, 0.7)';
-    ctx.lineWidth = isActive ? Math.max(2, unit * 0.5) : Math.max(1, unit * 0.2);
+    ctx.setLineDash(style.isActive ? [] : [unit * 1.2, unit * 0.8]);
+    ctx.strokeStyle = style.isActive ? ACCENT : 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = style.isActive ? Math.max(2, unit * 0.5) : Math.max(1, unit * 0.2);
     ctx.strokeRect(zx, zy, zw, zh);
-    ctx.fillStyle = isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.85)';
-    ctx.fillText(zone.label, zx + unit, zy + unit);
+    ctx.fillStyle = style.isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.85)';
+    ctx.fillText(`${zone.label}${style.suffix}`, zx + unit, zy + unit);
   }
   ctx.setLineDash([]);
+};
+
+const drawHud = (ctx: CanvasRenderingContext2D, canvas: CanvasFrame, text: string, isHighlighted: boolean): void => {
+  const fontSize = Math.max(13, canvas.unit * 3);
+  ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+  ctx.textBaseline = 'top';
+  const padding = fontSize * 0.5;
+  const hudY = canvas.height - fontSize - padding * 3;
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+  ctx.fillRect(padding, hudY, ctx.measureText(text).width + padding * 2, fontSize + padding * 2);
+  ctx.fillStyle = isHighlighted ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
+  ctx.fillText(text, padding * 2, hudY + padding);
+};
+
+const formatSeconds = (timeMs: number): string => `${(timeMs / 1000).toFixed(1)} s`;
+
+export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeReplayFrame): void => {
+  const canvas = drawBackground(ctx, frame.image);
+  const { unit, toPx } = canvas;
+  const focus = resolveGazeFocus(frame.fixations, frame.gazeSamples, frame.zones, frame.timeMs);
+  const activeIndex = focus.fixationIndex;
+  const activeFixation = activeIndex >= 0 ? frame.fixations[activeIndex] : null;
+
+  drawZones(ctx, canvas, frame.zones, zone => {
+    const isActive = zone.id === focus.zone?.id;
+    return { fillAlpha: isActive ? 0.22 : 0, isActive, suffix: '' };
+  });
 
   const startedCount = countStartedFixations(frame.fixations, frame.timeMs);
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
@@ -111,14 +169,35 @@ export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeRe
   }
 
   const fixationTag = activeFixation && frame.gazeSamples.length > 0 ? ' · fijando' : '';
-  const hudText = `${(frame.timeMs / 1000).toFixed(1)} s · ${focus.stateLabel}${fixationTag}`;
-  const hudFontSize = Math.max(13, unit * 3);
-  ctx.font = `600 ${hudFontSize}px Inter, system-ui, sans-serif`;
-  const hudPadding = hudFontSize * 0.5;
-  const hudWidth = ctx.measureText(hudText).width + hudPadding * 2;
-  const hudY = height - hudFontSize - hudPadding * 3;
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-  ctx.fillRect(hudPadding, hudY, hudWidth, hudFontSize + hudPadding * 2);
-  ctx.fillStyle = activeZone ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
-  ctx.fillText(hudText, hudPadding * 2, hudY + hudPadding);
+  drawHud(ctx, canvas, `${formatSeconds(frame.timeMs)} · ${focus.stateLabel}${fixationTag}`, focus.zone !== null);
+};
+
+export const drawGroupReplayFrame = (ctx: CanvasRenderingContext2D, frame: GroupReplayFrame): void => {
+  const canvas = drawBackground(ctx, frame.image);
+  const { unit, toPx } = canvas;
+  const occupancy = countZoneOccupancy(frame.tracks, frame.zones, frame.timeMs);
+  const participantCount = Math.max(1, frame.tracks.length);
+
+  drawZones(ctx, canvas, frame.zones, zone => {
+    const viewers = occupancy.get(zone.id) ?? 0;
+    return { fillAlpha: (viewers / participantCount) * 0.55, isActive: viewers > 0, suffix: viewers > 0 ? ` · ${viewers}` : '' };
+  });
+
+  const radius = Math.max(5, unit * 1.3);
+  let lookingCount = 0;
+  frame.tracks.forEach((track, index) => {
+    const point = findTrackPoint(track, frame.timeMs);
+    if (!point) return;
+    lookingCount++;
+    const { px, py } = toPx(point);
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+    ctx.fillStyle = getParticipantColor(index);
+    ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = Math.max(1.5, unit * 0.3);
+    ctx.stroke();
+  });
+
+  drawHud(ctx, canvas, `${formatSeconds(frame.timeMs)} · ${lookingCount} de ${frame.tracks.length} participantes con mirada`, lookingCount > 0);
 };

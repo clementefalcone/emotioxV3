@@ -4,15 +4,19 @@ import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
 import { loadCachedStimulusImage } from '../../../utils/stimulusImageCache';
 import {
+  accumulateGroupZoneDwell,
   accumulateZoneDwell,
-  getReplayDurationMs,
+  buildParticipantTracks,
+  countZoneOccupancy,
+  getTrackDurationMs,
   resolveGazeFocus,
-  sortFixationsByTime,
+  type ParticipantTrack,
   type ReplayZone,
 } from './gazeReplay';
-import { drawGazeReplayFrame } from './drawGazeReplayFrame';
-import { ZoneDwellList } from './ZoneDwellList';
+import { drawGazeReplayFrame, drawGroupReplayFrame, getParticipantColor } from './drawGazeReplayFrame';
+import { ZoneDwellList, type ZoneDwellRow } from './ZoneDwellList';
 
+const ALL_PARTICIPANTS = '__all__';
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4];
 const MAX_CANVAS_WIDTH = 1280;
 const VIDEO_FORMATS = [
@@ -26,10 +30,37 @@ const findSupportedVideoFormat = () =>
     ? undefined
     : VIDEO_FORMATS.find(format => MediaRecorder.isTypeSupported(format.mimeType));
 
-const rankParticipantsByFixationCount = (fixations: EyeTrackingStimulus['fixations']): string[] => {
-  const counts = new Map<string, number>();
-  for (const fixation of fixations) counts.set(fixation.participantId, (counts.get(fixation.participantId) ?? 0) + 1);
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([participantId]) => participantId);
+const formatSeconds = (timeMs: number): string => `${(timeMs / 1000).toFixed(1)} s`;
+
+const buildParticipantRows = (track: ParticipantTrack, zones: readonly ReplayZone[], timeMs: number): ZoneDwellRow[] => {
+  const activeZoneId = resolveGazeFocus(track.fixations, track.samples, zones, timeMs).zone?.id;
+  const dwellByZone = accumulateZoneDwell(track.fixations, zones, timeMs);
+  return zones.map(zone => {
+    const dwell = dwellByZone.get(zone.id);
+    const firstEntryMs = dwell?.firstEntryMs ?? null;
+    return {
+      zoneId: zone.id,
+      label: zone.label,
+      dwellMs: dwell?.dwellMs ?? 0,
+      detail: firstEntryMs === null ? 'sin mirar' : `entra a ${formatSeconds(firstEntryMs)}`,
+      isActive: zone.id === activeZoneId,
+    };
+  });
+};
+
+const buildGroupRows = (tracks: readonly ParticipantTrack[], zones: readonly ReplayZone[], timeMs: number): ZoneDwellRow[] => {
+  const occupancy = countZoneOccupancy(tracks, zones, timeMs);
+  const dwellByZone = accumulateGroupZoneDwell(tracks, zones, timeMs);
+  return zones.map(zone => {
+    const viewersNow = occupancy.get(zone.id) ?? 0;
+    return {
+      zoneId: zone.id,
+      label: zone.label,
+      dwellMs: dwellByZone.get(zone.id)?.averageDwellMs ?? 0,
+      detail: `${dwellByZone.get(zone.id)?.viewerCount ?? 0} de ${tracks.length} miraron${viewersNow > 0 ? ` · ${viewersNow} ahora` : ''}`,
+      isActive: viewersNow > 0,
+    };
+  });
 };
 
 const downloadBlob = (blob: Blob, fileName: string): void => {
@@ -51,18 +82,14 @@ interface GazeReplayPanelProps {
 }
 
 export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: GazeReplayPanelProps) {
-  const participantIds = useMemo(() => rankParticipantsByFixationCount(fixations), [fixations]);
+  const tracks = useMemo(() => buildParticipantTracks(fixations, gazeTimeline), [fixations, gazeTimeline]);
   const [chosenParticipantId, setChosenParticipantId] = useState<string | null>(null);
-  const participantId = chosenParticipantId && participantIds.includes(chosenParticipantId) ? chosenParticipantId : participantIds[0];
-  const replayFixations = useMemo(
-    () => sortFixationsByTime(fixations.filter(fixation => fixation.participantId === participantId)),
-    [fixations, participantId],
-  );
-  const replayGazeSamples = useMemo(
-    () => gazeTimeline.filter(sample => sample.participantId === participantId).sort((a, b) => a.t - b.t),
-    [gazeTimeline, participantId],
-  );
-  const durationMs = Math.max(getReplayDurationMs(replayFixations), replayGazeSamples.at(-1)?.t ?? 0);
+  const isAllParticipants = chosenParticipantId === ALL_PARTICIPANTS;
+  const selectedTrack = tracks.find(track => track.participantId === chosenParticipantId) ?? tracks[0];
+  const participantId = isAllParticipants ? ALL_PARTICIPANTS : selectedTrack?.participantId;
+  const durationMs = isAllParticipants
+    ? Math.max(0, ...tracks.map(getTrackDurationMs))
+    : selectedTrack ? getTrackDurationMs(selectedTrack) : 0;
 
   const [timeMs, setTimeMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -101,8 +128,12 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
     }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawGazeReplayFrame(ctx, { image, fixations: replayFixations, gazeSamples: replayGazeSamples, zones, timeMs });
-  }, [image, replayFixations, replayGazeSamples, zones, timeMs]);
+    if (isAllParticipants) {
+      drawGroupReplayFrame(ctx, { image, tracks, zones, timeMs });
+    } else if (selectedTrack) {
+      drawGazeReplayFrame(ctx, { image, fixations: selectedTrack.fixations, gazeSamples: selectedTrack.samples, zones, timeMs });
+    }
+  }, [image, isAllParticipants, tracks, selectedTrack, zones, timeMs]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -143,7 +174,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
     const chunks: Blob[] = [];
     recorder.ondataavailable = event => { if (event.data.size > 0) chunks.push(event.data); };
     recorder.onstop = () => {
-      downloadBlob(new Blob(chunks, { type: videoFormat.mimeType }), `gaze-replay-${participantId}.${videoFormat.extension}`);
+      downloadBlob(new Blob(chunks, { type: videoFormat.mimeType }), `gaze-replay-${isAllParticipants ? 'todos' : participantId}.${videoFormat.extension}`);
       recorderRef.current = null;
       setIsRecording(false);
     };
@@ -152,9 +183,9 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
     setIsRecording(true);
     setIsPlaying(true);
     recorder.start();
-  }, [videoFormat, participantId]);
+  }, [videoFormat, participantId, isAllParticipants]);
 
-  if (participantIds.length === 0) {
+  if (!selectedTrack) {
     return (
       <div className="rounded-lg bg-gray-100 border border-gray-200 h-64 flex items-center justify-center">
         <p className="text-sm text-gray-400">No hay fijaciones para reproducir</p>
@@ -162,8 +193,11 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
     );
   }
 
-  const activeZoneId = resolveGazeFocus(replayFixations, replayGazeSamples, zones, timeMs).zone?.id ?? null;
-  const dwellByZone = accumulateZoneDwell(replayFixations, zones, timeMs);
+  const zoneRows = isAllParticipants ? buildGroupRows(tracks, zones, timeMs) : buildParticipantRows(selectedTrack, zones, timeMs);
+  const tracksWithGaze = tracks.filter(track => track.samples.length > 0).length;
+  const summary = isAllParticipants
+    ? `${tracks.length} participantes · ${formatSeconds(durationMs)} · ${tracksWithGaze} con mirada continua`
+    : `${selectedTrack.fixations.length} fijaciones · ${formatSeconds(durationMs)} · ${selectedTrack.samples.length > 0 ? 'mirada continua' : 'solo fijaciones (sesión sin mirada continua)'}`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -173,13 +207,14 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
           <CustomSelect
             value={participantId}
             onChange={value => setChosenParticipantId(value)}
-            options={participantIds.map(id => ({ value: id, label: id }))}
+            options={[
+              { value: ALL_PARTICIPANTS, label: `Todos (${tracks.length})` },
+              ...tracks.map(track => ({ value: track.participantId, label: track.participantId })),
+            ]}
             disabled={isRecording}
           />
         </div>
-        <span className="text-xs text-gray-400">
-          {replayFixations.length} fijaciones · {(durationMs / 1000).toFixed(1)} s · {replayGazeSamples.length > 0 ? 'mirada continua' : 'solo fijaciones (sesión sin mirada continua)'}
-        </span>
+        <span className="text-xs text-gray-400">{summary}</span>
       </div>
 
       <div className="relative rounded-lg overflow-hidden border bg-gray-100">
@@ -249,7 +284,21 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones }: Ga
         </button>
       </div>
 
-      <ZoneDwellList zones={zones} dwellByZone={dwellByZone} activeZoneId={activeZoneId} />
+      {isAllParticipants && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {tracks.map((track, index) => (
+            <span key={track.participantId} className="flex items-center gap-1 text-[11px] text-gray-500">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getParticipantColor(index) }} />
+              {track.participantId}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <ZoneDwellList
+        title={isAllParticipants ? 'Tiempo de fijación promedio por zona hasta este momento' : 'Tiempo de fijación por zona hasta este momento'}
+        rows={zoneRows}
+      />
     </div>
   );
 }

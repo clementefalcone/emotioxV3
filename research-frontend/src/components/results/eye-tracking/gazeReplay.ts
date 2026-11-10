@@ -94,11 +94,86 @@ export const resolveGazeFocus = (
 ): GazeFocus => {
   const fixationIndex = findActiveFixationIndex(sortedFixations, timeMs);
   const gazeSample = findGazeSampleAt(sortedSamples, timeMs);
-  const hasGazeSamples = sortedSamples.length > 0;
-  const focusPoint = hasGazeSamples ? gazeSample : sortedFixations[fixationIndex] ?? null;
+  const focusPoint = findTrackPoint({ fixations: sortedFixations, samples: sortedSamples }, timeMs);
   const zone = focusPoint ? findZoneAt(zones, focusPoint.x, focusPoint.y) : null;
-  const idleLabel = hasGazeSamples ? 'Sin mirada registrada' : 'Sin fijación';
+  const idleLabel = sortedSamples.length > 0 ? 'Sin mirada registrada' : 'Sin fijación';
   return { fixationIndex, gazeSample, zone, stateLabel: focusPoint ? zone?.label ?? 'Fuera de zonas' : idleLabel };
+};
+
+export interface ParticipantTrack {
+  readonly participantId: string;
+  readonly fixations: readonly ReplayFixation[];
+  readonly samples: readonly ReplayGazeSample[];
+}
+
+export interface GroupZoneDwell {
+  readonly averageDwellMs: number;
+  readonly viewerCount: number;
+  readonly firstEntryMs: number | null;
+}
+
+const groupByParticipant = <T extends { participantId: string }>(items: readonly T[]): Map<string, T[]> => {
+  const groups = new Map<string, T[]>();
+  for (const item of items) groups.set(item.participantId, [...(groups.get(item.participantId) ?? []), item]);
+  return groups;
+};
+
+export const buildParticipantTracks = (
+  fixations: readonly (ReplayFixation & { participantId: string })[],
+  samples: readonly (ReplayGazeSample & { participantId: string })[],
+): ParticipantTrack[] => {
+  const fixationsByParticipant = groupByParticipant(fixations);
+  const samplesByParticipant = groupByParticipant(samples);
+  const participantIds = new Set([...fixationsByParticipant.keys(), ...samplesByParticipant.keys()]);
+  return [...participantIds]
+    .map(participantId => ({
+      participantId,
+      fixations: sortFixationsByTime(fixationsByParticipant.get(participantId) ?? []),
+      samples: [...(samplesByParticipant.get(participantId) ?? [])].sort((a, b) => a.t - b.t),
+    }))
+    .sort((a, b) => b.fixations.length - a.fixations.length);
+};
+
+export const getTrackDurationMs = (track: Pick<ParticipantTrack, 'fixations' | 'samples'>): number =>
+  Math.max(getReplayDurationMs(track.fixations), track.samples.at(-1)?.t ?? 0);
+
+export const findTrackPoint = (
+  track: Pick<ParticipantTrack, 'fixations' | 'samples'>,
+  timeMs: number,
+): { x: number; y: number } | null => {
+  if (track.samples.length > 0) return findGazeSampleAt(track.samples, timeMs);
+  return track.fixations[findActiveFixationIndex(track.fixations, timeMs)] ?? null;
+};
+
+export const countZoneOccupancy = (
+  tracks: readonly ParticipantTrack[],
+  zones: readonly ReplayZone[],
+  timeMs: number,
+): Map<string, number> => {
+  const occupancy = new Map<string, number>(zones.map(zone => [zone.id, 0]));
+  for (const track of tracks) {
+    const point = findTrackPoint(track, timeMs);
+    const zone = point ? findZoneAt(zones, point.x, point.y) : null;
+    if (zone) occupancy.set(zone.id, (occupancy.get(zone.id) ?? 0) + 1);
+  }
+  return occupancy;
+};
+
+export const accumulateGroupZoneDwell = (
+  tracks: readonly ParticipantTrack[],
+  zones: readonly ReplayZone[],
+  timeMs: number,
+): Map<string, GroupZoneDwell> => {
+  const dwellByTrack = tracks.map(track => accumulateZoneDwell(track.fixations, zones, timeMs));
+  return new Map(zones.map(zone => {
+    const dwells = dwellByTrack.map(byZone => byZone.get(zone.id)).filter(dwell => dwell?.firstEntryMs != null) as ZoneDwell[];
+    const totalDwellMs = dwells.reduce((sum, dwell) => sum + dwell.dwellMs, 0);
+    return [zone.id, {
+      averageDwellMs: tracks.length > 0 ? totalDwellMs / tracks.length : 0,
+      viewerCount: dwells.length,
+      firstEntryMs: dwells.length > 0 ? Math.min(...dwells.map(dwell => dwell.firstEntryMs as number)) : null,
+    }];
+  }));
 };
 
 export const accumulateZoneDwell = (

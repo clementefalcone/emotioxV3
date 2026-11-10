@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accumulateGroupZoneDwell,
   accumulateZoneDwell,
   buildGridZones,
+  buildParticipantTracks,
+  countZoneOccupancy,
+  findTrackPoint,
+  getTrackDurationMs,
   countStartedFixations,
   findActiveFixationIndex,
   findGazeSampleAt,
@@ -57,6 +62,36 @@ describe('gazeReplay', () => {
     expect(resolveGazeFocus(fixations, [], shelfZones, 250)).toMatchObject({ fixationIndex: 0, zone: { id: 'a' }, stateLabel: 'A' });
     expect(resolveGazeFocus(fixations, [], shelfZones, 500).stateLabel).toBe('Sin fijación');
     expect(findGazeSampleAt([], 100)).toBeNull();
+  });
+
+  it('replays every participant on the shared stimulus-onset clock', () => {
+    const tracks = buildParticipantTracks(
+      [
+        { participantId: 'p1', x: 20, y: 50, timestamp: 100, duration: 300 },
+        { participantId: 'p2', x: 70, y: 50, timestamp: 200, duration: 400 },
+        { participantId: 'p2', x: 20, y: 50, timestamp: 700, duration: 100 },
+      ],
+      [],
+    );
+    expect(tracks.map(track => track.participantId)).toEqual(['p2', 'p1']);
+    expect(getTrackDurationMs(tracks[0])).toBe(800);
+
+    const occupancy = countZoneOccupancy(tracks, shelfZones, 250);
+    expect(occupancy.get('a')).toBe(1);
+    expect(occupancy.get('b')).toBe(1);
+
+    const dwell = accumulateGroupZoneDwell(tracks, shelfZones, 1000);
+    expect(dwell.get('a')).toEqual({ averageDwellMs: 200, viewerCount: 2, firstEntryMs: 100 });
+    expect(dwell.get('b')).toEqual({ averageDwellMs: 200, viewerCount: 1, firstEntryMs: 200 });
+    expect(dwell.get('logo')).toEqual({ averageDwellMs: 0, viewerCount: 0, firstEntryMs: null });
+  });
+
+  it('places a participant by raw gaze when available, else by the fixation under the playhead', () => {
+    const fixationOnly = { fixations: [{ x: 10, y: 10, timestamp: 0, duration: 100 }], samples: [] };
+    expect(findTrackPoint(fixationOnly, 50)).toMatchObject({ x: 10, y: 10 });
+    expect(findTrackPoint(fixationOnly, 150)).toBeNull();
+    const withGaze = { ...fixationOnly, samples: [{ x: 90, y: 90, t: 40 }] };
+    expect(findTrackPoint(withGaze, 50)).toEqual({ x: 90, y: 90, t: 40 });
   });
 
   it('accumulates dwell per zone up to the playhead, counting the fixation in progress partially', () => {
