@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye, SlidersHorizontal } from 'lucide-react';
+import { Drawer } from '../../ui/Drawer';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { Filters } from '../shared/Filters';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
@@ -17,6 +18,7 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
   const [data, setData] = useState<analyticsService.EyeTrackingResults | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
 
   const {
     demographicData,
@@ -72,6 +74,19 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
     });
   }, [data?.stimuli, filteredParticipantIds]);
 
+  const filters = (
+    <Filters
+      researchId={researchId}
+      demographicData={demographicData}
+      selectedFilters={demographicFilters}
+      onFilterChange={setDemographicFilters}
+      userIdFilter={userIdFilter}
+      onUserIdFilterChange={setUserIdFilter}
+      completionMin={completionMin}
+      onCompletionMinChange={setCompletionMin}
+    />
+  );
+
   const loadingSkeleton = (
     <div className="space-y-6 animate-pulse">
       <div className="h-8 bg-gray-200 rounded w-48" />
@@ -90,6 +105,16 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
       {data && (
         <div className={`flex gap-6 ${className ?? ''}`}>
           <div className="flex-1 min-w-0">
+            <div className="flex justify-end mb-3 2xl:hidden">
+              <button
+                type="button"
+                onClick={() => setIsFiltersDrawerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filtros
+              </button>
+            </div>
             {filteredParticipantIds?.size === 0 ? (
               <NoMatchingParticipantsNotice />
             ) : (
@@ -112,18 +137,12 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
               </>
             )}
           </div>
-          <div className="w-80 shrink-0 sticky top-0 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-            <Filters
-              researchId={researchId}
-              demographicData={demographicData}
-              selectedFilters={demographicFilters}
-              onFilterChange={setDemographicFilters}
-              userIdFilter={userIdFilter}
-              onUserIdFilterChange={setUserIdFilter}
-              completionMin={completionMin}
-              onCompletionMinChange={setCompletionMin}
-            />
+          <div className="hidden 2xl:block w-80 shrink-0 sticky top-0 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
+            {filters}
           </div>
+          <Drawer isOpen={isFiltersDrawerOpen} onClose={() => setIsFiltersDrawerOpen(false)} title="Filtros" width="sm">
+            {filters}
+          </Drawer>
         </div>
       )}
     </ResultsStateHandler>
