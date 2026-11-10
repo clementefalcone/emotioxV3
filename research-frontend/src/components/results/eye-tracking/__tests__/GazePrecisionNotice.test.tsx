@@ -24,10 +24,20 @@ describe('summarizeGazePrecision', () => {
 });
 
 describe('GazePrecisionNotice', () => {
-    it('shows the margin per device and warns about narrow AOIs', () => {
-        render(<GazePrecisionNotice participants={participants} excludedParticipants={new Set()} aois={[{ label: 'Logo', width: 10 }]} />);
-        expect(screen.getByText(/Escritorio ±30 % · Móvil ±40 % del ancho de pantalla/)).toBeTruthy();
-        expect(screen.getByText(/«Logo» es más estrecha que ese margen/)).toBeTruthy();
+    it('explains the gaze deviation per device in plain words', () => {
+        render(<GazePrecisionNotice participants={participants} excludedParticipants={new Set()} aois={[]} />);
+        expect(screen.getByText('La mirada registrada puede desviarse hasta un 30 % del ancho de la pantalla en escritorio y un 40 % en móvil.')).toBeTruthy();
+    });
+
+    it('counts the zones narrower than that deviation instead of listing file names', () => {
+        render(<GazePrecisionNotice participants={participants} excludedParticipants={new Set()} aois={[{ label: 'Logo', width: 10 }, { label: 'Banner', width: 60 }]} />);
+        const warning = screen.getByText('1 de 2 zonas es más estrecha que esa desviación: lee su porcentaje como una tendencia, no como un valor exacto.');
+        expect(warning.getAttribute('title')).toBe('Logo');
+    });
+
+    it('says "todas las zonas" when every zone is narrower', () => {
+        render(<GazePrecisionNotice participants={participants} excludedParticipants={new Set()} aois={[{ label: 'A', width: 10 }, { label: 'B', width: 20 }]} />);
+        expect(screen.getByText('Todas las zonas (2) son más estrechas que esa desviación: lee sus porcentajes como una tendencia, no como un valor exacto.')).toBeTruthy();
     });
 
     it('stays hidden when no session has a measured error', () => {
@@ -41,7 +51,7 @@ describe('GazePrecisionNotice', () => {
             { ...participant('m1', 'mobile', null), faceDetectedPercent: 81.4 },
         ];
         render(<GazePrecisionNotice participants={tracked} excludedParticipants={new Set()} aois={[]} />);
-        expect(screen.getByText(/Rostro detectado durante la visualización: Escritorio 96 % · Móvil 81 % de los cuadros/)).toBeTruthy();
-        expect(screen.queryByText(/Margen de error/)).toBeNull();
+        expect(screen.getByText('La cámara detectó el rostro el 96 % del tiempo en escritorio y el 81 % en móvil.')).toBeTruthy();
+        expect(screen.queryByText(/puede desviarse/)).toBeNull();
     });
 });
