@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, RefreshCw, ChevronDown, Download } from 'lucide-react';
 import apiClient from '../../../services/api/client';
+import { CollapsibleContent } from '../../ui/CollapsibleContent';
 
 interface ExecutiveSummary {
     generatedAt: string;
@@ -264,31 +265,6 @@ export const ExecutiveSummaryPanel = ({ researchId, filteredParticipantIds }: { 
                     )}
                 </div>
             </CollapsibleContent>
-        </div>
-    );
-};
-
-const CollapsibleContent = ({ expanded, children }: { expanded: boolean; children: React.ReactNode }) => {
-    const contentRef = useRef<HTMLDivElement>(null);
-    const [height, setHeight] = useState(0);
-
-    useEffect(() => {
-        if (contentRef.current) {
-            setHeight(contentRef.current.scrollHeight);
-        }
-    }, [expanded, children]);
-
-    return (
-        <div
-            className="overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out"
-            style={{
-                maxHeight: expanded ? height : 0,
-                opacity: expanded ? 1 : 0,
-            }}
-        >
-            <div ref={contentRef}>
-                {children}
-            </div>
         </div>
     );
 };

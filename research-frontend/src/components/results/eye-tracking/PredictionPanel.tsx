@@ -62,7 +62,7 @@ export const PredictionPanel = ({
             <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: settings.darkOverlay / 100 }} />
           )}
         </div>
-        <div className="flex items-center gap-6 mt-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3">
           <label className="flex items-center gap-2 text-xs text-gray-500">
             Opacidad
             <input type="range" min={10} max={100} value={settings.opacity}

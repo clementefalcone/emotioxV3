@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Eye, Users, Clock, Crosshair, Image, Download, ShieldCheck, Film, Signal, PenTool } from 'lucide-react';
+import { Eye, Users, Clock, Crosshair, Image, Download, ShieldCheck, Film, Signal, PenTool, ChevronDown } from 'lucide-react';
+import { CollapsibleContent } from '../../ui/CollapsibleContent';
 import { toPng } from 'html-to-image';
 import { cn } from '../../../lib/utils';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
@@ -256,7 +257,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                 ))}
                 se muestran {stimulus.qualitySummary.total - excludedParticipants.size} de {stimulus.qualitySummary.total}
               </span>
-              <span className="text-slate-400">{showQualityTable ? '▲' : '▼'}</span>
+              <ChevronDown className={cn('h-4 w-4 text-slate-400 transition-transform duration-300', showQualityTable && 'rotate-180')} />
             </button>
             <ReliabilityFilter
               participants={stimulus.participants}
@@ -265,7 +266,8 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
             />
           </div>
           <GazePrecisionNotice participants={stimulus.participants} excludedParticipants={excludedParticipants} aois={stimulus.aois} />
-          {showQualityTable && stimulus.participants.length > 0 && (
+          {stimulus.participants.length > 0 && (
+            <CollapsibleContent expanded={showQualityTable}>
             <div className="px-4 py-3 bg-white overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -332,6 +334,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                 </tbody>
               </table>
             </div>
+            </CollapsibleContent>
           )}
         </div>
       )}
@@ -645,7 +648,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         </div>
 
         {viewMode === 'heatmap' && hasHeatData && (
-          <div className="flex items-center gap-6 mt-3 px-1">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 px-1">
             <label className="flex items-center gap-2 text-xs text-gray-500">
               Opacidad
               <input type="range" min={10} max={100} value={heatmapSettings.opacity}
