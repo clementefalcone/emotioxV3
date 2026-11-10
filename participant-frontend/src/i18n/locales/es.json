@@ -199,7 +199,12 @@
       "controller": "Responsable: {{controller}}",
       "rights": "Puedes pedir acceso o borrado de tus datos y retirar tu consentimiento cuando quieras.",
       "policy": "Política de privacidad",
-      "adult": "Confirmo que tengo 18 años o más."
+      "adult": "Confirmo que tengo 18 años o más.",
+      "descriptionWithRecording": "Necesitamos tu permiso. La mirada y las emociones se procesan en tu navegador. Si marcas la casilla de abajo, también se grabará un video de tu rostro.",
+      "capturedVideo": "Un video de tu rostro mientras miras las imágenes, solo si marcas la casilla de abajo. Solo lo verá el equipo de investigación y no se compartirá con terceros.",
+      "recordingOptIn": "Acepto que se grabe un video de mi rostro durante esta actividad (opcional).",
+      "recordingAccepted": "Grabación de video del rostro: aceptada.",
+      "recordingDeclined": "Grabación de video del rostro: no aceptada."
     },
     "face": {
       "eyebrow": "Preparación",

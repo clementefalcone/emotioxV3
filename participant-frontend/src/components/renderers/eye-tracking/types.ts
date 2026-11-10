@@ -157,6 +157,9 @@ export const extractConfig = (module: ModuleConfig) => {
     const emotionRecognition = components.find(c => c.id === 'emotion-recognition');
     const hasEmotionRecognition = emotionRecognition ? getComponentText(emotionRecognition) === 'true' : true;
 
+    const webcamRecording = components.find(c => c.id === 'webcam-recording');
+    const hasWebcamRecording = webcamRecording ? getComponentText(webcamRecording) === 'true' : false;
+
     const attentionMeasurement = components.find(c => c.id === 'attention-measurement');
     const hasAttentionMeasurement = attentionMeasurement ? getComponentText(attentionMeasurement) === 'true' : true;
 
@@ -176,5 +179,5 @@ export const extractConfig = (module: ModuleConfig) => {
         }
     }
 
-    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasAttentionMeasurement, isVideo, hasUploadError };
+    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, hasAttentionMeasurement, isVideo, hasUploadError };
 };

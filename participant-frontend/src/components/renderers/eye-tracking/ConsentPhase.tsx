@@ -6,26 +6,35 @@ import { AdultConfirmation } from './AdultConfirmation';
 interface ConsentPhaseProps {
     taskDescription: string;
     hasEmotionRecognition: boolean;
+    hasWebcamRecording: boolean;
     isGazeModelLoaded: boolean;
-    onAccept: (consentText: string) => Promise<boolean>;
+    onAccept: (consentText: string, isWebcamRecordingAccepted: boolean) => Promise<boolean>;
     onDecline: (consentText: string) => void;
 }
 
-export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, hasEmotionRecognition, isGazeModelLoaded, onAccept, onDecline }) => {
+export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, hasEmotionRecognition, hasWebcamRecording, isGazeModelLoaded, onAccept, onDecline }) => {
     const { t } = useTranslation();
     const [isStartingCamera, setIsStartingCamera] = useState(false);
     const [hasCameraFailed, setHasCameraFailed] = useState(false);
     const [consentError, setConsentError] = useState<string | null>(null);
     const [isAdultConfirmed, setIsAdultConfirmed] = useState(false);
+    const [isWebcamRecordingAccepted, setIsWebcamRecordingAccepted] = useState(false);
     const consentRef = useRef<HTMLDivElement>(null);
-    const readConsentText = () => consentRef.current?.innerText ?? consentRef.current?.textContent ?? '';
+    const readConsentText = () => {
+        const shownText = consentRef.current?.innerText ?? consentRef.current?.textContent ?? '';
+        if (!hasWebcamRecording) return shownText;
+        const recordingDecision = isWebcamRecordingAccepted
+            ? t('eyeTracking.consent.recordingAccepted', 'Face video recording: accepted.')
+            : t('eyeTracking.consent.recordingDeclined', 'Face video recording: declined.');
+        return `${shownText}\n${recordingDecision}`;
+    };
 
     const handleAccept = async () => {
         setIsStartingCamera(true);
         setHasCameraFailed(false);
         setConsentError(null);
         try {
-            const isCameraOn = await onAccept(readConsentText());
+            const isCameraOn = await onAccept(readConsentText(), hasWebcamRecording && isWebcamRecordingAccepted);
             setHasCameraFailed(!isCameraOn);
         } catch (err) {
             console.error(err);
@@ -36,11 +45,12 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
     };
 
     const capturedItems = [
+        ...(hasWebcamRecording ? [t('eyeTracking.consent.capturedVideo', 'A video of your face while you look at the images, only if you tick the box below. Only the research team will see it and it will not be shared with third parties.')] : []),
         ...(hasEmotionRecognition ? [t('eyeTracking.consent.capturedEmotions', 'Basic emotions and face movements, as numbers, several times per second.')] : []),
         t('eyeTracking.consent.capturedGaze', 'Where you look on the screen and for how long. First you will look at 9 dots to adjust it.'),
     ];
     const notCapturedItems = [
-        t('eyeTracking.consent.notCapturedVideo', 'Video or photos of your face'),
+        ...(hasWebcamRecording ? [] : [t('eyeTracking.consent.notCapturedVideo', 'Video or photos of your face')]),
         t('eyeTracking.consent.notCapturedAudio', 'Audio'),
     ];
 
@@ -55,7 +65,9 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
                 </h2>
                 {taskDescription && <p className="text-gray-600">{taskDescription}</p>}
                 <p className="text-gray-600">
-                    {t('eyeTracking.consent.description', 'We need your permission. Everything is processed in your browser. Video of your face is not recorded or stored.')}
+                    {hasWebcamRecording
+                        ? t('eyeTracking.consent.descriptionWithRecording', 'We need your permission. Gaze and emotions are processed in your browser. If you tick the box below, a video of your face will also be recorded.')
+                        : t('eyeTracking.consent.description', 'We need your permission. Everything is processed in your browser. Video of your face is not recorded or stored.')}
                 </p>
 
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 space-y-4 text-sm">
@@ -78,6 +90,17 @@ export const ConsentPhase: React.FC<ConsentPhaseProps> = ({ taskDescription, has
 
                 <ConsentDisclosure />
                 <AdultConfirmation isConfirmed={isAdultConfirmed} onChange={setIsAdultConfirmed} />
+                {hasWebcamRecording && (
+                    <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={isWebcamRecordingAccepted}
+                            onChange={(event) => setIsWebcamRecordingAccepted(event.target.checked)}
+                            className="mt-0.5 rounded border-gray-300"
+                        />
+                        <span>{t('eyeTracking.consent.recordingOptIn', 'I agree that a video of my face is recorded during this activity (optional).')}</span>
+                    </label>
+                )}
 
                 {consentError && <p className="text-sm text-red-500">{consentError}</p>}
                 {hasCameraFailed && (

@@ -16,6 +16,11 @@ vi.mock('../../hooks/useConsentRecorder', () => ({
 vi.mock('../../stores/useParticipantStore', () => ({
     useParticipantStore: () => ({ saveResponse: mockSaveResponse }),
 }));
+const mockStartWebcamRecording = vi.fn();
+const mockStopAndUploadWebcamRecording = vi.fn().mockResolvedValue(null);
+vi.mock('../../hooks/useWebcamRecorder', () => ({
+    useWebcamRecorder: () => ({ start: mockStartWebcamRecording, stopAndUpload: mockStopAndUploadWebcamRecording }),
+}));
 
 
 vi.mock('../../services/media.service', () => ({
@@ -606,6 +611,36 @@ describe('EyeTrackingRenderer emotion capture pipeline', () => {
         expect(saved.gazeTimeline.length).toBeGreaterThan(0);
         expect(saved.gazeTimeline[0]).toMatchObject({ x: 30, y: 26.67 });
         expect(saved.gazeTimeline[0]).not.toHaveProperty('videoTime');
+    });
+
+    it('links the uploaded webcam recording to the saved session', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+        mockStopAndUploadWebcamRecording.mockResolvedValueOnce({ mediaPath: 'research/r1/webcam/a.webm', offsetMs: 4 });
+
+        render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        expect(mockStopAndUploadWebcamRecording).toHaveBeenCalledWith('test-et-1', expect.any(Number));
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved.webcamRecording).toEqual({ mediaPath: 'research/r1/webcam/a.webm', offsetMs: 4 });
+    });
+
+    it('still saves the session without video when the webcam upload fails', async () => {
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(STIMULUS_RECT);
+        mockMPGaze.gazeState = 'open';
+        mockMPGaze.gazePosRef = { current: { x: 120, y: 80 } } as unknown as typeof mockMPGaze.gazePosRef;
+        mockStopAndUploadWebcamRecording.mockRejectedValueOnce(new Error('HTTP 413'));
+
+        render(<EyeTrackingRenderer module={makeModule('false')} onComplete={vi.fn()} />);
+        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => { vi.advanceTimersByTime(5500); });
+
+        const saved = JSON.parse(mockSaveResponse.mock.calls[0][2]);
+        expect(saved).not.toHaveProperty('webcamRecording');
+        expect(saved.fixationUnit).toBe('stimulus-percent');
     });
 
     it('saves the shelf column order shown to the participant', async () => {

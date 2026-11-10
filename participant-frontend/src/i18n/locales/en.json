@@ -199,7 +199,12 @@
       "controller": "Controller: {{controller}}",
       "rights": "You can request access to or deletion of your data and withdraw your consent at any time.",
       "policy": "Privacy policy",
-      "adult": "I confirm I am 18 or older."
+      "adult": "I confirm I am 18 or older.",
+      "descriptionWithRecording": "We need your permission. Gaze and emotions are processed in your browser. If you tick the box below, a video of your face will also be recorded.",
+      "capturedVideo": "A video of your face while you look at the images, only if you tick the box below. Only the research team will see it and it will not be shared with third parties.",
+      "recordingOptIn": "I agree that a video of my face is recorded during this activity (optional).",
+      "recordingAccepted": "Face video recording: accepted.",
+      "recordingDeclined": "Face video recording: declined."
     },
     "face": {
       "eyebrow": "Getting ready",

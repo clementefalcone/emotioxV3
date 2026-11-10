@@ -271,6 +271,20 @@ class PublicService {
         }
     }
 
+    async uploadWebcamRecording(researchId: string, moduleId: string, participantId: string, recording: Blob): Promise<{ mediaPath: string }> {
+        const baseUrl = configService.getBaseUrl();
+        const query = new URLSearchParams({ moduleId, participantId });
+        const response = await fetch(`${baseUrl}/public/research/${researchId}/webcam-recording?${query}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': recording.type },
+            body: recording,
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to upload webcam recording of ${participantId} for module ${moduleId} in research ${researchId}: HTTP ${response.status}`);
+        }
+        return await response.json() as { mediaPath: string };
+    }
+
     async getParticipantResponses(researchId: string, participantId: string, reviewToken: string): Promise<ParticipantResponse[]> {
         const baseUrl = configService.getBaseUrl();
         const url = `${baseUrl}/public/research/${researchId}/participant/${encodeURIComponent(participantId)}/responses`;

@@ -127,6 +127,7 @@ export const EyeCalibrationFlow = ({ options, storedCalibration }: EyeCalibratio
             <ConsentPhase
                 taskDescription=""
                 hasEmotionRecognition={options.hasEmotionRecognition}
+                hasWebcamRecording={false}
                 isGazeModelLoaded={gaze.isLoaded}
                 onAccept={handleConsentAccept}
                 onDecline={options.onDecline}

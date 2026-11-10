@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useParticipantStore } from '../../stores/useParticipantStore';
 import { useConsentRecorder } from '../../hooks/useConsentRecorder';
+import { useWebcamRecorder } from '../../hooks/useWebcamRecorder';
 import { mediaService } from '../../services/media.service';
 import { useBlazeGaze } from '../../hooks/useBlazeGaze';
 import { useMediaPipeGaze } from '../../hooks/useMediaPipeGaze';
@@ -96,10 +97,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const { t } = useTranslation();
     const { saveResponse } = useParticipantStore();
     const recordConsent = useConsentRecorder('eye_tracking');
+    const webcamRecorder = useWebcamRecorder();
+    const isWebcamRecordingAcceptedRef = useRef(false);
+    const viewingStartedAtRef = useRef(0);
 
     const deviceType = useMemo(() => getDeviceType(), []);
 
-    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
+    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
     const isShelf = displayMode === 'shelf';
     const shelfColumnOrder = useMemo(() => {
         const positions = Array.from({ length: shelfItems }, (_, column) => column);
@@ -297,6 +301,10 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         if (phase !== 'viewing') return;
 
         const viewingStartedAt = Date.now();
+        viewingStartedAtRef.current = viewingStartedAt;
+        if (isWebcamRecordingAcceptedRef.current && cameraStreamRef.current) {
+            webcamRecorder.start(cameraStreamRef.current);
+        }
         // Start face-api.js emotion sampling alongside gaze
         if (hasEmotionRecognition) {
             faceEmotions.start();
@@ -631,6 +639,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         if (phase === 'complete' && !savedRef.current) {
             savedRef.current = true;
 
+            const webcamRecordingUpload = webcamRecorder.stopAndUpload(module.id, viewingStartedAtRef.current);
             gaze.stop();
             faceEmotions.stop();
             stopCamera();
@@ -778,16 +787,22 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 };
             }
 
-            const responseValue = JSON.stringify({
-                ...v1Payload,
-                ...(v2Payload ? { v2: v2Payload } : {}),
-                ...(v3Payload ? { v3: v3Payload } : {}),
-            });
-            saveResponse(module.id, 'eye-tracking-data', responseValue);
-
-            completeTimerRef.current = window.setTimeout(() => {
-                onComplete?.();
-            }, 1200);
+            const saveWithWebcamRecording = async () => {
+                const webcamRecording = await webcamRecordingUpload.catch((err: unknown) => {
+                    console.error(JSON.stringify({ event: 'webcam_recording_upload_failed', moduleId: module.id, error: err instanceof Error ? err.message : String(err) }));
+                    return null;
+                });
+                saveResponse(module.id, 'eye-tracking-data', JSON.stringify({
+                    ...v1Payload,
+                    ...(webcamRecording ? { webcamRecording } : {}),
+                    ...(v2Payload ? { v2: v2Payload } : {}),
+                    ...(v3Payload ? { v3: v3Payload } : {}),
+                }));
+                completeTimerRef.current = window.setTimeout(() => {
+                    onComplete?.();
+                }, 1200);
+            };
+            void saveWithWebcamRecording();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getStimulusElement/fixations.length read refs; additional props are stable at phase=complete
     }, [phase, module.id, saveResponse, onComplete, blaze, stopCamera, deviceType, displayMode, faceEmotions, hasEmotionRecognition, isShelf, isVideo, resolvedShelfUrls.length, shelfCount, shelfItems, shelfRepetitions, shelfColumnOrder]);
@@ -855,8 +870,9 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         onSequenceComplete: finishCalibration,
     });
 
-    const handleConsentAccept = useCallback(async (consentText: string) => {
+    const handleConsentAccept = useCallback(async (consentText: string, isWebcamRecordingAccepted: boolean) => {
         await recordConsent('accepted', consentText);
+        isWebcamRecordingAcceptedRef.current = isWebcamRecordingAccepted;
         const isCameraOn = await startCamera();
         if (isCameraOn) setPhase('face');
         return isCameraOn;
@@ -922,6 +938,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
             <ConsentPhase
                 taskDescription={taskDescription}
                 hasEmotionRecognition={hasEmotionRecognition}
+                hasWebcamRecording={hasWebcamRecording}
                 isGazeModelLoaded={gaze.isLoaded}
                 onAccept={handleConsentAccept}
                 onDecline={handleConsentDecline}
