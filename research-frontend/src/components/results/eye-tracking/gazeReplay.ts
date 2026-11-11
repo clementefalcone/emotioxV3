@@ -1,8 +1,17 @@
+import { gazePrecisionWeight, type GazeUncertainty } from './gazePrecisionWeight';
+
 export interface ReplayFixation {
   readonly x: number;
   readonly y: number;
   readonly timestamp: number;
   readonly duration: number;
+  readonly uncertainty?: GazeUncertainty;
+}
+
+export interface HeatPoint {
+  readonly x: number;
+  readonly y: number;
+  readonly value: number;
 }
 
 export interface ReplayZone {
@@ -143,6 +152,19 @@ export const findTrackPoint = (
 ): { x: number; y: number } | null => {
   if (track.samples.length > 0) return findGazeSampleAt(track.samples, timeMs);
   return track.fixations[findActiveFixationIndex(track.fixations, timeMs)] ?? null;
+};
+
+export const collectHeatPoints = (
+  tracks: readonly Pick<ParticipantTrack, 'fixations'>[],
+  timeMs: number,
+  windowMs: number | null,
+): HeatPoint[] => {
+  const windowStartMs = windowMs === null ? -Infinity : timeMs - windowMs;
+  return tracks.flatMap(track => track.fixations.flatMap(fixation => {
+    const watchedMs = Math.min(timeMs, fixation.timestamp + fixation.duration) - Math.max(windowStartMs, fixation.timestamp);
+    if (watchedMs <= 0) return [];
+    return [{ x: fixation.x, y: fixation.y, value: watchedMs * gazePrecisionWeight(fixation.uncertainty) }];
+  }));
 };
 
 export const countZoneOccupancy = (

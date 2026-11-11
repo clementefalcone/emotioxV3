@@ -1,24 +1,40 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Download, Pause, Play, RotateCcw } from 'lucide-react';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
+import type { HeatmapSettings } from './HeatmapSettingsModal';
 import { loadCachedStimulusImage } from '../../../utils/stimulusImageCache';
 import {
   accumulateGroupZoneDwell,
   accumulateZoneDwell,
   buildParticipantTracks,
+  collectHeatPoints,
   countZoneOccupancy,
   getTrackDurationMs,
   resolveGazeFocus,
   type ParticipantTrack,
   type ReplayZone,
 } from './gazeReplay';
-import { drawGazeReplayFrame, drawGroupReplayFrame, getParticipantColor } from './drawGazeReplayFrame';
+import { drawGazeReplayFrame, drawGroupReplayFrame, drawHeatmapReplayFrame, getParticipantColor } from './drawGazeReplayFrame';
 import { ZoneDwellList, type ZoneDwellRow } from './ZoneDwellList';
 import { WebcamRecordingPlayer } from './WebcamRecordingPlayer';
 
 const ALL_PARTICIPANTS = '__all__';
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4];
+const ACCUMULATED_HEAT = 0;
+const HEAT_WINDOWS_MS = [1000, 3000, 5000];
+
+type ReplayView = 'path' | 'heatmap';
+
+const REPLAY_VIEW_OPTIONS: readonly { value: ReplayView; label: string }[] = [
+  { value: 'path', label: 'Recorrido' },
+  { value: 'heatmap', label: 'Heatmap' },
+];
+const HEAT_WINDOW_OPTIONS = [
+  { value: ACCUMULATED_HEAT, label: 'Acumulado' },
+  ...HEAT_WINDOWS_MS.map(windowMs => ({ value: windowMs, label: `Últimos ${windowMs / 1000} s` })),
+];
+const SPEED_OPTIONS = PLAYBACK_SPEEDS.map(speed => ({ value: speed, label: `${speed}×` }));
 const MAX_CANVAS_WIDTH = 1280;
 const VIDEO_FORMATS = [
   { mimeType: 'video/webm;codecs=vp9', extension: 'webm' },
@@ -64,7 +80,32 @@ const buildGroupRows = (tracks: readonly ParticipantTrack[], zones: readonly Rep
   });
 };
 
-const downloadBlob = (blob: Blob, fileName: string): void => {
+interface SegmentedOptionsProps<T extends string | number> {
+  readonly options: readonly { value: T; label: string }[];
+  readonly value: T;
+  readonly onChange: (value: T) => void;
+  readonly disabled: boolean;
+}
+
+function SegmentedOptions<T extends string | number>({ options, value, onChange, disabled }: SegmentedOptionsProps<T>) {
+  return (
+    <div className="flex gap-1">
+      {options.map(option => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          disabled={disabled}
+          className={`text-xs px-2 py-1 rounded-md border ${value === option.value ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium' : 'bg-white border-gray-200 text-slate-500 hover:bg-gray-50'}`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const downloadBlob =(blob: Blob, fileName: string): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -81,9 +122,11 @@ interface GazeReplayPanelProps {
   readonly gazeTimeline: NonNullable<EyeTrackingStimulus['gazeTimeline']>;
   readonly zones: readonly ReplayZone[];
   readonly webcamRecordings: ReadonlyMap<string, { url: string; offsetMs: number }>;
+  readonly heatmapSettings: HeatmapSettings;
+  readonly heatmapControls: ReactNode;
 }
 
-export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webcamRecordings }: GazeReplayPanelProps) {
+export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webcamRecordings, heatmapSettings, heatmapControls }: GazeReplayPanelProps) {
   const tracks = useMemo(() => buildParticipantTracks(fixations, gazeTimeline), [fixations, gazeTimeline]);
   const [chosenParticipantId, setChosenParticipantId] = useState<string | null>(null);
   const isAllParticipants = chosenParticipantId === ALL_PARTICIPANTS;
@@ -92,6 +135,14 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
   const durationMs = isAllParticipants
     ? Math.max(0, ...tracks.map(getTrackDurationMs))
     : selectedTrack ? getTrackDurationMs(selectedTrack) : 0;
+
+  const visibleTracks = useMemo(
+    () => (isAllParticipants ? tracks : selectedTrack ? [selectedTrack] : []),
+    [isAllParticipants, tracks, selectedTrack],
+  );
+  const heatIntensityPointCount = visibleTracks.reduce((count, track) => count + track.fixations.length, 0);
+  const [view, setView] = useState<ReplayView>('path');
+  const [heatWindowMs, setHeatWindowMs] = useState(ACCUMULATED_HEAT);
 
   const [timeMs, setTimeMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -130,12 +181,23 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    if (isAllParticipants) {
+    if (view === 'heatmap') {
+      const windowMs = heatWindowMs === ACCUMULATED_HEAT ? null : heatWindowMs;
+      const timingLabel = windowMs === null ? 'acumulado' : `últimos ${formatSeconds(windowMs)}`;
+      drawHeatmapReplayFrame(ctx, {
+        image,
+        points: collectHeatPoints(visibleTracks, timeMs, windowMs),
+        intensityPointCount: heatIntensityPointCount,
+        settings: heatmapSettings,
+        zones,
+        hudText: `${formatSeconds(timeMs)} · ${timingLabel}`,
+      });
+    } else if (isAllParticipants) {
       drawGroupReplayFrame(ctx, { image, tracks, zones, timeMs });
     } else if (selectedTrack) {
       drawGazeReplayFrame(ctx, { image, fixations: selectedTrack.fixations, gazeSamples: selectedTrack.samples, zones, timeMs });
     }
-  }, [image, isAllParticipants, tracks, selectedTrack, zones, timeMs]);
+  }, [image, view, heatWindowMs, visibleTracks, heatIntensityPointCount, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -176,7 +238,8 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     const chunks: Blob[] = [];
     recorder.ondataavailable = event => { if (event.data.size > 0) chunks.push(event.data); };
     recorder.onstop = () => {
-      downloadBlob(new Blob(chunks, { type: videoFormat.mimeType }), `gaze-replay-${isAllParticipants ? 'todos' : participantId}.${videoFormat.extension}`);
+      const viewName = view === 'heatmap' ? `heatmap-${heatWindowMs === ACCUMULATED_HEAT ? 'acumulado' : `${heatWindowMs / 1000}s`}` : 'replay';
+      downloadBlob(new Blob(chunks, { type: videoFormat.mimeType }), `gaze-${viewName}-${isAllParticipants ? 'todos' : participantId}.${videoFormat.extension}`);
       recorderRef.current = null;
       setIsRecording(false);
     };
@@ -185,7 +248,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     setIsRecording(true);
     setIsPlaying(true);
     recorder.start();
-  }, [videoFormat, participantId, isAllParticipants]);
+  }, [videoFormat, participantId, isAllParticipants, view, heatWindowMs]);
 
   if (!selectedTrack) {
     return (
@@ -217,6 +280,10 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
             disabled={isRecording}
           />
         </div>
+        <SegmentedOptions options={REPLAY_VIEW_OPTIONS} value={view} onChange={setView} disabled={isRecording} />
+        {view === 'heatmap' && (
+          <SegmentedOptions options={HEAT_WINDOW_OPTIONS} value={heatWindowMs} onChange={setHeatWindowMs} disabled={isRecording} />
+        )}
         <span className="text-xs text-gray-400">{summary}</span>
       </div>
 
@@ -269,19 +336,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
         <span className="w-24 flex-shrink-0 text-right font-mono text-xs text-gray-500">
           {(timeMs / 1000).toFixed(1)} / {(durationMs / 1000).toFixed(1)} s
         </span>
-        <div className="flex gap-1">
-          {PLAYBACK_SPEEDS.map(option => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setSpeed(option)}
-              disabled={isRecording}
-              className={`text-xs px-2 py-1 rounded-md border ${speed === option ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium' : 'bg-white border-gray-200 text-slate-500 hover:bg-gray-50'}`}
-            >
-              {option}×
-            </button>
-          ))}
-        </div>
+        <SegmentedOptions options={SPEED_OPTIONS} value={speed} onChange={setSpeed} disabled={isRecording} />
         <button
           type="button"
           onClick={exportVideo}
@@ -294,7 +349,9 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
         </button>
       </div>
 
-      {isAllParticipants && (
+      {view === 'heatmap' && heatmapControls}
+
+      {isAllParticipants && view === 'path' && (
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           {tracks.map((track, index) => (
             <span key={track.participantId} className="flex items-center gap-1 text-[11px] text-gray-500">

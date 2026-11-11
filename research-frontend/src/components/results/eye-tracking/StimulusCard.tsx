@@ -27,6 +27,7 @@ import type { HeatmapSettings } from './HeatmapSettingsModal';
 import { gazePrecisionWeight } from './gazePrecisionWeight';
 import { GazePrecisionNotice } from './GazePrecisionNotice';
 import { GazeReplayPanel } from './GazeReplayPanel';
+import { HeatmapSliders } from './HeatmapSliders';
 import { buildGridZones } from './gazeReplay';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
@@ -578,6 +579,8 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
             gazeTimeline={includedGazeTimeline}
             zones={replayZones}
             webcamRecordings={webcamRecordings}
+            heatmapSettings={heatmapSettings}
+            heatmapControls={<HeatmapSliders settings={heatmapSettings} onChange={setHeatmapSettings} />}
           />
         ) : viewMode === 'comparison' && shownStimulus.aois.length > 0 ? (
           <ShelfComparison
@@ -649,36 +652,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         </div>
 
         {viewMode === 'heatmap' && hasHeatData && (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 px-1">
-            <label className="flex items-center gap-2 text-xs text-gray-500">
-              Opacidad
-              <input type="range" min={10} max={100} value={heatmapSettings.opacity}
-                onChange={e => setHeatmapSettings(prev => ({ ...prev, opacity: Number(e.target.value) }))}
-                className="w-20 h-1 accent-red-500" />
-              <span className="w-6 text-right">{heatmapSettings.opacity}</span>
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-500">
-              Blur / suavizado
-              <input type="range" min={1} max={40} value={heatmapSettings.blur}
-                onChange={e => setHeatmapSettings(prev => ({ ...prev, blur: Number(e.target.value) }))}
-                className="w-20 h-1 accent-green-500" />
-              <span className="w-6 text-right">{heatmapSettings.blur}</span>
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-500">
-              Exposición / intensidad
-              <input type="range" min={1} max={80} value={heatmapSettings.threshold}
-                onChange={e => setHeatmapSettings(prev => ({ ...prev, threshold: Number(e.target.value) }))}
-                className="w-20 h-1 accent-blue-500" />
-              <span className="w-6 text-right">{heatmapSettings.threshold}</span>
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-500">
-              Capa negra
-              <input type="range" min={0} max={80} value={heatmapSettings.darkOverlay}
-                onChange={e => setHeatmapSettings(prev => ({ ...prev, darkOverlay: Number(e.target.value) }))}
-                className="w-20 h-1 accent-blue-800" />
-              <span className="w-6 text-right">{heatmapSettings.darkOverlay}</span>
-            </label>
-          </div>
+          <HeatmapSliders settings={heatmapSettings} onChange={setHeatmapSettings} />
         )}
       </div>
       </>}

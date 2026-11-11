@@ -4,6 +4,7 @@ import {
   accumulateZoneDwell,
   buildGridZones,
   buildParticipantTracks,
+  collectHeatPoints,
   countZoneOccupancy,
   findTrackPoint,
   getTrackDurationMs,
@@ -99,5 +100,29 @@ describe('gazeReplay', () => {
     expect(dwell.get('a')).toEqual({ dwellMs: 300, firstEntryMs: 100 });
     expect(dwell.get('logo')).toEqual({ dwellMs: 100, firstEntryMs: 600 });
     expect(dwell.get('b')).toEqual({ dwellMs: 100, firstEntryMs: 1000 });
+  });
+
+  it('heats each fixation by the milliseconds watched up to the playhead, across every track', () => {
+    const tracks = [{ participantId: 'p1', fixations, samples: [] }, { participantId: 'p2', fixations: [{ x: 5, y: 5, timestamp: 0, duration: 1000 }], samples: [] }];
+    expect(collectHeatPoints(tracks, 1100, null)).toEqual([
+      { x: 20, y: 50, value: 300 },
+      { x: 60, y: 15, value: 100 },
+      { x: 70, y: 50, value: 100 },
+      { x: 5, y: 5, value: 1000 },
+    ]);
+  });
+
+  it('keeps only the gaze inside the moving window', () => {
+    const tracks = [{ participantId: 'p1', fixations, samples: [] }];
+    expect(collectHeatPoints(tracks, 1100, 500)).toEqual([
+      { x: 60, y: 15, value: 100 },
+      { x: 70, y: 50, value: 100 },
+    ]);
+    expect(collectHeatPoints(tracks, 50, 500)).toEqual([]);
+  });
+
+  it('weakens heat from imprecise gaze', () => {
+    const tracks = [{ participantId: 'p1', fixations: [{ x: 5, y: 5, timestamp: 0, duration: 1000, uncertainty: { x: 5, y: 5 } }], samples: [] }];
+    expect(collectHeatPoints(tracks, 1000, null)[0].value).toBeCloseTo(500);
   });
 });

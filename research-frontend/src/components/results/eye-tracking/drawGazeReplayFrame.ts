@@ -1,9 +1,12 @@
+import { paintHeatmap } from '../cognitive-task/components/paintHeatmap';
+import type { HeatmapSettings } from './HeatmapSettingsModal';
 import {
   countStartedFixations,
   countZoneOccupancy,
   findTrackPoint,
   resolveGazeFocus,
   selectRecentGazeSamples,
+  type HeatPoint,
   type ParticipantTrack,
   type ReplayFixation,
   type ReplayGazeSample,
@@ -23,6 +26,15 @@ export interface GroupReplayFrame {
   readonly tracks: readonly ParticipantTrack[];
   readonly zones: readonly ReplayZone[];
   readonly timeMs: number;
+}
+
+export interface HeatmapReplayFrame {
+  readonly image: CanvasImageSource;
+  readonly points: readonly HeatPoint[];
+  readonly intensityPointCount: number;
+  readonly settings: Pick<HeatmapSettings, 'opacity' | 'blur' | 'threshold' | 'darkOverlay'>;
+  readonly zones: readonly ReplayZone[];
+  readonly hudText: string;
 }
 
 interface ZoneStyle {
@@ -45,18 +57,23 @@ const GAZE_TRAIL_MS = 500;
 
 export const getParticipantColor = (index: number): string => `hsl(${(index * 137.5) % 360}, 85%, 55%)`;
 
-const drawBackground = (ctx: CanvasRenderingContext2D, image: CanvasImageSource): CanvasFrame => {
+const drawStimulus = (ctx: CanvasRenderingContext2D, image: CanvasImageSource): CanvasFrame => {
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
   ctx.drawImage(image, 0, 0, width, height);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
-  ctx.fillRect(0, 0, width, height);
   return {
     width,
     height,
     unit: Math.min(width, height) / 100,
     toPx: point => ({ px: (point.x / 100) * width, py: (point.y / 100) * height }),
   };
+};
+
+const drawBackground = (ctx: CanvasRenderingContext2D, image: CanvasImageSource): CanvasFrame => {
+  const canvas = drawStimulus(ctx, image);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return canvas;
 };
 
 const drawZones = (
@@ -101,6 +118,31 @@ const drawHud = (ctx: CanvasRenderingContext2D, canvas: CanvasFrame, text: strin
 };
 
 const formatSeconds = (timeMs: number): string => `${(timeMs / 1000).toFixed(1)} s`;
+
+const heatLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
+const resolveHeatLayer = (canvas: HTMLCanvasElement): HTMLCanvasElement => {
+  const layer = heatLayers.get(canvas) ?? document.createElement('canvas');
+  heatLayers.set(canvas, layer);
+  return layer;
+};
+
+export const drawHeatmapReplayFrame = (ctx: CanvasRenderingContext2D, frame: HeatmapReplayFrame): void => {
+  const canvas = drawStimulus(ctx, frame.image);
+  paintHeatmap(ctx, resolveHeatLayer(ctx.canvas), {
+    data: frame.points,
+    opacity: frame.settings.opacity,
+    blur: frame.settings.blur,
+    threshold: frame.settings.threshold,
+    darkOverlay: frame.settings.darkOverlay,
+    granularity: 'precise',
+    visualProfile: 'precise',
+    coordSystem: 'percent',
+    intensityPointCount: frame.intensityPointCount,
+  });
+  drawZones(ctx, canvas, frame.zones, () => ({ fillAlpha: 0, isActive: false, suffix: '' }));
+  drawHud(ctx, canvas, frame.hudText, frame.points.length > 0);
+};
 
 export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeReplayFrame): void => {
   const canvas = drawBackground(ctx, frame.image);
