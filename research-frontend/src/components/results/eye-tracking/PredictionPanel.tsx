@@ -56,11 +56,9 @@ export const PredictionPanel = ({
             blur={settings.blur}
             opacity={settings.opacity}
             threshold={settings.threshold}
+            darkOverlay={settings.darkOverlay}
             className="w-full"
           />
-          {settings.darkOverlay > 0 && (
-            <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: settings.darkOverlay / 100 }} />
-          )}
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3">
           <label className="flex items-center gap-2 text-xs text-gray-500">

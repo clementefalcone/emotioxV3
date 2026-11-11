@@ -29,6 +29,7 @@ interface HeatmapRendererProps {
     blur?: number;
     opacity?: number;
     threshold?: number;
+    darkOverlay?: number;
     /** precise = discrete hotspots; smooth = legacy diffuse blobs */
     granularity?: HeatmapGranularity;
     /** Fine-tuned render tuning (Lab / Precise / Balanced / Smooth) */
@@ -71,6 +72,7 @@ export const HeatmapRenderer = ({
     blur: blurProp,
     opacity: opacityProp,
     threshold: thresholdProp,
+    darkOverlay = 0,
     granularity = 'precise',
     visualProfile = 'precise',
     coordSystem,
@@ -121,7 +123,8 @@ export const HeatmapRenderer = ({
         ctx.drawImage(img, 0, 0);
 
         const dimFactor = OVERLAY_DIM_FACTORS[visualProfile];
-        const overlayOpacity = opacityProp != null ? (opacityProp / 100) * dimFactor : dimFactor * 0.5;
+        const profileDimOpacity = opacityProp != null ? (opacityProp / 100) * dimFactor : dimFactor * 0.5;
+        const overlayOpacity = Math.min(1, profileDimOpacity + darkOverlay / 100);
         ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
         ctx.fillRect(0, 0, w, h);
 
@@ -231,7 +234,7 @@ export const HeatmapRenderer = ({
         ctx.drawImage(heatCanvas, 0, 0);
         ctx.globalAlpha = 1;
 
-    }, [imageLoaded, naturalSize, data, imageUrl, radiusProp, blurProp, opacityProp, thresholdProp, coordSystem, granularity, visualProfile]);
+    }, [imageLoaded, naturalSize, data, imageUrl, radiusProp, blurProp, opacityProp, thresholdProp, darkOverlay, coordSystem, granularity, visualProfile]);
 
     useEffect(() => {
         if (!borderless || !fitMaxHeightPx || naturalSize.width <= 0) {

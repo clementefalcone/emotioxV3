@@ -594,21 +594,17 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
           <div ref={setImageContainerRef} className="w-full relative">
             {viewMode === 'heatmap' && hasHeatData ? (
               filteredHeatmapData.length > 0 ? (
-                <>
-                  <HeatmapRenderer
-                    imageUrl={effectiveStimulusUrl}
-                    data={filteredHeatmapData}
-                    coordSystem="percent"
-                    blur={heatmapSettings.blur}
-                    opacity={heatmapSettings.opacity}
-                    threshold={heatmapSettings.threshold}
-                    className="w-full h-full"
-                    canvasClassName="w-full h-full block object-contain"
-                  />
-                  {heatmapSettings.darkOverlay > 0 && (
-                    <div className="absolute inset-0 bg-black pointer-events-none" style={{ opacity: heatmapSettings.darkOverlay / 100 }} />
-                  )}
-                </>
+                <HeatmapRenderer
+                  imageUrl={effectiveStimulusUrl}
+                  data={filteredHeatmapData}
+                  coordSystem="percent"
+                  blur={heatmapSettings.blur}
+                  opacity={heatmapSettings.opacity}
+                  threshold={heatmapSettings.threshold}
+                  darkOverlay={heatmapSettings.darkOverlay}
+                  className="w-full h-full"
+                  canvasClassName="w-full h-full block object-contain"
+                />
               ) : hasZoneMass ? (
                 <ZoneHeatmapOverlay imageUrl={effectiveStimulusUrl} zoneMass={stimulus.zoneMass!} />
               ) : null
