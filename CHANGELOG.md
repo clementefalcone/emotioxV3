@@ -1,3 +1,17 @@
+## v0.99.74 — Eye Tracking: heatmap video, dark layer under heat (2026-11-11)
+
+### fix(eye-tracking): draw dark layer under heatmap
+- **Why.** "Capa negra" is meant to accentuate the heatmap, but it was a black `div` above the canvas and dimmed the heat too.
+- **Change.** `HeatmapRenderer` takes `darkOverlay` and adds it to its existing dim fill (image → dim → heat). `StimulusCard` and `PredictionPanel` drop the overlay `div`.
+
+### refactor(heatmap): extract canvas painter
+- **Change.** Dim + simpleheat logic, `HEATMAP_GRADIENTS` and `OVERLAY_DIM_FACTORS` move from `HeatmapRenderer` to `paintHeatmap.ts`. Optional `intensityPointCount` pins the intensity scale across animation frames. No visual change.
+
+### feat(eye-tracking): heatmap video in gaze replay
+- **Why.** Clients ask for heatmaps; the gaze path is a drill-down tool.
+- **Change.** Replay gets **Recorrido | Heatmap**. Heatmap builds heat over time — **Acumulado** or **Últimos 1/3/5 s** — for one participant or all, honouring the precision filter. Each fixation weighs the ms watched up to the playhead × precision weight (`collectHeatPoints`), painted with `paintHeatmap` and the intensity scale of the full set, so the last accumulated frame matches the static map. The four heatmap sliders (`HeatmapSliders`) show in both views and share state. **Exportar video** records it (`gaze-heatmap-<acumulado|Ns>-<participant|todos>`).
+- **Check.** Research 728 → 731, 0 failing. Local Shelf study: last accumulated frame matches the static map; dark layer 60 drops mean brightness 186 → 78; in-page recording produced 470 KB for 2.5 s. Live `index-CBamWT2v.js` contains the new view. Not tested on production in a browser.
+
 ## v0.99.73 — Eye Tracking: participant webcam recording (2026-11-10)
 
 ### feat(eye-tracking): store webcam recordings
