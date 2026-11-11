@@ -844,6 +844,43 @@ describe('getEyeTrackingResults', () => {
       expect(p1.dominantEmotion).toBe('joy'); // joy=1, anger=1 but joy comes first alphabetically? No — they tie, so first in reduce wins. joy and anger both have 1, but reduce starts with neutral=0 so first to exceed is joy at idx 0.
     });
 
+    it('exposes each participant emotion sample on the viewing clock', async () => {
+      const rows = [
+        buildRow('p1', {
+          emotions: [
+            { timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 0.8 } },
+            { timestamp: 1200, emotion: 'surprise', confidence: 0.7, actionUnits: {} },
+          ],
+          calibrationRmsePx: 60,
+          integrityScore: 0.9,
+        }),
+        buildRow('p2', { emotions: [{ timestamp: 300, emotion: 'fear', confidence: 0.6, actionUnits: {} }], calibrationRmsePx: 60, integrityScore: 0.9 }),
+      ];
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ emotionRecognition: true }) }],
+        responses: [rows],
+      });
+
+      const result = await getEyeTrackingResults('research-1');
+
+      expect(result.stimuli[0].emotionSamples).toEqual([
+        { participantId: 'p1', timestamp: 0, emotion: 'joy', confidence: 0.9 },
+        { participantId: 'p1', timestamp: 1200, emotion: 'surprise', confidence: 0.7 },
+        { participantId: 'p2', timestamp: 300, emotion: 'fear', confidence: 0.6 },
+      ]);
+    });
+
+    it('exposes no emotion samples when emotion recognition is off', async () => {
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ emotionRecognition: false }) }],
+        responses: [[buildRow('p1', { emotions: [{ timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: {} }], calibrationRmsePx: 60, integrityScore: 0.9 })]],
+      });
+
+      const result = await getEyeTrackingResults('research-1');
+
+      expect(result.stimuli[0].emotionSamples).toEqual([]);
+    });
+
     it('builds downsampled timeline with 1s buckets', async () => {
       const emotions: Array<{ timestamp: number; emotion: string; confidence: number; actionUnits: Record<string, number> }> = [
         { timestamp: 100, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 0.8 } },

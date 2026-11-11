@@ -1,7 +1,7 @@
 import pool from '../../config/database';
 import { getMediaUrl } from '../../config/local-storage';
 import { computeAoiMetrics, type GazeUncertainty } from './aoi-metrics';
-import { aggregateEmotions, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression } from './emotion-metrics';
+import { aggregateEmotions, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression, type ParticipantEmotions } from './emotion-metrics';
 
 /**
  * Eye Tracking Analytics
@@ -63,6 +63,7 @@ interface EyeTrackingStimulus {
     low: number;
   };
   emotions: EmotionAggregation;
+  emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number }>;
   /** TranSalNet saliency prediction data (if run). Points with x%, y%, value 0–1. */
   predictionHeatmap?: Array<{ x: number; y: number; value: number }>;
   predictionProcessedAt?: string;
@@ -270,22 +271,20 @@ const extractEyeTrackingConfig = (config: any) => {
  * Aggregate FACS emotion data from eye tracking responses.
  * Each response may contain `emotions: EmotionSample[]` alongside fixation data.
  */
-const computeEmotionMetrics = (
-  responses: any[],
-  hasEmotionRecognition: boolean,
-): EmotionAggregation => {
-  if (!hasEmotionRecognition) return emptyEmotionAggregation(false);
-  return aggregateEmotions(responses.flatMap((row) => {
-    try {
-      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-      const samples: EmotionSample[] = parsed?.emotions ?? [];
-      const microExpressions: MicroExpression[] = Array.isArray(parsed?.microExpressions) ? parsed.microExpressions : [];
-      return [{ participantId: row.participant_id, samples, microExpressions }];
-    } catch {
-      return [];
-    }
-  }));
-};
+const readParticipantEmotions = (responses: any[]): ParticipantEmotions[] => responses.flatMap((row) => {
+  try {
+    const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+    const samples: EmotionSample[] = parsed?.emotions ?? [];
+    const microExpressions: MicroExpression[] = Array.isArray(parsed?.microExpressions) ? parsed.microExpressions : [];
+    return [{ participantId: row.participant_id, samples, microExpressions }];
+  } catch {
+    return [];
+  }
+});
+
+const flattenEmotionSamples = (participants: ParticipantEmotions[]): EyeTrackingStimulus['emotionSamples'] =>
+  participants.flatMap(({ participantId, samples }) =>
+    samples.map(({ timestamp, emotion, confidence }) => ({ participantId, timestamp, emotion, confidence })));
 
 /**
  * Compute Eye Tracking analytics from gaze response data.
@@ -488,7 +487,9 @@ const computeEyeTrackingMetrics = (
     low: Array.from(participantMap.values()).filter(p => p.qualityGrade === 'low').length,
   };
 
-  const emotions = computeEmotionMetrics(responses, hasEmotionRecognition);
+  const participantEmotions = hasEmotionRecognition ? readParticipantEmotions(responses) : [];
+  const emotions = hasEmotionRecognition ? aggregateEmotions(participantEmotions) : emptyEmotionAggregation(false);
+  const emotionSamples = flattenEmotionSamples(participantEmotions);
 
   // Sequence analysis: AOI visit order per participant + transition matrix
   let sequenceAnalysis: {
@@ -573,6 +574,7 @@ const computeEyeTrackingMetrics = (
     participants,
     qualitySummary,
     emotions,
+    emotionSamples,
     sequenceAnalysis,
   };
 };
