@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     HEATMAP_GRADIENTS,
     OVERLAY_DIM_FACTORS,
-} from '../../components/results/cognitive-task/components/HeatmapRenderer';
+} from '../../components/results/cognitive-task/components/paintHeatmap';
 import { COLD_MAP_GRADIENT } from '../coldMapRender';
 import { THERMAL_GRADIENT } from '../thermalContrast';
 import type { HeatmapVisualProfile } from '../attentionPrediction.utils';
