@@ -1,15 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import simpleheat from 'simpleheat';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
+import { drawGazeHeat, GAZE_DEFAULT_EXPOSURE, GAZE_DEFAULT_SPREAD } from '../cognitive-task/components/paintHeatmap';
 
 type OverlayMode = 'dots' | 'heatmap';
-
-/** Warm gradient matching HeatmapRenderer — green->yellow->red */
-const WARM_GRADIENT: Record<number, string> = {
-  0.20: '#00ff00', 0.40: '#88ff00', 0.55: '#ffff00',
-  0.72: '#ff8800', 0.88: '#ff0000', 1.0: '#ff0000',
-};
 
 export const VideoGazePlayer = ({
   videoUrl,
@@ -47,8 +41,7 @@ export const VideoGazePlayer = ({
 
   /** Find gaze points within a time window around current video time */
   const findVisiblePoints = useCallback((vt: number) => {
-    // ponytail: wider window for heatmap (1s accumulation), narrow for dots (250ms)
-    const windowS = overlayMode === 'heatmap' ? 0.5 : 0.25;
+    const windowS = overlayMode === 'heatmap' ? 1 : 0.25;
     const timeline = sortedTimeline.current;
 
     // Binary search for window start
@@ -79,27 +72,11 @@ export const VideoGazePlayer = ({
 
     canvas.width = w;
     canvas.height = h;
-
-    if (points.length === 0) {
-      const ctx = canvas.getContext('2d');
-      ctx?.clearRect(0, 0, w, h);
-      return;
-    }
-
-    const heat = simpleheat(canvas);
-    const r = Math.max(15, Math.round(Math.min(w, h) * 0.06));
-    heat.radius(r, r * 0.6);
-    heat.gradient(WARM_GRADIENT);
-
-    // Convert %-based coords to pixel coords, each point weight=1
-    const heatData: Array<[number, number, number]> = points.map(p => [
-      (p.x / 100) * w,
-      (p.y / 100) * h,
-      1,
-    ]);
-    heat.data(heatData);
-    heat.max(Math.max(3, Math.ceil(heatData.length * 0.15)));
-    heat.draw(0.05);
+    drawGazeHeat(
+      canvas,
+      points.map(p => [(p.x / 100) * w, (p.y / 100) * h, 1]),
+      { spread: GAZE_DEFAULT_SPREAD, exposure: GAZE_DEFAULT_EXPOSURE },
+    );
   }, []);
 
   useEffect(() => {

@@ -70,8 +70,8 @@ const compositeHeat = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanvasElem
     ctx.globalAlpha = 1;
 };
 
-const GAZE_DEFAULT_SPREAD = 12;
-const GAZE_DEFAULT_EXPOSURE = 35;
+export const GAZE_DEFAULT_SPREAD = 12;
+export const GAZE_DEFAULT_EXPOSURE = 35;
 const GAZE_SIGMA_PER_SPREAD = 0.0025;
 const GAZE_GRID_CELL_PX = 4;
 const GAZE_VISIBLE_DENSITY = 0.03;
@@ -107,7 +107,7 @@ const accumulateGazeDensity = (points: ReadonlyArray<[number, number, number]>, 
     return density;
 };
 
-const drawGazeHeat = (heatCanvas: HTMLCanvasElement, points: ReadonlyArray<[number, number, number]>, { spread, exposure }: { spread: number; exposure: number }): void => {
+export const drawGazeHeat = (heatCanvas: HTMLCanvasElement, points: ReadonlyArray<[number, number, number]>, { spread, exposure }: { spread: number; exposure: number }): void => {
     const heatCtx = heatCanvas.getContext('2d', { willReadFrequently: true });
     if (!heatCtx || points.length === 0) return;
     const cols = Math.ceil(heatCanvas.width / GAZE_GRID_CELL_PX);
