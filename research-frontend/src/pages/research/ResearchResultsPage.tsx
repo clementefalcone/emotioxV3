@@ -22,6 +22,8 @@ import { ReportGeneratorButton } from '../../components/results/shared/ReportGen
 import { BlockchainCertification } from '../../components/results/shared/BlockchainCertification';
 import { ShareResultsButton } from '../../components/results/shared/ShareResultsButton';
 import { useResultsFilter } from '../../hooks/useResultsFilter';
+import { eyeTrackingStageLabel } from '../../utils/eyeTrackingModality';
+import type { Stage } from '../../services/research.service';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../services/api/client';
 
@@ -46,22 +48,27 @@ const STAGE_TYPE_MAP: Array<{ type: StageType; label: string; icon: React.ReactN
     { type: 'wearable', label: 'Wearable', icon: <Heart className="h-5 w-5" />, detector: (n) => n.toLowerCase().includes('biometric wearable') },
 ];
 
+const STAGE_LABEL_RESOLVERS: Partial<Record<StageType, (modules: Stage['modules']) => string>> = {
+    'eye-tracking': eyeTrackingStageLabel,
+};
+
 const SKIP_STAGES = new Set(['welcome screen', 'thank you screen', 'research configuration']);
 
-function buildDynamicTabs(stages: Array<{ id: string; name: string }>): DynamicTab[] {
+function buildDynamicTabs(stages: ReadonlyArray<Pick<Stage, 'id' | 'name' | 'modules'>>): DynamicTab[] {
     const tabs: DynamicTab[] = [];
-    const countByType: Record<string, number> = {};
+    const countByLabel: Record<string, number> = {};
 
     for (const stage of stages) {
         if (SKIP_STAGES.has(stage.name.toLowerCase())) continue;
         const match = STAGE_TYPE_MAP.find(s => s.detector(stage.name));
         if (!match) continue;
-        countByType[match.type] = (countByType[match.type] ?? 0) + 1;
-        const idx = countByType[match.type];
+        const baseLabel = STAGE_LABEL_RESOLVERS[match.type]?.(stage.modules ?? []) ?? match.label;
+        countByLabel[baseLabel] = (countByLabel[baseLabel] ?? 0) + 1;
+        const idx = countByLabel[baseLabel];
         tabs.push({
             key: `${match.type}-${stage.id}`,
             stageType: match.type,
-            label: idx > 1 ? `${match.label} ${idx}` : match.label,
+            label: idx > 1 ? `${baseLabel} ${idx}` : baseLabel,
             icon: match.icon,
             stageId: stage.id,
         });
@@ -140,7 +147,7 @@ export const ResearchResultsPage = () => {
 
     const dynamicTabs = useMemo(() => {
         if (!research?.stages) return [];
-        return buildDynamicTabs(research.stages as Array<{ id: string; name: string }>);
+        return buildDynamicTabs(research.stages);
     }, [research?.stages]);
 
     useEffect(() => {
