@@ -103,40 +103,40 @@ export const AOIRow = ({ aoi, index, stimulusUrl, subtitle }: { aoi: AOIRowData;
     <div className="flex items-center gap-6 text-sm">
       <div className="text-center">
         <p className="font-semibold text-blue-600">{aoi.dwellTimePercent}%</p>
-        <p className="text-xs text-gray-400">Dwell</p>
+        <p className="text-xs text-gray-400">Tiempo de mirada</p>
       </div>
       <div className="text-center">
         <p className="font-semibold text-gray-700">
           <Crosshair className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
           {aoi.fixationCount}
         </p>
-        <p className="text-xs text-gray-400">Fixations</p>
+        <p className="text-xs text-gray-400">Fijaciones</p>
       </div>
       <div className="text-center">
         <p className="font-semibold text-gray-700">
           {aoi.avgDuration > 0 ? `${(aoi.avgDuration / 1000).toFixed(1)}s` : '—'}
         </p>
-        <p className="text-xs text-gray-400">Duration</p>
+        <p className="text-xs text-gray-400">Duración media</p>
       </div>
       <div className="text-center">
         <p className="font-semibold text-gray-700">
           <Users className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
           {aoi.participantCount}
         </p>
-        <p className="text-xs text-gray-400">Viewers</p>
+        <p className="text-xs text-gray-400">Participantes</p>
       </div>
       {aoi.avgTTFF != null && aoi.avgTTFF > 0 && (
         <div className="text-center">
           <p className="font-semibold text-purple-600">
             {aoi.avgTTFF < 1000 ? `${aoi.avgTTFF}ms` : `${(aoi.avgTTFF / 1000).toFixed(1)}s`}
           </p>
-          <p className="text-xs text-gray-400">TTFF</p>
+          <p className="text-xs text-gray-400">Primera mirada</p>
         </div>
       )}
       {aoi.noticeRate != null && (
         <div className="text-center">
           <p className="font-semibold text-green-600">{aoi.noticeRate}%</p>
-          <p className="text-xs text-gray-400">Noticed</p>
+          <p className="text-xs text-gray-400">Notada</p>
         </div>
       )}
       {aoi.dominantEmotion && aoi.dominantEmotion !== 'neutral' && (
@@ -144,7 +144,7 @@ export const AOIRow = ({ aoi, index, stimulusUrl, subtitle }: { aoi: AOIRowData;
           <p className={`text-xs font-semibold px-2 py-0.5 rounded ${EMOTION_COLORS[aoi.dominantEmotion]?.bg || 'bg-gray-50'} ${EMOTION_COLORS[aoi.dominantEmotion]?.text || 'text-gray-600'}`}>
             {EMOTION_LABELS[aoi.dominantEmotion] || aoi.dominantEmotion}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">Emotion</p>
+          <p className="text-xs text-gray-400 mt-0.5">Emoción</p>
         </div>
       )}
     </div>
