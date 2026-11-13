@@ -1,6 +1,6 @@
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { EkmanEmotion } from '../../../services/analytics.service';
-import { ALL_CURVE_SERIES, CURVE_AXIS_WIDTH_PX, formatClock, type EmotionCurvePoint, type EmotionSeries } from './emotionCurve';
+import { ALL_CURVE_SERIES, CURVE_AXIS_WIDTH_PX, fitEmotionAxisMax, formatClock, type EmotionCurvePoint, type EmotionSeries } from './emotionCurve';
 
 const VALENCE_AROUSAL_SERIES: readonly EmotionSeries[] = ['valence', 'arousal'];
 
@@ -57,6 +57,9 @@ const isEmotionSeries = (series: EmotionSeries): series is EkmanEmotion => !VALE
 
 export function EmotionCurveChart({ points, visibleSeries, seriesLabels, seriesColors, domainMs, markerMs, onMark }: EmotionCurveChartProps) {
   const rows = points.filter(point => point.timeMs >= domainMs[0] && point.timeMs <= domainMs[1]).map(toChartRow);
+  const visibleEmotions = visibleSeries.filter(isEmotionSeries);
+  const emotionAxisMax = fitEmotionAxisMax(Math.max(0, ...rows.flatMap(row => visibleEmotions.map(emotion => row[emotion] ?? 0))));
+  const emotionAxisTicks = [0, 0.25, 0.5, 0.75, 1].map(fraction => Math.round(emotionAxisMax * fraction * 10) / 10);
   return (
     <div className="h-56 w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none">
       <ResponsiveContainer width="100%" height="100%">
@@ -69,7 +72,7 @@ export function EmotionCurveChart({ points, visibleSeries, seriesLabels, seriesC
           <CartesianGrid stroke="#f1f5f9" vertical={false} />
           <XAxis dataKey="timeMs" type="number" domain={[domainMs[0], domainMs[1]]} allowDataOverflow tickFormatter={formatClock} tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <YAxis yAxisId="valenceArousal" width={CURVE_AXIS_WIDTH_PX} domain={[-1, 1]} ticks={[-1, -0.5, 0, 0.5, 1]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-          <YAxis yAxisId="emotion" orientation="right" width={CURVE_AXIS_WIDTH_PX} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={formatPercentTick} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+          <YAxis yAxisId="emotion" orientation="right" width={CURVE_AXIS_WIDTH_PX} domain={[0, emotionAxisMax]} ticks={emotionAxisTicks} tickFormatter={formatPercentTick} tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <Tooltip content={<CurveTooltip seriesLabels={seriesLabels} seriesColors={seriesColors} />} isAnimationActive={false} />
           {markerMs !== null && <ReferenceLine yAxisId="emotion" x={markerMs} stroke="#006AFF" strokeWidth={1.5} />}
           {visibleSeries.map(series => (

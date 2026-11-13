@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EkmanEmotion } from '../../../../services/analytics.service';
-import { buildEmotionCurve, buildFacePresence, findLeadingEmotion, type ParticipantEmotionSample } from '../emotionCurve';
+import { buildEmotionCurve, buildFacePresence, findLeadingEmotion, fitEmotionAxisMax, type ParticipantEmotionSample } from '../emotionCurve';
 
 const NO_EXPRESSIONS: Record<EkmanEmotion, number> = { joy: 0, surprise: 0, anger: 0, fear: 0, disgust: 0, sadness: 0, neutral: 0 };
 
@@ -83,5 +83,19 @@ describe('buildFacePresence', () => {
       { participantId: 'p1', segments: [{ startMs: 0, endMs: 200 }, { startMs: 1500, endMs: 1500 }] },
       { participantId: 'p2', segments: [{ startMs: 300, endMs: 300 }] },
     ]);
+  });
+});
+
+describe('fitEmotionAxisMax', () => {
+  it('zooms the emotion axis to the next 5% above the highest visible value', () => {
+    expect(fitEmotionAxisMax(23.4)).toBe(25);
+    expect(fitEmotionAxisMax(25)).toBe(25);
+    expect(fitEmotionAxisMax(93)).toBe(95);
+  });
+
+  it('keeps at least 5% and never passes 100%', () => {
+    expect(fitEmotionAxisMax(0)).toBe(5);
+    expect(fitEmotionAxisMax(1.2)).toBe(5);
+    expect(fitEmotionAxisMax(140)).toBe(100);
   });
 });

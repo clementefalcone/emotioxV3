@@ -15,6 +15,11 @@ export const VALENCE_AROUSAL_COLORS: Record<'valence' | 'arousal', string> = {
   arousal: '#0f172a',
 };
 
+const EMOTION_AXIS_STEP_PERCENT = 5;
+
+export const fitEmotionAxisMax = (maxPercent: number): number =>
+  Math.min(100, Math.max(EMOTION_AXIS_STEP_PERCENT, Math.ceil(maxPercent / EMOTION_AXIS_STEP_PERCENT) * EMOTION_AXIS_STEP_PERCENT));
+
 export const formatClock = (timeMs: number): string => {
   const totalSeconds = Math.floor(timeMs / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
