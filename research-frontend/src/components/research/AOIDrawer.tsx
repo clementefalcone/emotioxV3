@@ -17,6 +17,7 @@ interface AOIDrawerProps {
     aois: AOI[];
     onChange: (aois: AOI[]) => void;
     maxHeight?: number;
+    renderAoiDetails?: (aoi: AOI) => React.ReactNode;
 }
 
 type DragMode = 'draw' | 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-w' | 'resize-e';
@@ -28,6 +29,7 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
     aois,
     onChange,
     maxHeight = 500,
+    renderAoiDetails,
 }) => {
     const [drawing, setDrawing] = useState(false);
     const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
@@ -268,9 +270,10 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
                             <div className="w-14 h-10 rounded overflow-hidden flex-shrink-0 border bg-gray-50">
                                 <AoiThumbnail imageUrl={imageUrl} aoi={aoi} alt={aoi.label} />
                             </div>
-                            <span className="text-sm font-medium text-gray-900 flex-1 min-w-0 truncate">
+                            <span className={cn('text-sm font-medium text-gray-900 min-w-0 truncate', renderAoiDetails ? 'w-32 flex-shrink-0' : 'flex-1')}>
                                 {aoi.label}
                             </span>
+                            {renderAoiDetails && <div className="flex flex-1 justify-center min-w-0">{renderAoiDetails(aoi)}</div>}
                             <span className="text-xs text-gray-400">
                                 {Math.round(aoi.width)}% x {Math.round(aoi.height)}%
                             </span>

@@ -5,7 +5,7 @@ import { toPng } from 'html-to-image';
 import { cn } from '../../../lib/utils';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
 import type { EyeTrackingStimulus, EyeTrackingAOI } from '../../../services/analytics.service';
-import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIRow, AOI_METRIC_HELP } from './shared';
+import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIMetricStats, AOI_METRIC_HELP } from './shared';
 import type { ViewMode } from './shared';
 import { ZoneHeatmapOverlay } from './ZoneHeatmapOverlay';
 import { AOIDrawer, type AOI } from '../../research/AOIDrawer';
@@ -776,28 +776,21 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
+          {stimulus.modality === 'shelf' && aois.length > 0 && (
+            <p className="mb-3 text-[11px] text-gray-400">
+              Cada AOI es una columna del anaquel y lleva el nombre de la imagen que se muestra en ella. Si una imagen se repite en varias columnas, aparece en varias AOI.
+            </p>
+          )}
           {(displayImageUrl || stimulus.stimulusUrl) && (
             <AOIDrawer
               imageUrl={displayImageUrl || stimulus.stimulusUrl}
               aois={aois}
               onChange={setAois}
               maxHeight={400}
-            />
-          )}
-          {aois.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <h4 className="text-xs font-semibold text-gray-700">Métricas</h4>
-              {stimulus.modality === 'shelf' && (
-                <p className="text-[11px] text-gray-400">
-                  Cada AOI es una columna del anaquel y lleva el nombre de la imagen que se muestra en ella. Si una imagen se repite en varias columnas, aparece en varias AOI.
-                </p>
+              renderAoiDetails={aoi => (
+                <AOIMetricStats aoi={stimulus.aois.find(a => a.id === aoi.id) ?? { dwellTimePercent: 0, fixationCount: 0, avgDuration: 0, participantCount: 0 }} />
               )}
-              {aois.map((aoi, idx) => {
-                const original = stimulus.aois.find(a => a.id === aoi.id);
-                const merged = original ? { ...original, ...aoi } : { ...aoi, dwellTimePercent: 0, fixationCount: 0, avgDuration: 0, participantCount: 0 };
-                return <AOIRow key={aoi.id} aoi={merged} index={idx} stimulusUrl={displayImageUrl || stimulus.stimulusUrl} />;
-              })}
-            </div>
+            />
           )}
         </div>
       </div>

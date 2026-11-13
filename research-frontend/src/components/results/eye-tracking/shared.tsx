@@ -88,6 +88,59 @@ export const AOI_METRIC_HELP = {
 type AOIRowData = Pick<EyeTrackingAOI, 'label' | 'dwellTimePercent' | 'fixationCount' | 'avgDuration' | 'participantCount' | 'avgTTFF' | 'noticeRate' | 'dominantEmotion'>
   & Partial<Pick<EyeTrackingAOI, 'x' | 'y' | 'width' | 'height'>>;
 
+type AOIMetricData = Omit<AOIRowData, 'label' | 'x' | 'y' | 'width' | 'height'>;
+
+export const AOIMetricStats = ({ aoi }: { aoi: AOIMetricData }) => (
+  <div className="flex items-center gap-6 text-sm">
+    <div className="text-center">
+      <p className="font-semibold text-blue-600">{aoi.dwellTimePercent}%</p>
+      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.dwell}>Tiempo de mirada</p>
+    </div>
+    <div className="text-center">
+      <p className="font-semibold text-gray-700">
+        <Crosshair className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
+        {aoi.fixationCount}
+      </p>
+      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.fixations}>Fijaciones</p>
+    </div>
+    <div className="text-center">
+      <p className="font-semibold text-gray-700">
+        {aoi.avgDuration > 0 ? `${(aoi.avgDuration / 1000).toFixed(1)}s` : '—'}
+      </p>
+      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.duration}>Duración media</p>
+    </div>
+    <div className="text-center">
+      <p className="font-semibold text-gray-700">
+        <Users className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
+        {aoi.participantCount}
+      </p>
+      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.viewers}>Participantes</p>
+    </div>
+    {aoi.avgTTFF != null && aoi.avgTTFF > 0 && (
+      <div className="text-center">
+        <p className="font-semibold text-purple-600">
+          {aoi.avgTTFF < 1000 ? `${aoi.avgTTFF}ms` : `${(aoi.avgTTFF / 1000).toFixed(1)}s`}
+        </p>
+        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.firstLook}>Primera mirada</p>
+      </div>
+    )}
+    {aoi.noticeRate != null && (
+      <div className="text-center">
+        <p className="font-semibold text-green-600">{aoi.noticeRate}%</p>
+        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.noticed}>Notada</p>
+      </div>
+    )}
+    {aoi.dominantEmotion && aoi.dominantEmotion !== 'neutral' && (
+      <div className="text-center">
+        <p className={`text-xs font-semibold px-2 py-0.5 rounded ${EMOTION_COLORS[aoi.dominantEmotion]?.bg || 'bg-gray-50'} ${EMOTION_COLORS[aoi.dominantEmotion]?.text || 'text-gray-600'}`}>
+          {EMOTION_LABELS[aoi.dominantEmotion] || aoi.dominantEmotion}
+        </p>
+        <p className="text-xs text-gray-400 mt-0.5 cursor-help" title={AOI_METRIC_HELP.emotion}>Emoción</p>
+      </div>
+    )}
+  </div>
+);
+
 export const AOIRow = ({ aoi, index, stimulusUrl, subtitle }: { aoi: AOIRowData; index: number; stimulusUrl?: string; subtitle?: string }) => (
   <div className="flex items-center gap-4 p-3 bg-white border rounded-lg">
     {/* Thumbnail: cropped preview of the AOI region */}
@@ -109,54 +162,6 @@ export const AOIRow = ({ aoi, index, stimulusUrl, subtitle }: { aoi: AOIRowData;
       <p className="text-xs text-gray-400">{subtitle ?? `#${index + 1}`}</p>
     </div>
 
-    {/* Stats */}
-    <div className="flex items-center gap-6 text-sm">
-      <div className="text-center">
-        <p className="font-semibold text-blue-600">{aoi.dwellTimePercent}%</p>
-        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.dwell}>Tiempo de mirada</p>
-      </div>
-      <div className="text-center">
-        <p className="font-semibold text-gray-700">
-          <Crosshair className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
-          {aoi.fixationCount}
-        </p>
-        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.fixations}>Fijaciones</p>
-      </div>
-      <div className="text-center">
-        <p className="font-semibold text-gray-700">
-          {aoi.avgDuration > 0 ? `${(aoi.avgDuration / 1000).toFixed(1)}s` : '—'}
-        </p>
-        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.duration}>Duración media</p>
-      </div>
-      <div className="text-center">
-        <p className="font-semibold text-gray-700">
-          <Users className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
-          {aoi.participantCount}
-        </p>
-        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.viewers}>Participantes</p>
-      </div>
-      {aoi.avgTTFF != null && aoi.avgTTFF > 0 && (
-        <div className="text-center">
-          <p className="font-semibold text-purple-600">
-            {aoi.avgTTFF < 1000 ? `${aoi.avgTTFF}ms` : `${(aoi.avgTTFF / 1000).toFixed(1)}s`}
-          </p>
-          <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.firstLook}>Primera mirada</p>
-        </div>
-      )}
-      {aoi.noticeRate != null && (
-        <div className="text-center">
-          <p className="font-semibold text-green-600">{aoi.noticeRate}%</p>
-          <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.noticed}>Notada</p>
-        </div>
-      )}
-      {aoi.dominantEmotion && aoi.dominantEmotion !== 'neutral' && (
-        <div className="text-center">
-          <p className={`text-xs font-semibold px-2 py-0.5 rounded ${EMOTION_COLORS[aoi.dominantEmotion]?.bg || 'bg-gray-50'} ${EMOTION_COLORS[aoi.dominantEmotion]?.text || 'text-gray-600'}`}>
-            {EMOTION_LABELS[aoi.dominantEmotion] || aoi.dominantEmotion}
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5 cursor-help" title={AOI_METRIC_HELP.emotion}>Emoción</p>
-        </div>
-      )}
-    </div>
+    <AOIMetricStats aoi={aoi} />
   </div>
 );
