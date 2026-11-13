@@ -23,6 +23,7 @@ const mockEmotionData = {
         enabled: true,
         totalSamples: 3400,
         distribution,
+        meanIntensity: distribution,
         dominantEmotion: 'neutral' as const,
         avgConfidence: 0.72,
         perParticipant: [

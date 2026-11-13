@@ -5,6 +5,7 @@
  */
 
 import pool from '../../config/database';
+import { computeMeanIntensity } from './emotion-metrics';
 
 type EkmanEmotion = 'joy' | 'sadness' | 'surprise' | 'anger' | 'disgust' | 'fear' | 'neutral';
 
@@ -31,6 +32,7 @@ interface StimulusEmotionResult {
     totalSamples: number;
     dominantEmotion: EkmanEmotion;
     distribution: Record<EkmanEmotion, number>;
+    meanIntensity: Record<EkmanEmotion, number>;
     avgConfidence: number;
     avgActionUnits: Record<string, number>;
     microExpressions: {
@@ -123,6 +125,7 @@ export async function getEmotionAnalysisResults(researchId: string): Promise<Emo
                     totalSamples: 0,
                     dominantEmotion: 'neutral',
                     distribution: emptyDist(),
+                    meanIntensity: emptyDist(),
                     avgConfidence: 0,
                     avgActionUnits: {},
                     microExpressions: { total: 0, briefCount: 0, microCount: 0, byEmotion: {} },
@@ -205,6 +208,7 @@ export async function getEmotionAnalysisResults(researchId: string): Promise<Emo
                 totalSamples: total,
                 dominantEmotion,
                 distribution,
+                meanIntensity: computeMeanIntensity(samples),
                 avgConfidence: Math.round((totalConf / total) * 1000) / 1000,
                 avgActionUnits: avgAUs,
                 microExpressions: { total: micros.length, briefCount, microCount, byEmotion: microByEmotion },

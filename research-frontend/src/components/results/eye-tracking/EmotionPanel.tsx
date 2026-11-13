@@ -321,15 +321,15 @@ const MoodStates = ({ distribution }: { distribution: Record<EkmanEmotion, numbe
   );
 };
 
-const EmScoreCard = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
-  const emScore = computeEmScore(distribution);
+const EmScoreCard = ({ meanIntensity }: { meanIntensity: Record<EkmanEmotion, number> }) => {
+  const emScore = computeEmScore(meanIntensity);
 
   return (
     <div className="rounded-lg border border-gray-200 p-4">
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-semibold text-gray-700">EmScore</h4>
-          <p className="text-xs text-gray-400 mt-0.5">Clima emocional del diseño</p>
+          <p className="text-xs text-gray-400 mt-0.5">Clima emocional del diseño · promedio de intensidad de cada emoción durante la exposición</p>
           <p className="text-[11px] text-gray-400 mt-1">Incertidumbre (escepticismo) no se mide con la cámara: cuenta como 0.</p>
         </div>
         <p className={`text-3xl font-bold ${emScore >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -406,7 +406,7 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
       </div>
 
       {/* EmScore */}
-      <EmScoreCard distribution={emotions.distribution} />
+      <EmScoreCard meanIntensity={emotions.meanIntensity} />
 
       {/* Mood States */}
       <MoodStates distribution={emotions.distribution} />

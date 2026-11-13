@@ -12,6 +12,7 @@ interface StimulusResult {
     totalSamples: number;
     dominantEmotion: EkmanEmotion;
     distribution: Record<EkmanEmotion, number>;
+    meanIntensity: Record<EkmanEmotion, number>;
     avgConfidence: number;
     avgActionUnits: Record<string, number>;
     microExpressions: {
@@ -73,6 +74,7 @@ export const EmotionAnalysisResults = ({ researchId }: { researchId: string }) =
                     enabled: true,
                     totalSamples: stimulus.totalSamples,
                     distribution: stimulus.distribution,
+                    meanIntensity: stimulus.meanIntensity,
                     dominantEmotion: stimulus.dominantEmotion,
                     avgConfidence: stimulus.avgConfidence,
                     perParticipant: [],

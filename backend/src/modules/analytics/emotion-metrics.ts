@@ -70,6 +70,7 @@ export interface EmotionAggregation {
   enabled: boolean;
   totalSamples: number;
   distribution: Record<EkmanEmotion, number>;
+  meanIntensity: Record<EkmanEmotion, number>;
   dominantEmotion: EkmanEmotion;
   avgConfidence: number;
   perParticipant: Array<{
@@ -109,6 +110,7 @@ export const emptyEmotionAggregation = (enabled: boolean): EmotionAggregation =>
   enabled,
   totalSamples: 0,
   distribution: emptyDistribution(),
+  meanIntensity: emptyDistribution(),
   dominantEmotion: 'neutral',
   avgConfidence: 0,
   perParticipant: [],
@@ -119,6 +121,16 @@ const countEmotions = (samples: EmotionSample[]): Record<EkmanEmotion, number> =
   const counts = emptyDistribution();
   for (const sample of samples) counts[sample.emotion]++;
   return counts;
+};
+
+export const computeMeanIntensity = (samples: EmotionSample[]): Record<EkmanEmotion, number> => {
+  const sums = emptyDistribution();
+  for (const sample of samples) {
+    for (const emotion of Object.keys(sums) as EkmanEmotion[]) {
+      sums[emotion] += sample.expressions ? sample.expressions[emotion] ?? 0 : Number(emotion === sample.emotion);
+    }
+  }
+  return toPercentages(sums, samples.length);
 };
 
 const toPercentages = (counts: Record<EkmanEmotion, number>, total: number): Record<EkmanEmotion, number> => {
@@ -183,6 +195,7 @@ export const aggregateEmotions = (participants: ParticipantEmotions[]): EmotionA
     enabled: true,
     totalSamples: allSamples.length,
     distribution: toPercentages(counts, allSamples.length),
+    meanIntensity: computeMeanIntensity(allSamples),
     dominantEmotion: mostFrequent(counts),
     avgConfidence: allSamples.reduce((sum, sample) => sum + sample.confidence, 0) / allSamples.length,
     perParticipant: Array.from(samplesByParticipant.entries()).map(([participantId, samples]) => {

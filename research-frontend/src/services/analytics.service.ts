@@ -509,6 +509,7 @@ export interface EmotionAggregation {
     enabled: boolean;
     totalSamples: number;
     distribution: Record<EkmanEmotion, number>;
+    meanIntensity: Record<EkmanEmotion, number>;
     dominantEmotion: EkmanEmotion;
     avgConfidence: number;
     perParticipant: Array<{

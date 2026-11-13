@@ -11,6 +11,7 @@ const buildEmotions = (overrides: Partial<EmotionAggregation> = {}): EmotionAggr
     enabled: true,
     totalSamples: 1200,
     distribution: distributionOf({ joy: 50, surprise: 20, neutral: 30 }),
+    meanIntensity: distributionOf({ joy: 40, surprise: 10, sadness: 4, neutral: 46 }),
     dominantEmotion: 'joy',
     avgConfidence: 0.82,
     perParticipant: [
@@ -45,16 +46,17 @@ describe('EmotionPanel', () => {
         expect(screen.getByText(/82% confianza promedio/)).toBeInTheDocument();
     });
 
-    it('shows the FMCG EmScore, leaving neutral out of the penalty', () => {
+    it('scores EmScore from mean intensity, leaving neutral out of the penalty', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
         const score = screen.getByText('EmScore').parentElement?.nextElementSibling;
-        expect(score?.textContent).toBe('140.0');
+        expect(score?.textContent).toBe('106.0');
         expect(score?.className).toContain('text-emerald-600');
     });
 
     it('shows a negative EmScore in red for a fear/disgust-dominated stimulus', () => {
         render(<EmotionPanel emotions={buildEmotions({
             distribution: distributionOf({ disgust: 60, fear: 20, neutral: 20 }),
+            meanIntensity: distributionOf({ disgust: 60, fear: 20, neutral: 20 }),
             dominantEmotion: 'disgust',
         })} />);
         const score = screen.getByText('EmScore').parentElement?.nextElementSibling;
