@@ -352,7 +352,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
       {view === 'heatmap' && heatmapControls}
 
       {isAllParticipants && view === 'path' && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <div className="flex max-h-24 flex-wrap gap-x-3 gap-y-1 overflow-y-auto">
           {tracks.map((track, index) => (
             <span key={track.participantId} className="flex items-center gap-1 text-[11px] text-gray-500">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getParticipantColor(index) }} />
