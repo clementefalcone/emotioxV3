@@ -110,6 +110,17 @@ export const VideoGazePlayer = ({
     const video = videoPlayerRef.current;
     if (!video) return;
 
+    const drawGazeFrame = () => {
+      const rect = video.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const visible = findVisiblePoints(video.currentTime);
+      if (overlayMode === 'dots') {
+        setCurrentGazePoints(visible);
+      } else {
+        renderHeatmap(visible, rect.width, rect.height);
+      }
+    };
+
     const updateGaze = () => {
       if (!video || video.paused) { rafRef.current = 0; return; }
 
@@ -120,22 +131,7 @@ export const VideoGazePlayer = ({
         return;
       }
       lastUpdateRef.current = now;
-
-      const vt = video.currentTime;
-      const rect = video.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
-        rafRef.current = requestAnimationFrame(updateGaze);
-        return;
-      }
-
-      const visible = findVisiblePoints(vt);
-
-      if (overlayMode === 'dots') {
-        setCurrentGazePoints(visible);
-      } else {
-        renderHeatmap(visible, rect.width, rect.height);
-      }
-
+      drawGazeFrame();
       rafRef.current = requestAnimationFrame(updateGaze);
     };
 
@@ -146,8 +142,9 @@ export const VideoGazePlayer = ({
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
     };
     const onSeeked = () => {
-      if (video.paused) updateGaze();
+      if (video.paused) drawGazeFrame();
     };
+    if (video.paused) drawGazeFrame();
 
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
