@@ -1,3 +1,21 @@
+## v0.99.77 — Eye Tracking: emotion avatars, EmScore fix, FMCG names (2026-11-13)
+
+Feedback PDF "Emotio - Eye Tracking", pages 4–7.
+
+### feat(eye-tracking): emotion avatars in AU and micro-expression tooltips
+- **Change.** Seven client-supplied avatars (`src/assets/emotion-avatars/*.webp`, ~20 KB each) in one map (`emotionAvatars.ts`). AU tooltips show the emotion each AU typically belongs to under FACS (AU6/AU12 joy, AU4 anger, AU1/AU15 sadness, AU2/AU26 surprise, AU20/AU25 fear). Micro-expression badges (table + chips) show the avatar on hover via a portalled, fixed-position tooltip (`EmotionAvatarBadge`) so the scrolling table does not clip it. The interim SVG avatar was removed.
+
+### fix(eye-tracking): cap per-participant emotion table
+- **Change.** `max-h-80` scroll with sticky header for 300+ responses.
+
+### fix(eye-tracking): EmScore per UserEmotion formula
+- **Why.** Neutral was subtracted as uncertainty and engagement was joy+surprise, so neutral-dominated studies scored around -80.
+- **Change.** `computeEmScore`: `2(joy + surprise) + 1.5·sadness − fear − 2·disgust`. Uncertainty (skepticism) is not detected by the camera model and counts as 0; the card says so.
+
+### feat(eye-tracking): FMCG emotion names toggle
+- **Change.** **UX/UI | FMCG** toggle in the emotions panel; `EmotionLabelsContext` renames every emotion in the view (Comfort, Curiosity, Engagement, Worry, Ethical). Anger and neutral keep their names. View-only, not stored per study.
+- **Check.** Research FE 749/0.
+
 ## v0.99.76 — Eye Tracking: emotions over time (2026-11-13)
 
 Feedback PDF "Emotio - Eye Tracking", page 3: emotions need a timeline, not a static snapshot.
