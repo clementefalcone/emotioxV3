@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
-import { BarChart3, Brain, Eye, Filter, Zap, Download, SmilePlus, Activity, Heart, Presentation, Sparkles } from 'lucide-react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { BarChart3, Brain, Eye, Filter, Zap, Download, SmilePlus, Activity, Heart, Presentation, Sparkles, Maximize2, Minimize2 } from 'lucide-react';
 import { SmartVOCResults } from '../../components/results/smart-voc/SmartVOCResults';
 import { CognitiveTaskResults } from '../../components/results/cognitive-task/CognitiveTaskResults';
 import { ScreenerResults } from '../../components/results/screener/ScreenerResults';
@@ -91,6 +91,16 @@ export const ResearchResultsPage = () => {
     const [exportingPptx, setExportingPptx] = useState(false);
     const [summaryOpen, setSummaryOpen] = useState(false);
     const toast = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const isAnalysisMode = searchParams.get('mode') === 'analysis';
+    const toggleAnalysisMode = useCallback(() => {
+        setSearchParams(previous => {
+            const next = new URLSearchParams(previous);
+            if (next.get('mode') === 'analysis') next.delete('mode');
+            else next.set('mode', 'analysis');
+            return next;
+        });
+    }, [setSearchParams]);
 
     // Read completionMin + filtered participant IDs from shared filter hook
     const { filteredParticipantIds } = useResultsFilter(id || '');
@@ -206,6 +216,16 @@ export const ResearchResultsPage = () => {
                     ))}
                 </nav>
                 <div className="flex shrink-0 items-center gap-2 pb-1 whitespace-nowrap">
+                    <button
+                        onClick={toggleAnalysisMode}
+                        aria-pressed={isAnalysisMode}
+                        title={isAnalysisMode ? 'Salir de modo análisis' : 'Modo análisis: oculta el panel izquierdo'}
+                        aria-label={isAnalysisMode ? 'Salir de modo análisis' : 'Modo análisis'}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-colors ${isAnalysisMode ? 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100' : 'text-gray-600 bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
+                    >
+                        {isAnalysisMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                        <span className="hidden 2xl:inline">{isAnalysisMode ? 'Salir de modo análisis' : 'Modo análisis'}</span>
+                    </button>
                     <button
                         onClick={handleExport}
                         disabled={exporting}

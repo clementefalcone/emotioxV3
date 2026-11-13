@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 
@@ -8,6 +8,8 @@ import { Sidebar } from './Sidebar';
  */
 export const DashboardLayout = () => {
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const isAnalysisMode = searchParams.get('mode') === 'analysis';
     const [visible, setVisible] = useState(true);
 
     useEffect(() => {
@@ -19,7 +21,7 @@ export const DashboardLayout = () => {
     return (
         <div className="bg-[#f4f5f7] flex p-3 gap-3 h-screen w-screen overflow-hidden">
             {/* Sidebar */}
-            <Sidebar />
+            {!isAnalysisMode && <Sidebar />}
 
             {/* Main Content */}
             <main
