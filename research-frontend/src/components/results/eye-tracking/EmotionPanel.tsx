@@ -4,6 +4,7 @@ import type { EmotionAggregation, EkmanEmotion } from '../../../services/analyti
 import { EMOTION_COLORS, EMOTION_LABELS } from './shared';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { ActionUnitFace } from './ActionUnitFace';
+import { EmotionCurveTimeline, type EmotionCurveTimelineProps } from './EmotionCurveTimeline';
 
 const EmotionDistributionChart = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
   const sorted = useMemo(() =>
@@ -306,7 +307,7 @@ const EmScoreCard = ({ distribution }: { distribution: Record<EkmanEmotion, numb
   );
 };
 
-export const EmotionPanel = ({ emotions }: { emotions: EmotionAggregation }) => {
+export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation; curve?: EmotionCurveTimelineProps }) => {
   if (!emotions.enabled) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
@@ -353,7 +354,7 @@ export const EmotionPanel = ({ emotions }: { emotions: EmotionAggregation }) => 
       </div>
 
       {/* Timeline */}
-      <EmotionTimeline timeline={emotions.timeline} />
+      {curve ? <EmotionCurveTimeline {...curve} /> : <EmotionTimeline timeline={emotions.timeline} />}
 
       {/* Action Units */}
       <ActionUnitsPanel timeline={emotions.timeline} />

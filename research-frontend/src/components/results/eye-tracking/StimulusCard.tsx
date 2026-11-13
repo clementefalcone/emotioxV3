@@ -28,7 +28,7 @@ import { gazePrecisionWeight } from './gazePrecisionWeight';
 import { GazePrecisionNotice } from './GazePrecisionNotice';
 import { GazeReplayPanel } from './GazeReplayPanel';
 import { HeatmapSliders } from './HeatmapSliders';
-import { buildGridZones } from './gazeReplay';
+import { buildGridZones, buildParticipantTracks } from './gazeReplay';
 
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
   const stimulus = { ...rawStimulus, stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl) };
@@ -186,6 +186,10 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
     () => (stimulus.gazeTimeline ?? []).filter(sample => !excludedParticipants.has(sample.participantId)),
     [stimulus.gazeTimeline, excludedParticipants],
   );
+  const includedEmotionSamples = useMemo(
+    () => stimulus.emotionSamples.filter(sample => !excludedParticipants.has(sample.participantId)),
+    [stimulus.emotionSamples, excludedParticipants],
+  );
   const webcamRecordings = useMemo(
     () => new Map(stimulus.participants.flatMap(p => p.webcamRecording ? [[p.participantId, p.webcamRecording] as const] : [])),
     [stimulus.participants],
@@ -193,6 +197,10 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   const replayZones = useMemo(
     () => shownStimulus.aois.length > 0 ? shownStimulus.aois : buildGridZones(),
     [shownStimulus.aois],
+  );
+  const emotionCurve = useMemo(
+    () => ({ samples: includedEmotionSamples, tracks: buildParticipantTracks(includedFixations, includedGazeTimeline), zones: replayZones }),
+    [includedEmotionSamples, includedFixations, includedGazeTimeline, replayZones],
   );
 
   useEffect(() => {
@@ -590,7 +598,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
           <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} />
         ) : viewMode === 'emotions' ? (
-          <EmotionPanel emotions={stimulus.emotions} />
+          <EmotionPanel emotions={stimulus.emotions} curve={emotionCurve} />
         ) : viewMode === 'prediction' ? (
           <PredictionPanel stimulus={stimulus} researchId={researchId} onPredictionComplete={onRefresh} displayImageUrl={effectiveStimulusUrl} />
         ) : stimulus.stimulusUrl ? (
