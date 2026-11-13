@@ -1,3 +1,13 @@
+## v0.99.75 — Eye Tracking: replay opens on heatmap (2026-11-13)
+
+### fix(eye-tracking): dark layer in settings preview
+- **Change.** `HeatmapSettingsModal` preview passes `darkOverlay` to `HeatmapRenderer`, so it matches the card.
+
+### feat(eye-tracking): open gaze replay on heatmap
+- **Why.** Clients ask for heatmaps; the path view is the drill-down.
+- **Change.** `GazeReplayPanel` defaults to **Heatmap** and lists it first (**Heatmap | Recorrido**).
+- **Check.** Eye-tracking tests 44/44. Not tested in a browser.
+
 ## v0.99.74 — Eye Tracking: heatmap video, dark layer under heat (2026-11-11)
 
 ### fix(eye-tracking): draw dark layer under heatmap
