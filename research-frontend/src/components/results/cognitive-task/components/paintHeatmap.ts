@@ -44,6 +44,23 @@ export const HEATMAP_GRADIENTS: Record<HeatmapVisualProfile, Record<number, stri
     smooth:   { 0.10: '#00cc00', 0.30: '#66ff00', 0.45: '#ccff00', 0.6: '#ffcc00', 0.75: '#ff6600', 0.9: '#ff0000', 1.0: '#ff0000' },
 };
 
+const dimLayerByHeatCanvas = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
+const buildDimLayer = (heatCanvas: HTMLCanvasElement, overlayOpacity: number): HTMLCanvasElement => {
+    const dimLayer = dimLayerByHeatCanvas.get(heatCanvas) ?? document.createElement('canvas');
+    dimLayerByHeatCanvas.set(heatCanvas, dimLayer);
+    dimLayer.width = heatCanvas.width;
+    dimLayer.height = heatCanvas.height;
+    const dimCtx = dimLayer.getContext('2d');
+    if (!dimCtx) return dimLayer;
+    dimCtx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
+    dimCtx.fillRect(0, 0, dimLayer.width, dimLayer.height);
+    dimCtx.globalCompositeOperation = 'destination-out';
+    dimCtx.drawImage(heatCanvas, 0, 0);
+    dimCtx.globalCompositeOperation = 'source-over';
+    return dimLayer;
+};
+
 export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanvasElement, options: HeatmapPaintOptions): void => {
     const { data, radius: radiusProp, blur: blurProp, opacity: opacityProp, threshold: thresholdProp, darkOverlay = 0, granularity, visualProfile, coordSystem } = options;
     const w = ctx.canvas.width;
@@ -52,8 +69,6 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
     const dimFactor = OVERLAY_DIM_FACTORS[visualProfile];
     const profileDimOpacity = opacityProp != null ? (opacityProp / 100) * dimFactor : dimFactor * 0.5;
     const overlayOpacity = Math.min(1, profileDimOpacity + darkOverlay / 100);
-    ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
-    ctx.fillRect(0, 0, w, h);
 
     if (heatCanvas.width !== w || heatCanvas.height !== h) {
         heatCanvas.width = w;
@@ -154,6 +169,7 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
     const heatAlpha = opacityProp != null
         ? heatAlphaBase + (opacityProp / 100) * heatAlphaSpan
         : heatAlphaBase + heatAlphaSpan * 0.5;
+    ctx.drawImage(buildDimLayer(heatCanvas, overlayOpacity), 0, 0);
     ctx.globalAlpha = heatAlpha;
     ctx.drawImage(heatCanvas, 0, 0);
     ctx.globalAlpha = 1;
