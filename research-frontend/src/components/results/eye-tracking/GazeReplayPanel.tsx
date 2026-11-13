@@ -128,7 +128,7 @@ interface GazeReplayPanelProps {
 
 export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webcamRecordings, heatmapSettings, heatmapControls }: GazeReplayPanelProps) {
   const tracks = useMemo(() => buildParticipantTracks(fixations, gazeTimeline), [fixations, gazeTimeline]);
-  const [chosenParticipantId, setChosenParticipantId] = useState<string | null>(null);
+  const [chosenParticipantId, setChosenParticipantId] = useState<string>(ALL_PARTICIPANTS);
   const isAllParticipants = chosenParticipantId === ALL_PARTICIPANTS;
   const selectedTrack = tracks.find(track => track.participantId === chosenParticipantId) ?? tracks[0];
   const participantId = isAllParticipants ? ALL_PARTICIPANTS : selectedTrack?.participantId;
@@ -140,6 +140,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     () => (isAllParticipants ? tracks : selectedTrack ? [selectedTrack] : []),
     [isAllParticipants, tracks, selectedTrack],
   );
+  const subjectLabel = isAllParticipants ? `Todos (${tracks.length})` : selectedTrack?.participantId ?? '';
   const heatIntensityPointCount = visibleTracks.reduce((count, track) => count + track.fixations.length, 0);
   const [view, setView] = useState<ReplayView>('heatmap');
   const [heatWindowMs, setHeatWindowMs] = useState(ACCUMULATED_HEAT);
@@ -190,14 +191,14 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
         intensityPointCount: heatIntensityPointCount,
         settings: heatmapSettings,
         zones,
-        hudText: `${formatSeconds(timeMs)} · ${timingLabel}`,
+        hudText: `${subjectLabel} · ${formatSeconds(timeMs)} · ${timingLabel}`,
       });
     } else if (isAllParticipants) {
       drawGroupReplayFrame(ctx, { image, tracks, zones, timeMs });
     } else if (selectedTrack) {
-      drawGazeReplayFrame(ctx, { image, fixations: selectedTrack.fixations, gazeSamples: selectedTrack.samples, zones, timeMs });
+      drawGazeReplayFrame(ctx, { image, fixations: selectedTrack.fixations, gazeSamples: selectedTrack.samples, zones, timeMs, participantLabel: subjectLabel });
     }
-  }, [image, view, heatWindowMs, visibleTracks, heatIntensityPointCount, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs]);
+  }, [image, view, heatWindowMs, visibleTracks, heatIntensityPointCount, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs, subjectLabel]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -342,10 +343,10 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
           onClick={exportVideo}
           disabled={!image || !videoFormat || isRecording}
           className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-gray-200 bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50"
-          title={videoFormat ? 'Graba el replay completo y lo descarga' : 'Este navegador no puede grabar video'}
+          title={videoFormat ? `Graba el replay completo de ${isAllParticipants ? 'todos los participantes' : `el participante ${subjectLabel}`} y lo descarga` : 'Este navegador no puede grabar video'}
         >
           <Download className="h-3.5 w-3.5" />
-          {isRecording ? 'Grabando…' : 'Exportar video'}
+          <span className="max-w-48 truncate">{isRecording ? 'Grabando…' : `Exportar video · ${subjectLabel}`}</span>
         </button>
       </div>
 

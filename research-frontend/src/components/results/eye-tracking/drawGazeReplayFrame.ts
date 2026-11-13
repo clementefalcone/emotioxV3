@@ -19,6 +19,7 @@ export interface GazeReplayFrame {
   readonly gazeSamples: readonly ReplayGazeSample[];
   readonly zones: readonly ReplayZone[];
   readonly timeMs: number;
+  readonly participantLabel: string;
 }
 
 export interface GroupReplayFrame {
@@ -211,7 +212,7 @@ export const drawGazeReplayFrame = (ctx: CanvasRenderingContext2D, frame: GazeRe
   }
 
   const fixationTag = activeFixation && frame.gazeSamples.length > 0 ? ' · fijando' : '';
-  drawHud(ctx, canvas, `${formatSeconds(frame.timeMs)} · ${focus.stateLabel}${fixationTag}`, focus.zone !== null);
+  drawHud(ctx, canvas, `${frame.participantLabel} · ${formatSeconds(frame.timeMs)} · ${focus.stateLabel}${fixationTag}`, focus.zone !== null);
 };
 
 export const drawGroupReplayFrame = (ctx: CanvasRenderingContext2D, frame: GroupReplayFrame): void => {
