@@ -96,11 +96,15 @@ describe('EmotionPanel', () => {
         expect(screen.getByText('Average Action Unit Activation')).toBeInTheDocument();
     });
 
-    it('illustrates every action unit with a face in its tooltip', () => {
+    it('illustrates every action unit with the avatar of its typical emotion in its tooltip', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
-        expect(screen.getAllByRole('img').map(face => face.getAttribute('aria-label'))).toEqual([
+        expect(screen.getAllByRole('img').map(face => face.getAttribute('alt'))).toEqual([
             'AU1 Inner Brow Raise', 'AU2 Outer Brow Raise', 'AU4 Brow Lowerer', 'AU6 Cheek Raiser', 'AU12 Lip Corner Pull',
             'AU15 Lip Corner Depress', 'AU20 Lip Stretcher', 'AU25 Lips Part', 'AU26 Jaw Drop',
+        ]);
+        expect(screen.getAllByText(/^Típico de /).map(caption => caption.textContent)).toEqual([
+            'Típico de Sadness', 'Típico de Surprise', 'Típico de Anger', 'Típico de Joy', 'Típico de Joy',
+            'Típico de Sadness', 'Típico de Fear', 'Típico de Fear', 'Típico de Surprise',
         ]);
     });
 
