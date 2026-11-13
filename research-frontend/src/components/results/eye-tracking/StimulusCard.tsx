@@ -786,6 +786,11 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
           {aois.length > 0 && (
             <div className="mt-4 space-y-2">
               <h4 className="text-xs font-semibold text-gray-700">Métricas</h4>
+              {stimulus.modality === 'shelf' && (
+                <p className="text-[11px] text-gray-400">
+                  Cada AOI es una columna del anaquel y lleva el nombre de la imagen que se muestra en ella. Si una imagen se repite en varias columnas, aparece en varias AOI.
+                </p>
+              )}
               {aois.map((aoi, idx) => {
                 const original = stimulus.aois.find(a => a.id === aoi.id);
                 const merged = original ? { ...original, ...aoi } : { ...aoi, dwellTimePercent: 0, fixationCount: 0, avgDuration: 0, participantCount: 0 };
