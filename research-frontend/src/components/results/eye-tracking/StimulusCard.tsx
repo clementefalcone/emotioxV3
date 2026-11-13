@@ -281,7 +281,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
           <GazePrecisionNotice participants={stimulus.participants} excludedParticipants={excludedParticipants} aois={stimulus.aois} />
           {stimulus.participants.length > 0 && (
             <CollapsibleContent expanded={showQualityTable}>
-            <div className="px-4 py-3 bg-white overflow-x-auto max-h-80 overflow-y-auto">
+            <div className="px-4 pb-3 bg-white overflow-x-auto max-h-80 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-white">
                   <tr className="border-b border-gray-200">
