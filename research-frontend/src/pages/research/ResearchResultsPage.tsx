@@ -23,6 +23,7 @@ import { BlockchainCertification } from '../../components/results/shared/Blockch
 import { ShareResultsButton } from '../../components/results/shared/ShareResultsButton';
 import { useResultsFilter } from '../../hooks/useResultsFilter';
 import { eyeTrackingStageLabel } from '../../utils/eyeTrackingModality';
+import { iatStageLabel } from '../../utils/implicitAssociationBuilder';
 import type { Stage } from '../../services/research.service';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../services/api/client';
@@ -50,6 +51,7 @@ const STAGE_TYPE_MAP: Array<{ type: StageType; label: string; icon: React.ReactN
 
 const STAGE_LABEL_RESOLVERS: Partial<Record<StageType, (modules: Stage['modules']) => string>> = {
     'eye-tracking': eyeTrackingStageLabel,
+    'implicit-association': iatStageLabel,
 };
 
 const SKIP_STAGES = new Set(['welcome screen', 'thank you screen', 'research configuration']);

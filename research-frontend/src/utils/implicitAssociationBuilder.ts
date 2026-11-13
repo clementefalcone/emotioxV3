@@ -7,6 +7,18 @@ const IAT_MODULE_NAMES = new Set([
     'object comparing',
 ]);
 
+const IAT_TYPE_TITLES: Record<string, string> = {
+    'attribute testing': 'Attribute Testing',
+    'comparing attribute': 'Comparing Attribute',
+    'objects comparing': 'Objects Comparing',
+    'object comparing': 'Objects Comparing',
+};
+
+export function iatStageLabel(modules: ReadonlyArray<{ name: string }>): string {
+    const titles = new Set(modules.flatMap(module => IAT_TYPE_TITLES[module.name.trim().toLowerCase()] ?? []));
+    return titles.size === 1 ? `IAT ${[...titles][0]}` : 'IAT';
+}
+
 /**
  * @param moduleName - Active module name (template name, e.g. Attribute Testing)
  * @returns True if this module belongs to Implicit Association IAT templates
