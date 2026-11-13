@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -1262,9 +1263,11 @@ const IATModuleView = ({ module: mod, reliabilityFilter, rawDataButton }: { modu
 // ==========================================
 
 export const ImplicitAssociationResults = ({ researchId, stageId, className }: ImplicitAssociationResultsProps) => {
-  const [data, setData] = useState<analyticsService.ImplicitAssociationResults | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data = null, isLoading, error, refetch } = useQuery({
+    queryKey: ['implicit-association-results', researchId, stageId],
+    queryFn: () => analyticsService.getImplicitAssociationResults(researchId, stageId),
+    staleTime: 0,
+  });
   const {
     demographicData,
     demographicFilters,
@@ -1276,20 +1279,6 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
     filteredParticipantIds,
   } = useResultsFilter(researchId);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const results = await analyticsService.getImplicitAssociationResults(researchId, stageId);
-      setData(results);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load implicit association results'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [researchId, stageId]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
 
   const loadingSkeleton = (
     <div className="space-y-6 animate-pulse">
@@ -1303,7 +1292,7 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
     <ResultsStateHandler
       isLoading={isLoading}
       error={error}
-      onRetry={fetchData}
+      onRetry={() => { void refetch(); }}
       loadingSkeleton={loadingSkeleton}
     >
       {data && (

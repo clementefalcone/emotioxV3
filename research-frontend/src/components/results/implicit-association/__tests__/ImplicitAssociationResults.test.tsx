@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderWithProviders } from '../../../../test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IATModuleResult } from '../../../../services/analytics.service';
 
@@ -75,14 +76,14 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
   });
 
   it('shows the choice share per object and the per-attribute breakdown', async () => {
-    render(<ImplicitAssociationResults researchId="research-1" />);
+    renderWithProviders(<ImplicitAssociationResults researchId="research-1" />);
     expect(await screen.findByText('% Positivo por atributo')).toBeInTheDocument();
     expect(screen.getAllByText('Positivo:').length).toBeGreaterThan(0);
     expect(screen.getByText(/81% — Fuerte/)).toBeInTheDocument();
   });
 
   it('switches the attribute breakdown between places with tabs', async () => {
-    render(<ImplicitAssociationResults researchId="research-1" />);
+    renderWithProviders(<ImplicitAssociationResults researchId="research-1" />);
     const curacavi = await screen.findByRole('tab', { name: 'Curacaví' });
     expect(screen.getByRole('tab', { name: 'Chicureo' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Chicureo: % de Positivo y Negativo en cada uno de los 1 atributos');
@@ -92,7 +93,7 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
   });
 
   it('shows everyone by default and recomputes with only reliable participants on demand', async () => {
-    render(<ImplicitAssociationResults researchId="research-1" />);
+    renderWithProviders(<ImplicitAssociationResults researchId="research-1" />);
     const everyone = await screen.findByRole('button', { name: 'Todos (3)' });
     expect(everyone).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText(/1 fiables · 1 siempre la misma respuesta · 1 demasiado rápidas · se muestran 3 de 3/)).toBeInTheDocument();
@@ -104,7 +105,7 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
 
   it('recomputes the module for the demographic filter and counts only those participants', async () => {
     demographicScope.filteredParticipantIds = new Set(['p-reliable', 'p-same']);
-    render(<ImplicitAssociationResults researchId="research-1" />);
+    renderWithProviders(<ImplicitAssociationResults researchId="research-1" />);
     expect(await screen.findByText(/62% — Media/)).toBeInTheDocument();
     expect(getResults).toHaveBeenLastCalledWith('research-1', undefined, { moduleId: 'module-1', participantIds: ['p-reliable', 'p-same'] });
     expect(screen.getByRole('button', { name: 'Todos (2)' })).toHaveAttribute('aria-pressed', 'true');
@@ -114,7 +115,7 @@ describe('ImplicitAssociationResults — Objects Comparing', () => {
 
   it('says no participant matches instead of drawing empty charts when the filter leaves nobody', async () => {
     demographicScope.filteredParticipantIds = new Set();
-    render(<ImplicitAssociationResults researchId="research-1" />);
+    renderWithProviders(<ImplicitAssociationResults researchId="research-1" />);
     expect(await screen.findByText('Ningún participante cumple los filtros activos')).toBeInTheDocument();
     expect(screen.queryByText('% Positivo por atributo')).not.toBeInTheDocument();
     expect(getResults).toHaveBeenCalledTimes(1);

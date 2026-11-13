@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -28,10 +29,6 @@ const ROUTE_COLORS = [
 ];
 
 export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps) => {
-  const [data, setData] = useState<ScreenerResultsType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
   const {
     demographicData,
     demographicFilters,
@@ -47,23 +44,12 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
     [filteredParticipantIds],
   );
 
-  const fetchData = useCallback(async (isCancelled: () => boolean = () => false) => {
-    setError(null);
-    try {
-      const results = await analyticsService.getScreenerResults(researchId, scopeParticipantIds);
-      if (!isCancelled()) setData(results);
-    } catch (err) {
-      if (!isCancelled()) setError(err instanceof Error ? err : new Error(`Failed to load screener results for research ${researchId}`));
-    } finally {
-      if (!isCancelled()) setIsLoading(false);
-    }
-  }, [researchId, scopeParticipantIds]);
-
-  useEffect(() => {
-    let isCancelled = false;
-    fetchData(() => isCancelled);
-    return () => { isCancelled = true; };
-  }, [fetchData]);
+  const { data = null, isLoading, error, refetch } = useQuery<ScreenerResultsType>({
+    queryKey: ['screener-results', researchId, scopeParticipantIds],
+    queryFn: () => analyticsService.getScreenerResults(researchId, scopeParticipantIds),
+    placeholderData: keepPreviousData,
+    staleTime: 0,
+  });
 
   const loadingSkeleton = (
     <div className="space-y-6 animate-pulse">
@@ -83,7 +69,7 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
     <ResultsStateHandler
       isLoading={isLoading}
       error={error}
-      onRetry={() => fetchData()}
+      onRetry={() => { void refetch(); }}
       loadingSkeleton={loadingSkeleton}
     >
       {data && (

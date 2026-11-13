@@ -1,36 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import * as analyticsService from '../services/analytics.service';
-import type { CognitiveTaskResults } from '../services/analytics.service';
 
 export const useCognitiveTaskResults = (researchId: string) => {
-    const [data, setData] = useState<CognitiveTaskResults | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    const fetchResults = useCallback(async () => {
-        try {
-            setIsLoading(true);
-            setError(null);
-            const results = await analyticsService.getCognitiveTaskResults(researchId);
-            setData(results);
-        } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch results'));
-            console.error('Error fetching cognitive task results:', err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [researchId]);
-
-    useEffect(() => {
-        if (researchId) {
-            fetchResults();
-        }
-    }, [researchId, fetchResults]);
+    const { data = null, isLoading, error, refetch } = useQuery({
+        queryKey: ['cognitive-task-results', researchId],
+        queryFn: () => analyticsService.getCognitiveTaskResults(researchId),
+        enabled: !!researchId,
+        staleTime: 0,
+    });
 
     return {
         data,
         isLoading,
         error,
-        refetch: fetchResults,
+        refetch,
     };
 };
