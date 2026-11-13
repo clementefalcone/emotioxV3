@@ -1,7 +1,7 @@
 import pool from '../../config/database';
 import { getMediaUrl } from '../../config/local-storage';
 import { computeAoiMetrics, type GazeUncertainty } from './aoi-metrics';
-import { aggregateEmotions, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression, type ParticipantEmotions } from './emotion-metrics';
+import { aggregateEmotions, computeVA, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression, type ParticipantEmotions } from './emotion-metrics';
 
 /**
  * Eye Tracking Analytics
@@ -63,7 +63,7 @@ interface EyeTrackingStimulus {
     low: number;
   };
   emotions: EmotionAggregation;
-  emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number; actionUnits?: Record<string, number>; expressions?: Partial<Record<EkmanEmotion, number>> }>;
+  emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number; valence: number; arousal: number; actionUnits?: Record<string, number>; expressions?: Partial<Record<EkmanEmotion, number>> }>;
   /** TranSalNet saliency prediction data (if run). Points with x%, y%, value 0–1. */
   predictionHeatmap?: Array<{ x: number; y: number; value: number }>;
   predictionProcessedAt?: string;
@@ -287,13 +287,14 @@ const roundValues = <T extends Partial<Record<string, number>>>(values: T): T =>
 
 const flattenEmotionSamples = (participants: ParticipantEmotions[]): EyeTrackingStimulus['emotionSamples'] =>
   participants.flatMap(({ participantId, samples }) =>
-    samples.map(({ timestamp, emotion, confidence, actionUnits, expressions }) => ({
+    samples.map((sample) => ({
       participantId,
-      timestamp,
-      emotion,
-      confidence,
-      ...(actionUnits && { actionUnits: roundValues(actionUnits) }),
-      ...(expressions && { expressions: roundValues(expressions) }),
+      timestamp: sample.timestamp,
+      emotion: sample.emotion,
+      confidence: sample.confidence,
+      ...roundValues(computeVA([sample])),
+      ...(sample.actionUnits && { actionUnits: roundValues(sample.actionUnits) }),
+      ...(sample.expressions && { expressions: roundValues(sample.expressions) }),
     })));
 
 /**

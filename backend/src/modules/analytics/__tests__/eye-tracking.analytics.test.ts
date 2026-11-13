@@ -875,11 +875,13 @@ describe('getEyeTrackingResults', () => {
           timestamp: 0,
           emotion: 'joy',
           confidence: 0.9,
+          valence: 0.72,
+          arousal: 0.5,
           actionUnits: { AU6: 0.81, AU12: 0.7 },
           expressions: { joy: 0.9, sadness: 0, surprise: 0.05, anger: 0.01, disgust: 0, fear: 0.01, neutral: 0.03 },
         },
-        { participantId: 'p1', timestamp: 1200, emotion: 'surprise', confidence: 0.7, actionUnits: {} },
-        { participantId: 'p2', timestamp: 300, emotion: 'fear', confidence: 0.6 },
+        { participantId: 'p1', timestamp: 1200, emotion: 'surprise', confidence: 0.7, valence: 0.2, arousal: 0.8, actionUnits: {} },
+        { participantId: 'p2', timestamp: 300, emotion: 'fear', confidence: 0.6, valence: -0.8, arousal: 0.6 },
       ]);
     });
 
