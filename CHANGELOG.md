@@ -1,3 +1,27 @@
+## v0.99.76 — Eye Tracking: emotions over time (2026-11-13)
+
+Feedback PDF "Emotio - Eye Tracking", page 3: emotions need a timeline, not a static snapshot.
+
+### refactor(eye-tracking): drop unused emotion helpers
+- **Change.** Removes `extractEmotionFromFrame`, `aggregateEmotionTimeline`, `downsampleEmotionTimeline` (old MediaPipe pipeline, only called by tests).
+
+### feat(eye-tracking): keep per-emotion probabilities
+- **Why.** Each sample stored only the winning label; the other six face-api probabilities were discarded at capture.
+- **Change.** `EmotionSample.expressions` holds all seven. `emotionSamples` in the results API exposes `expressions` and `actionUnits`, rounded to 2 decimals. Older responses have neither.
+
+### refactor(analytics): share valence/arousal mapping
+- **Change.** `VA_MAP` + `computeVA` move from Website Tracking to `emotion-metrics.ts`.
+
+### feat(eye-tracking): valence and arousal per sample
+- **Change.** Each `emotionSamples` entry carries `valence`/`arousal` (-1..+1): weighted by the seven probabilities, or by the dominant emotion for older responses.
+
+### feat(eye-tracking): emotion curves over time
+- **Change.** Emotions tab: one curve per emotion (%, right axis) + Valencia/Arousal (left axis), series chips with **Ocultar todo**, zoom **10 s / 30 s / 2 min / Todo** with pan, participant selector, click-to-pin marker with tooltip, **Mirada en t** (zones being looked at, via `countZoneOccupancy`), automatic note on the emotion leading the 2 s before the marker, and per-participant face-presence bars. Neutral hidden by default. Replaces the per-second stacked bars in this view; Website Tracking and Emotion Analysis keep the old timeline.
+
+### fix(eye-tracking): honest emotion note at zero
+- **Change.** No emotion is crowned when every shown emotion is 0%; no focus outline on chart click.
+- **Check.** Research FE 745/0, backend 729/0, participant 1153/0 (17 removed with dead helpers). Production study `edee0a59` (16 participants, pre-v0.99.76 data): curves, tooltip, marker, gaze-at-marker and face bars verified in browser. New-capture path (seven probabilities) covered by tests only; no real webcam session yet.
+
 ## v0.99.75 — Eye Tracking: replay opens on heatmap (2026-11-13)
 
 ### fix(eye-tracking): dark layer in settings preview
