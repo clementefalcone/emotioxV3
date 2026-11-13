@@ -75,7 +75,7 @@ export const ViewModeTab = ({
   </button>
 );
 
-const AOI_METRIC_HELP = {
+export const AOI_METRIC_HELP = {
   dwell: '% del tiempo total de mirada que cayó en esta zona. Entre todas las zonas suman cerca de 100%.',
   fixations: 'Cuántas veces la mirada se detuvo en esta zona, sumando a todos los participantes.',
   duration: 'Cuánto dura en promedio cada fijación en esta zona.',

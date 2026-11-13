@@ -5,7 +5,7 @@ import { toPng } from 'html-to-image';
 import { cn } from '../../../lib/utils';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
 import type { EyeTrackingStimulus, EyeTrackingAOI } from '../../../services/analytics.service';
-import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIRow } from './shared';
+import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIRow, AOI_METRIC_HELP } from './shared';
 import type { ViewMode } from './shared';
 import { ZoneHeatmapOverlay } from './ZoneHeatmapOverlay';
 import { AOIDrawer, type AOI } from '../../research/AOIDrawer';
@@ -815,7 +815,7 @@ export function ShelfComparison({ aois, shelfColumnUrls }: { aois: EyeTrackingAO
 
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-700 mb-3">Comparativa por producto</h4>
+      <h4 className="text-sm font-semibold text-gray-700 mb-3 cursor-help w-fit" title="Cada tarjeta es una AOI que cubre su columna completa del anaquel, de arriba abajo. Así, las métricas del producto incluyen todas las posiciones (filas) donde aparece en esa columna.">Comparativa por producto</h4>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {sorted.map((aoi, idx) => {
           const imgUrl = findColumnUrl(aoi);
@@ -831,30 +831,30 @@ export function ShelfComparison({ aois, shelfColumnUrls }: { aois: EyeTrackingAO
               </div>
               <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                 <div>
-                  <span className="text-gray-400">% AOI</span>
+                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.dwell}>% AOI</span>
                   <p className="font-semibold text-gray-800">{aoi.dwellTimePercent.toFixed(1)}%</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Fijaciones</span>
+                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.fixations}>Fijaciones</span>
                   <p className="font-semibold text-gray-800">{aoi.fixationCount}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Duración</span>
+                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.duration}>Duración</span>
                   <p className="font-semibold text-gray-800">{(aoi.avgDuration / 1000).toFixed(1)}s</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Participantes</span>
+                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.viewers}>Participantes</span>
                   <p className="font-semibold text-gray-800">{aoi.participantCount}</p>
                 </div>
                 {aoi.avgTTFF !== undefined && (
                   <div>
-                    <span className="text-gray-400">1ra fijación</span>
+                    <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.firstLook}>1ra fijación</span>
                     <p className="font-semibold text-gray-800">{(aoi.avgTTFF / 1000).toFixed(1)}s</p>
                   </div>
                 )}
                 {aoi.noticeRate !== undefined && (
                   <div>
-                    <span className="text-gray-400">Notado</span>
+                    <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.noticed}>Notado</span>
                     <p className="font-semibold text-gray-800">{aoi.noticeRate.toFixed(0)}%</p>
                   </div>
                 )}
