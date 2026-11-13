@@ -62,6 +62,7 @@ export const FirstLookOverlay = ({
         imageUrl={imageUrl}
         data={heatmapData}
         coordSystem="percent"
+        visualProfile="gaze"
         className="w-full h-full"
         canvasClassName="w-full h-full block object-contain"
       />
