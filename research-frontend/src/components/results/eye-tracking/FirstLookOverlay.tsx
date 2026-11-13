@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
 import { CustomSelect } from '../../ui/CustomSelect';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
+import { LATER_FIXATION_WEIGHT, selectFirstLookPoints } from './firstLook';
 
 export const FirstLookOverlay = ({
   imageUrl,
@@ -19,24 +20,7 @@ export const FirstLookOverlay = ({
     [fixations, excludedParticipants],
   );
 
-  const firstFixations = useMemo(() => {
-    const byParticipant = new Map<string, typeof fixations>();
-    for (const f of includedFixations) {
-      if (!byParticipant.has(f.participantId)) byParticipant.set(f.participantId, []);
-      byParticipant.get(f.participantId)!.push(f);
-    }
-    const result: typeof fixations = [];
-    for (const [, pFixations] of byParticipant) {
-      const sorted = [...pFixations].sort((a, b) => a.timestamp - b.timestamp);
-      result.push(...sorted.slice(0, count));
-    }
-    return result;
-  }, [includedFixations, count]);
-
-  const heatmapData = useMemo(
-    () => firstFixations.map(f => ({ x: f.x, y: f.y, value: f.duration })),
-    [firstFixations],
-  );
+  const heatmapData = useMemo(() => selectFirstLookPoints(includedFixations, count), [includedFixations, count]);
 
   const participantCount = useMemo(
     () => new Set(includedFixations.map(f => f.participantId)).size,
@@ -55,9 +39,14 @@ export const FirstLookOverlay = ({
           />
         </div>
         <span className="text-xs text-gray-400">
-          per participant &middot; {participantCount} participants &middot; {firstFixations.length} points
+          per participant &middot; {participantCount} participants &middot; {heatmapData.length} points
         </span>
       </div>
+      {count > 1 && (
+        <p className="text-[11px] text-gray-400 mb-2">
+          La 1ra fijación de cada participante pesa 100%; de la 2da en adelante, {Math.round(LATER_FIXATION_WEIGHT * 100)}%. Las zonas rojas marcan dónde cayó la primera mirada.
+        </p>
+      )}
       <HeatmapRenderer
         imageUrl={imageUrl}
         data={heatmapData}
