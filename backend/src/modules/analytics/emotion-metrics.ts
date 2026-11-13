@@ -8,6 +8,49 @@ export interface EmotionSample {
   expressions?: Partial<Record<EkmanEmotion, number>>;
 }
 
+// Russell's circumplex approximation
+const VA_MAP: Record<EkmanEmotion, { v: number; a: number }> = {
+  neutral:  { v:  0.0, a:  0.0 },
+  joy:      { v:  0.8, a:  0.5 },
+  sadness:  { v: -0.6, a: -0.4 },
+  anger:    { v: -0.7, a:  0.7 },
+  surprise: { v:  0.2, a:  0.8 },
+  fear:     { v: -0.8, a:  0.6 },
+  disgust:  { v: -0.7, a:  0.2 },
+};
+
+/**
+ * Compute Valence/Arousal from emotion samples.
+ * When `expressions` vector is present (v0.91+), uses all 7 probabilities
+ * for a weighted V/A — continuous positioning instead of 7 fixed lookup points.
+ * Falls back to dominant-emotion lookup for pre-v0.91 data.
+ */
+export function computeVA(samples: EmotionSample[]): { valence: number; arousal: number } {
+  if (samples.length === 0) return { valence: 0, arousal: 0 };
+  let v = 0, a = 0, w = 0;
+  for (const s of samples) {
+    const expr = s.expressions;
+    if (expr && typeof expr === 'object') {
+      for (const emotion of Object.keys(VA_MAP) as EkmanEmotion[]) {
+        const prob = expr[emotion];
+        if (typeof prob !== 'number' || prob <= 0) continue;
+        const va = VA_MAP[emotion];
+        if (!va) continue;
+        v += va.v * prob;
+        a += va.a * prob;
+        w += prob;
+      }
+    } else {
+      const va = VA_MAP[s.emotion];
+      if (!va) continue;
+      v += va.v * s.confidence;
+      a += va.a * s.confidence;
+      w += s.confidence;
+    }
+  }
+  return w > 0 ? { valence: v / w, arousal: a / w } : { valence: 0, arousal: 0 };
+}
+
 export interface MicroExpression {
   emotion: EkmanEmotion;
   durationMs: number;
