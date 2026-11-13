@@ -27,8 +27,8 @@ const HEAT_WINDOWS_MS = [1000, 3000, 5000];
 type ReplayView = 'path' | 'heatmap';
 
 const REPLAY_VIEW_OPTIONS: readonly { value: ReplayView; label: string }[] = [
-  { value: 'path', label: 'Recorrido' },
   { value: 'heatmap', label: 'Heatmap' },
+  { value: 'path', label: 'Recorrido' },
 ];
 const HEAT_WINDOW_OPTIONS = [
   { value: ACCUMULATED_HEAT, label: 'Acumulado' },
@@ -141,7 +141,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     [isAllParticipants, tracks, selectedTrack],
   );
   const heatIntensityPointCount = visibleTracks.reduce((count, track) => count + track.fixations.length, 0);
-  const [view, setView] = useState<ReplayView>('path');
+  const [view, setView] = useState<ReplayView>('heatmap');
   const [heatWindowMs, setHeatWindowMs] = useState(ACCUMULATED_HEAT);
 
   const [timeMs, setTimeMs] = useState(0);
