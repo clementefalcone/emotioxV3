@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { EmotionPanel } from '../EmotionPanel';
 import type { EmotionAggregation, EkmanEmotion } from '../../../../services/analytics.service';
@@ -132,6 +132,23 @@ describe('EmotionPanel', () => {
             expect.stringContaining('0.4s'),
             expect.stringContaining('2.5s'),
         ]);
+    });
+
+    it('shows the avatar of a micro-expression emotion on hover and hides it on leave', () => {
+        render(<EmotionPanel emotions={buildEmotions({
+            microExpressions: {
+                total: 1, briefCount: 1, microCount: 0,
+                byEmotion: { disgust: 1 },
+                events: [{ participantId: 'p-1', emotion: 'disgust', durationMs: 300, startTimestamp: 500, category: 'brief', peakConfidence: 0.8 }],
+            },
+        })} />);
+        const tableBadge = within(screen.getAllByRole('row').find(row => row.textContent?.includes('0.5s')) as HTMLElement).getByText('Disgust');
+
+        fireEvent.mouseEnter(tableBadge);
+
+        expect(within(screen.getByRole('tooltip')).getByRole('img', { name: 'Disgust' })).toBeInTheDocument();
+        fireEvent.mouseLeave(tableBadge);
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
 
     it('hides the micro-expressions section when none were detected', () => {

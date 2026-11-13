@@ -4,6 +4,7 @@ import type { EmotionAggregation, EkmanEmotion } from '../../../services/analyti
 import { EMOTION_COLORS, EMOTION_LABELS } from './shared';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { ActionUnitFace } from './ActionUnitFace';
+import { EmotionAvatarBadge } from './EmotionAvatarBadge';
 import { EmotionCurveTimeline, type EmotionCurveTimelineProps } from './EmotionCurveTimeline';
 
 const EmotionDistributionChart = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
@@ -199,14 +200,11 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
         <div className="flex gap-2 flex-wrap">
           {(Object.entries(data.byEmotion) as [string, number][])
             .sort((a, b) => b[1] - a[1])
-            .map(([emotion, count]) => {
-              const colors = EMOTION_COLORS[emotion as keyof typeof EMOTION_COLORS];
-              return (
-                <span key={emotion} className={`px-2 py-1 rounded text-xs font-medium ${colors?.bg || 'bg-gray-100'} ${colors?.text || 'text-gray-700'}`}>
-                  {EMOTION_LABELS[emotion as keyof typeof EMOTION_LABELS] || emotion}: {count}
-                </span>
-              );
-            })}
+            .map(([emotion, count]) => (
+              <EmotionAvatarBadge key={emotion} emotion={emotion as EkmanEmotion} className="px-2 py-1 rounded text-xs font-medium">
+                {EMOTION_LABELS[emotion as EkmanEmotion]}: {count}
+              </EmotionAvatarBadge>
+            ))}
         </div>
       )}
 
@@ -225,14 +223,14 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
             </thead>
             <tbody className="divide-y divide-gray-100">
               {sorted.map((event, i) => {
-                const colors = EMOTION_COLORS[event.emotion as keyof typeof EMOTION_COLORS];
+                const emotion = event.emotion as EkmanEmotion;
                 return (
                   <tr key={i} className="hover:bg-gray-50">
                     <td className="px-3 py-1.5 text-gray-600">{(event.startTimestamp / 1000).toFixed(1)}s</td>
                     <td className="px-3 py-1.5">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${colors?.bg || 'bg-gray-100'} ${colors?.text || 'text-gray-700'}`}>
-                        {EMOTION_LABELS[event.emotion as keyof typeof EMOTION_LABELS] || event.emotion}
-                      </span>
+                      <EmotionAvatarBadge emotion={emotion} className="px-1.5 py-0.5 rounded text-[10px] font-medium">
+                        {EMOTION_LABELS[emotion]}
+                      </EmotionAvatarBadge>
                     </td>
                     <td className="px-3 py-1.5 text-gray-600">{event.durationMs}ms</td>
                     <td className="px-3 py-1.5">
