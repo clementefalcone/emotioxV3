@@ -163,6 +163,17 @@ describe('EmotionPanel', () => {
         expect(screen.queryByText('Comfort')).not.toBeInTheDocument();
     });
 
+    it('explains each FMCG category and marks active and secondary emotions', () => {
+        render(<EmotionPanel emotions={buildEmotions({ distribution: distributionOf({ neutral: 90, joy: 5, surprise: 2.5, sadness: 1, disgust: 1.5 }) })} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'FMCG' }));
+
+        expect(screen.getByText('Comodidad y/o Nostalgia')).toBeInTheDocument();
+        expect(screen.getByText('Disonancia y/o Valores en conflicto').parentElement?.textContent).toContain('Emoción negativa');
+        expect(screen.getAllByText('Activa')).toHaveLength(1);
+        expect(screen.getAllByText('Secundaria')).toHaveLength(1);
+    });
+
     it('hides the micro-expressions section when none were detected', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
         expect(screen.queryByText('Micro-Expressions')).not.toBeInTheDocument();

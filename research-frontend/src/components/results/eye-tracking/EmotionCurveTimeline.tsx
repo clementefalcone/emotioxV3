@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react';
 import type { EkmanEmotion } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
-import { useEmotionLabels } from './emotionLabels';
+import { useEmotionVocabulary } from './emotionScenario';
 import { EmotionCurveChart } from './EmotionCurveChart';
 import { FacePresenceBars } from './FacePresenceBars';
 import { countZoneOccupancy, type ParticipantTrack, type ReplayZone } from './gazeReplay';
 import {
   buildEmotionCurve,
   buildFacePresence,
+  ALL_CURVE_SERIES,
   CURVE_EMOTIONS,
   findLeadingEmotion,
   formatClock,
-  SERIES_COLORS,
+  VALENCE_AROUSAL_COLORS,
   type EmotionCurvePoint,
   type EmotionSeries,
   type ParticipantEmotionSample,
@@ -21,8 +22,7 @@ const CURVE_BUCKET_MS = 250;
 const FACE_GAP_MS = 500;
 const LEADING_WINDOW_MS = 2000;
 const ALL_PARTICIPANTS = 'all';
-const ALL_SERIES: readonly EmotionSeries[] = ['valence', 'arousal', ...CURVE_EMOTIONS];
-const DEFAULT_VISIBLE_SERIES: readonly EmotionSeries[] = ALL_SERIES.filter(series => series !== 'neutral');
+const DEFAULT_VISIBLE_SERIES: readonly EmotionSeries[] = ALL_CURVE_SERIES.filter(series => series !== 'neutral');
 const ZOOM_OPTIONS: readonly { label: string; windowMs: number | null }[] = [
   { label: '10 s', windowMs: 10_000 },
   { label: '30 s', windowMs: 30_000 },
@@ -58,7 +58,7 @@ function SeriesChip({ label, color, isActive, onClick }: SeriesChipProps) {
 }
 
 function LeadingEmotionNote({ points, emotions, markerMs }: { readonly points: readonly EmotionCurvePoint[]; readonly emotions: readonly EkmanEmotion[]; readonly markerMs: number }) {
-  const labels = useEmotionLabels();
+  const { labels } = useEmotionVocabulary();
   if (emotions.length === 0) return <p className="text-xs text-gray-400">Activa al menos una emoción para ver cuál predomina.</p>;
   const leading = findLeadingEmotion(points, emotions, markerMs, LEADING_WINDOW_MS);
   if (!leading) return <p className="text-xs text-gray-400">Sin rostro detectado en los 2 segundos previos a {formatClock(markerMs)}.</p>;
@@ -95,8 +95,12 @@ export interface EmotionCurveTimelineProps {
 }
 
 export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTimelineProps) {
-  const labels = useEmotionLabels();
+  const { labels, colors } = useEmotionVocabulary();
   const seriesLabels: Record<EmotionSeries, string> = { ...labels, valence: 'Valencia', arousal: 'Arousal' };
+  const seriesColors = {
+    ...VALENCE_AROUSAL_COLORS,
+    ...Object.fromEntries(CURVE_EMOTIONS.map(emotion => [emotion, colors[emotion].hex])),
+  } as Record<EmotionSeries, string>;
   const [participantId, setParticipantId] = useState(ALL_PARTICIPANTS);
   const [visibleSeries, setVisibleSeries] = useState<readonly EmotionSeries[]>(DEFAULT_VISIBLE_SERIES);
   const [zoomWindowMs, setZoomWindowMs] = useState<number | null>(null);
@@ -154,10 +158,10 @@ export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTim
         <SeriesChip
           label={visibleSeries.length > 0 ? 'Ocultar todo' : 'Mostrar todo'}
           isActive
-          onClick={() => setVisibleSeries(visibleSeries.length > 0 ? [] : ALL_SERIES)}
+          onClick={() => setVisibleSeries(visibleSeries.length > 0 ? [] : ALL_CURVE_SERIES)}
         />
-        {ALL_SERIES.map(series => (
-          <SeriesChip key={series} label={seriesLabels[series]} color={SERIES_COLORS[series]} isActive={visibleSeries.includes(series)} onClick={() => toggleSeries(series)} />
+        {ALL_CURVE_SERIES.map(series => (
+          <SeriesChip key={series} label={seriesLabels[series]} color={seriesColors[series]} isActive={visibleSeries.includes(series)} onClick={() => toggleSeries(series)} />
         ))}
       </div>
 
@@ -172,6 +176,7 @@ export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTim
         points={points}
         visibleSeries={visibleSeries}
         seriesLabels={seriesLabels}
+        seriesColors={seriesColors}
         domainMs={domainMs}
         markerMs={markerMs}
         onMark={setMarkerMs}

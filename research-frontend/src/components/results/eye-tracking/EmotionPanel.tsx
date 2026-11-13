@@ -1,13 +1,36 @@
 import { useMemo, useState } from 'react';
 import { SmilePlus } from 'lucide-react';
 import type { EmotionAggregation, EkmanEmotion } from '../../../services/analytics.service';
-import { EMOTION_COLORS } from './shared';
-import { EmotionLabelsContext, SCENARIO_EMOTION_LABELS, useEmotionLabels, type EmotionScenario } from './emotionLabels';
+import {
+  classifyEmotionPresence,
+  EMOTION_PRESENCE_THRESHOLD_PERCENT,
+  EMOTION_VOCABULARIES,
+  EmotionVocabularyContext,
+  useEmotionVocabulary,
+  type EmotionMeaning,
+  type EmotionPresence,
+  type EmotionScenario,
+} from './emotionScenario';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { ActionUnitFace } from './ActionUnitFace';
 import { EmotionAvatarBadge } from './EmotionAvatarBadge';
 import { computeEmScore } from './emScore';
 import { EmotionCurveTimeline, type EmotionCurveTimelineProps } from './EmotionCurveTimeline';
+
+const PRESENCE_BADGES: Record<EmotionPresence, { label: string; className: string }> = {
+  active: { label: 'Activa', className: 'bg-slate-800 text-white' },
+  secondary: { label: 'Secundaria', className: 'bg-slate-100 text-slate-600' },
+};
+
+const EmotionMeaningTooltip = ({ meaning }: { meaning: EmotionMeaning }) => (
+  <div className="absolute left-full top-1/2 z-20 ml-2 w-64 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-3 text-left opacity-0 shadow-lg pointer-events-none transition-opacity group-hover:opacity-100">
+    <p className="text-xs font-semibold text-slate-800">{meaning.name}</p>
+    <p className="mt-1 text-[11px] leading-snug text-slate-500">{meaning.description}</p>
+    <p className={`mt-1.5 text-[11px] font-medium ${meaning.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+      Emoción {meaning.isPositive ? 'positiva' : 'negativa'}
+    </p>
+  </div>
+);
 
 const EmotionDistributionChart = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
   const sorted = useMemo(() =>
@@ -16,33 +39,47 @@ const EmotionDistributionChart = ({ distribution }: { distribution: Record<Ekman
     [distribution],
   );
   const maxPct = Math.max(...sorted.map(([, v]) => v), 1);
-  const labels = useEmotionLabels();
+  const { labels, colors, meanings } = useEmotionVocabulary();
+  const thresholdLeft = `${(EMOTION_PRESENCE_THRESHOLD_PERCENT / maxPct) * 100}%`;
 
   return (
     <div className="space-y-2">
       {sorted.map(([emotion, pct]) => {
-        const colors = EMOTION_COLORS[emotion];
+        const meaning = meanings[emotion];
+        const presence = emotion === 'neutral' ? null : classifyEmotionPresence(pct);
         return (
           <div key={emotion} className="flex items-center gap-3">
-            <span className={`text-xs font-medium w-16 text-right ${colors.text}`}>
+            <span className={`relative group text-xs font-medium w-20 text-right ${colors[emotion].text} ${meaning ? 'cursor-help' : ''}`}>
               {labels[emotion]}
+              {meaning && <EmotionMeaningTooltip meaning={meaning} />}
             </span>
-            <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="relative flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${colors.bar}`}
+                className={`h-full rounded-full transition-all ${colors[emotion].bar}`}
                 style={{ width: `${(pct / maxPct) * 100}%` }}
               />
+              <span className="absolute inset-y-0 border-l border-dashed border-slate-400" style={{ left: thresholdLeft }} />
             </div>
             <span className="text-xs font-semibold text-gray-700 w-12">{pct.toFixed(1)}%</span>
+            <span className="w-20">
+              {presence && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PRESENCE_BADGES[presence].className}`}>
+                  {PRESENCE_BADGES[presence].label}
+                </span>
+              )}
+            </span>
           </div>
         );
       })}
+      <p className="text-[11px] text-gray-400">
+        Línea punteada: umbral de {EMOTION_PRESENCE_THRESHOLD_PERCENT}%. Sobre el umbral la emoción es activa; entre 2% y 2.99%, secundaria.
+      </p>
     </div>
   );
 };
 
 const EmotionTimeline = ({ timeline }: { timeline: EmotionAggregation['timeline'] }) => {
-  const labels = useEmotionLabels();
+  const { labels, colors: emotionColors } = useEmotionVocabulary();
   if (timeline.length === 0) return null;
 
   const maxTs = timeline[timeline.length - 1].timestamp;
@@ -53,7 +90,7 @@ const EmotionTimeline = ({ timeline }: { timeline: EmotionAggregation['timeline'
       <h4 className="text-sm font-semibold text-gray-700 mb-2">Emotion Timeline</h4>
       <div className="flex gap-px rounded-lg overflow-hidden border border-gray-200">
         {timeline.map((sample, i) => {
-          const colors = EMOTION_COLORS[sample.emotion];
+          const colors = emotionColors[sample.emotion];
           return (
             <div
               key={i}
@@ -189,7 +226,7 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
     [...data.events].sort((a, b) => a.startTimestamp - b.startTimestamp),
     [data.events],
   );
-  const labels = useEmotionLabels();
+  const { labels } = useEmotionVocabulary();
 
   return (
     <div className="space-y-3">
@@ -325,8 +362,8 @@ const ScenarioToggle = ({ scenario, onChange }: { scenario: EmotionScenario; onC
 );
 
 const DominantEmotionBadge = ({ emotion }: { emotion: EkmanEmotion }) => {
-  const labels = useEmotionLabels();
-  const colors = EMOTION_COLORS[emotion];
+  const { labels, colors: emotionColors } = useEmotionVocabulary();
+  const colors = emotionColors[emotion];
   return <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors.bg} ${colors.text}`}>{labels[emotion]}</span>;
 };
 
@@ -351,16 +388,16 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
     );
   }
 
-  const dominantColors = EMOTION_COLORS[emotions.dominantEmotion];
-  const labels = SCENARIO_EMOTION_LABELS[scenario];
+  const vocabulary = EMOTION_VOCABULARIES[scenario];
+  const dominantColors = vocabulary.colors[emotions.dominantEmotion];
 
   return (
-    <EmotionLabelsContext.Provider value={labels}>
+    <EmotionVocabularyContext.Provider value={vocabulary}>
     <div className="space-y-5">
       {/* Dominant emotion + confidence */}
       <div className="flex items-center gap-4">
         <div className={`px-3 py-1.5 rounded-full text-sm font-semibold ${dominantColors.bg} ${dominantColors.text}`}>
-          {labels[emotions.dominantEmotion]}
+          {vocabulary.labels[emotions.dominantEmotion]}
         </div>
         <span className="text-xs text-gray-500">
           Emoción dominante &middot; {emotions.totalSamples.toLocaleString()} muestras &middot; {(emotions.avgConfidence * 100).toFixed(0)}% confianza promedio
@@ -408,7 +445,7 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
         </div>
       )}
     </div>
-    </EmotionLabelsContext.Provider>
+    </EmotionVocabularyContext.Provider>
   );
 };
 

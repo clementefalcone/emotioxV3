@@ -2,8 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { EkmanEmotion } from '../../../services/analytics.service';
 import { EMOTION_AVATARS } from './emotionAvatars';
-import { useEmotionLabels } from './emotionLabels';
-import { EMOTION_COLORS } from './shared';
+import { useEmotionVocabulary } from './emotionScenario';
 
 const TOOLTIP_WIDTH_PX = 170;
 const TOOLTIP_HEIGHT_PX = 230;
@@ -27,8 +26,8 @@ interface EmotionAvatarBadgeProps {
 export function EmotionAvatarBadge({ emotion, className, children }: EmotionAvatarBadgeProps) {
   const badgeRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
-  const colors = EMOTION_COLORS[emotion];
-  const labels = useEmotionLabels();
+  const { labels, colors: emotionColors } = useEmotionVocabulary();
+  const colors = emotionColors[emotion];
   return (
     <>
       <span

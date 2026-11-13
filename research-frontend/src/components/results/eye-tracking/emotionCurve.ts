@@ -8,16 +8,11 @@ export const CURVE_EMOTIONS: readonly EkmanEmotion[] = ['joy', 'surprise', 'ange
 
 export const CURVE_AXIS_WIDTH_PX = 40;
 
-export const SERIES_COLORS: Record<EmotionSeries, string> = {
+export const ALL_CURVE_SERIES: readonly EmotionSeries[] = ['valence', 'arousal', ...CURVE_EMOTIONS];
+
+export const VALENCE_AROUSAL_COLORS: Record<'valence' | 'arousal', string> = {
   valence: '#db2777',
   arousal: '#0f172a',
-  joy: '#22c55e',
-  surprise: '#f59e0b',
-  anger: '#ef4444',
-  fear: '#a855f7',
-  disgust: '#f97316',
-  sadness: '#3b82f6',
-  neutral: '#9ca3af',
 };
 
 export const formatClock = (timeMs: number): string => {

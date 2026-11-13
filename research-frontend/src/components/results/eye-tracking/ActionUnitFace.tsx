@@ -1,6 +1,6 @@
 import type { EkmanEmotion } from '../../../services/analytics.service';
 import { EMOTION_AVATARS } from './emotionAvatars';
-import { useEmotionLabels } from './emotionLabels';
+import { useEmotionVocabulary } from './emotionScenario';
 
 const ACTION_UNIT_EMOTIONS: Record<string, EkmanEmotion> = {
   AU1: 'sadness',
@@ -16,7 +16,7 @@ const ACTION_UNIT_EMOTIONS: Record<string, EkmanEmotion> = {
 
 export const ActionUnitFace = ({ au, label }: { au: string; label: string }) => {
   const emotion = ACTION_UNIT_EMOTIONS[au];
-  const labels = useEmotionLabels();
+  const { labels } = useEmotionVocabulary();
   if (!emotion) return null;
   return (
     <figure className="flex flex-col items-center gap-1">

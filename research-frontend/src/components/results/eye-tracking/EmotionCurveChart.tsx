@@ -1,6 +1,6 @@
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { EkmanEmotion } from '../../../services/analytics.service';
-import { CURVE_AXIS_WIDTH_PX, formatClock, SERIES_COLORS, type EmotionCurvePoint, type EmotionSeries } from './emotionCurve';
+import { ALL_CURVE_SERIES, CURVE_AXIS_WIDTH_PX, formatClock, type EmotionCurvePoint, type EmotionSeries } from './emotionCurve';
 
 const VALENCE_AROUSAL_SERIES: readonly EmotionSeries[] = ['valence', 'arousal'];
 
@@ -8,10 +8,10 @@ const formatPercentTick = (value: number): string => `${value}%`;
 
 const toChartRow = (point: EmotionCurvePoint): Record<string, number | null> => ({
   timeMs: point.timeMs,
-  ...Object.fromEntries(Object.keys(SERIES_COLORS).map(series => {
-    const value = point.values?.[series as EmotionSeries];
+  ...Object.fromEntries(ALL_CURVE_SERIES.map(series => {
+    const value = point.values?.[series];
     if (value === undefined) return [series, null];
-    return [series, VALENCE_AROUSAL_SERIES.includes(series as EmotionSeries) ? value : value * 100];
+    return [series, VALENCE_AROUSAL_SERIES.includes(series) ? value : value * 100];
   })),
 });
 
@@ -25,9 +25,10 @@ interface CurveTooltipProps {
   readonly label?: number | string;
   readonly payload?: readonly TooltipEntry[];
   readonly seriesLabels: Record<EmotionSeries, string>;
+  readonly seriesColors: Record<EmotionSeries, string>;
 }
 
-function CurveTooltip({ active, label, payload, seriesLabels }: CurveTooltipProps) {
+function CurveTooltip({ active, label, payload, seriesLabels, seriesColors }: CurveTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
   return (
     <div className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] shadow-sm">
@@ -36,7 +37,7 @@ function CurveTooltip({ active, label, payload, seriesLabels }: CurveTooltipProp
         const series = entry.dataKey as EmotionSeries;
         const value = entry.value as number;
         const text = VALENCE_AROUSAL_SERIES.includes(series) ? `${value >= 0 ? '+' : ''}${value.toFixed(2)}` : `${Math.round(value)}%`;
-        return <p key={series} style={{ color: SERIES_COLORS[series] }}>{seriesLabels[series]}: {text}</p>;
+        return <p key={series} style={{ color: seriesColors[series] }}>{seriesLabels[series]}: {text}</p>;
       })}
     </div>
   );
@@ -46,6 +47,7 @@ interface EmotionCurveChartProps {
   readonly points: readonly EmotionCurvePoint[];
   readonly visibleSeries: readonly EmotionSeries[];
   readonly seriesLabels: Record<EmotionSeries, string>;
+  readonly seriesColors: Record<EmotionSeries, string>;
   readonly domainMs: readonly [number, number];
   readonly markerMs: number | null;
   readonly onMark: (timeMs: number) => void;
@@ -53,7 +55,7 @@ interface EmotionCurveChartProps {
 
 const isEmotionSeries = (series: EmotionSeries): series is EkmanEmotion => !VALENCE_AROUSAL_SERIES.includes(series);
 
-export function EmotionCurveChart({ points, visibleSeries, seriesLabels, domainMs, markerMs, onMark }: EmotionCurveChartProps) {
+export function EmotionCurveChart({ points, visibleSeries, seriesLabels, seriesColors, domainMs, markerMs, onMark }: EmotionCurveChartProps) {
   const rows = points.filter(point => point.timeMs >= domainMs[0] && point.timeMs <= domainMs[1]).map(toChartRow);
   return (
     <div className="h-56 w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none">
@@ -68,14 +70,14 @@ export function EmotionCurveChart({ points, visibleSeries, seriesLabels, domainM
           <XAxis dataKey="timeMs" type="number" domain={[domainMs[0], domainMs[1]]} allowDataOverflow tickFormatter={formatClock} tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <YAxis yAxisId="valenceArousal" width={CURVE_AXIS_WIDTH_PX} domain={[-1, 1]} ticks={[-1, -0.5, 0, 0.5, 1]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <YAxis yAxisId="emotion" orientation="right" width={CURVE_AXIS_WIDTH_PX} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={formatPercentTick} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-          <Tooltip content={<CurveTooltip seriesLabels={seriesLabels} />} isAnimationActive={false} />
+          <Tooltip content={<CurveTooltip seriesLabels={seriesLabels} seriesColors={seriesColors} />} isAnimationActive={false} />
           {markerMs !== null && <ReferenceLine yAxisId="emotion" x={markerMs} stroke="#006AFF" strokeWidth={1.5} />}
           {visibleSeries.map(series => (
             <Line
               key={series}
               yAxisId={isEmotionSeries(series) ? 'emotion' : 'valenceArousal'}
               dataKey={series}
-              stroke={SERIES_COLORS[series]}
+              stroke={seriesColors[series]}
               strokeWidth={isEmotionSeries(series) ? 1.5 : 2}
               strokeDasharray={series === 'arousal' ? '4 3' : undefined}
               dot={false}

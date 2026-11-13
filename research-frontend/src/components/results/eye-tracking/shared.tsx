@@ -20,14 +20,21 @@ export const resolveStimulusUrl = (raw: string): string => {
   return resolveMediaUrl(url);
 };
 
-export const EMOTION_COLORS: Record<EkmanEmotion, { bg: string; text: string; bar: string }> = {
-  joy:      { bg: 'bg-green-50',  text: 'text-green-700',  bar: 'bg-green-400' },
-  surprise: { bg: 'bg-amber-50',  text: 'text-amber-700',  bar: 'bg-amber-400' },
-  neutral:  { bg: 'bg-gray-50',   text: 'text-gray-600',   bar: 'bg-gray-400' },
-  fear:     { bg: 'bg-purple-50', text: 'text-purple-700', bar: 'bg-purple-400' },
-  sadness:  { bg: 'bg-blue-50',   text: 'text-blue-700',   bar: 'bg-blue-400' },
-  anger:    { bg: 'bg-red-50',    text: 'text-red-700',    bar: 'bg-red-400' },
-  disgust:  { bg: 'bg-orange-50', text: 'text-orange-700', bar: 'bg-orange-400' },
+export interface EmotionColor {
+  readonly bg: string;
+  readonly text: string;
+  readonly bar: string;
+  readonly hex: string;
+}
+
+export const EMOTION_COLORS: Record<EkmanEmotion, EmotionColor> = {
+  joy:      { bg: 'bg-green-50',  text: 'text-green-700',  bar: 'bg-green-400',  hex: '#22c55e' },
+  surprise: { bg: 'bg-amber-50',  text: 'text-amber-700',  bar: 'bg-amber-400',  hex: '#f59e0b' },
+  neutral:  { bg: 'bg-gray-50',   text: 'text-gray-600',   bar: 'bg-gray-400',   hex: '#9ca3af' },
+  fear:     { bg: 'bg-purple-50', text: 'text-purple-700', bar: 'bg-purple-400', hex: '#a855f7' },
+  sadness:  { bg: 'bg-blue-50',   text: 'text-blue-700',   bar: 'bg-blue-400',   hex: '#3b82f6' },
+  anger:    { bg: 'bg-red-50',    text: 'text-red-700',    bar: 'bg-red-400',    hex: '#ef4444' },
+  disgust:  { bg: 'bg-orange-50', text: 'text-orange-700', bar: 'bg-orange-400', hex: '#f97316' },
 };
 
 export const EMOTION_LABELS: Record<EkmanEmotion, string> = {
