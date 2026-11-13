@@ -45,10 +45,10 @@ describe('EmotionPanel', () => {
         expect(screen.getByText(/82% confianza promedio/)).toBeInTheDocument();
     });
 
-    it('computes EmScore as 2(C+Q) + 1.5E - (W+U) - 2T', () => {
+    it('shows the FMCG EmScore, leaving neutral out of the penalty', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
         const score = screen.getByText('EmScore').parentElement?.nextElementSibling;
-        expect(score?.textContent).toBe('162.5');
+        expect(score?.textContent).toBe('140.0');
         expect(score?.className).toContain('text-emerald-600');
     });
 
@@ -58,7 +58,7 @@ describe('EmotionPanel', () => {
             dominantEmotion: 'disgust',
         })} />);
         const score = screen.getByText('EmScore').parentElement?.nextElementSibling;
-        expect(score?.textContent).toBe('-160.0');
+        expect(score?.textContent).toBe('-140.0');
         expect(score?.className).toContain('text-red-600');
     });
 

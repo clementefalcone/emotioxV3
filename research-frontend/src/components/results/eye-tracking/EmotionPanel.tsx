@@ -5,6 +5,7 @@ import { EMOTION_COLORS, EMOTION_LABELS } from './shared';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { ActionUnitFace } from './ActionUnitFace';
 import { EmotionAvatarBadge } from './EmotionAvatarBadge';
+import { computeEmScore } from './emScore';
 import { EmotionCurveTimeline, type EmotionCurveTimelineProps } from './EmotionCurveTimeline';
 
 const EmotionDistributionChart = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
@@ -280,15 +281,7 @@ const MoodStates = ({ distribution }: { distribution: Record<EkmanEmotion, numbe
 };
 
 const EmScoreCard = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
-  const d = distribution;
-  const comfort = d.joy;
-  const curiosity = d.surprise;
-  const engagement = (d.joy + d.surprise) / 2;
-  const worry = d.fear;
-  const uncertainty = d.neutral;
-  const ethical = d.disgust;
-
-  const emScore = 2 * (comfort + curiosity) + 1.5 * engagement - (worry + uncertainty) - 2 * ethical;
+  const emScore = computeEmScore(distribution);
 
   return (
     <div className="rounded-lg border border-gray-200 p-4">
@@ -296,6 +289,7 @@ const EmScoreCard = ({ distribution }: { distribution: Record<EkmanEmotion, numb
         <div>
           <h4 className="text-sm font-semibold text-gray-700">EmScore</h4>
           <p className="text-xs text-gray-400 mt-0.5">Clima emocional del diseño</p>
+          <p className="text-[11px] text-gray-400 mt-1">Incertidumbre (escepticismo) no se mide con la cámara: cuenta como 0.</p>
         </div>
         <p className={`text-3xl font-bold ${emScore >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
           {emScore.toFixed(1)}
