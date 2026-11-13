@@ -36,6 +36,8 @@ export interface EmotionSample {
   confidence: number;
   /** Underlying Action Unit intensities */
   actionUnits: ActionUnits;
+  /** Probability of each emotion in this frame [0–1] */
+  expressions: Record<EkmanEmotion, number>;
 }
 
 /** Ekman basic emotions + neutral */

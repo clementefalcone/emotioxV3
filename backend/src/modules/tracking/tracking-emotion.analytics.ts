@@ -87,7 +87,7 @@ function computeVA(samples: EmotionSample[]): { valence: number; arousal: number
     if (samples.length === 0) return { valence: 0, arousal: 0 };
     let v = 0, a = 0, w = 0;
     for (const s of samples) {
-        const expr = (s as EmotionSampleWithExpressions).expressions;
+        const expr = s.expressions;
         if (expr && typeof expr === 'object') {
             for (const emotion of ALL_EMOTIONS) {
                 const prob = expr[emotion];
@@ -107,10 +107,6 @@ function computeVA(samples: EmotionSample[]): { valence: number; arousal: number
         }
     }
     return w > 0 ? { valence: v / w, arousal: a / w } : { valence: 0, arousal: 0 };
-}
-
-interface EmotionSampleWithExpressions extends EmotionSample {
-    expressions?: Partial<Record<EkmanEmotion, number>>;
 }
 
 export async function getTrackingEmotionData(

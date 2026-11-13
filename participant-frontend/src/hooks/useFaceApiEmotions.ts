@@ -98,15 +98,16 @@ export function useFaceApiEmotions({
 
       if (!detection) return null;
 
-      const expressions = detection.expressions;
+      const expressions = Object.fromEntries(
+        Object.entries(EXPRESSION_MAP).map(([key, emotion]) => [emotion, detection.expressions[key as keyof typeof detection.expressions]]),
+      ) as Record<EkmanEmotion, number>;
       // Find dominant expression
       let bestEmotion: EkmanEmotion = 'neutral';
       let bestScore = 0;
-      for (const [key, score] of Object.entries(expressions)) {
-        const mapped = EXPRESSION_MAP[key];
-        if (mapped && score > bestScore) {
+      for (const [emotion, score] of Object.entries(expressions) as [EkmanEmotion, number][]) {
+        if (score > bestScore) {
           bestScore = score;
-          bestEmotion = mapped;
+          bestEmotion = emotion;
         }
       }
 
@@ -122,6 +123,7 @@ export function useFaceApiEmotions({
         emotion: bestEmotion,
         confidence: bestScore,
         actionUnits: aus,
+        expressions,
       };
 
       if (runningRef.current) {

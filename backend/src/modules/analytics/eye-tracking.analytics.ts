@@ -63,7 +63,7 @@ interface EyeTrackingStimulus {
     low: number;
   };
   emotions: EmotionAggregation;
-  emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number }>;
+  emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number; actionUnits?: Record<string, number>; expressions?: Partial<Record<EkmanEmotion, number>> }>;
   /** TranSalNet saliency prediction data (if run). Points with x%, y%, value 0–1. */
   predictionHeatmap?: Array<{ x: number; y: number; value: number }>;
   predictionProcessedAt?: string;
@@ -282,9 +282,19 @@ const readParticipantEmotions = (responses: any[]): ParticipantEmotions[] => res
   }
 });
 
+const roundValues = <T extends Partial<Record<string, number>>>(values: T): T =>
+  Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Math.round((value ?? 0) * 100) / 100])) as T;
+
 const flattenEmotionSamples = (participants: ParticipantEmotions[]): EyeTrackingStimulus['emotionSamples'] =>
   participants.flatMap(({ participantId, samples }) =>
-    samples.map(({ timestamp, emotion, confidence }) => ({ participantId, timestamp, emotion, confidence })));
+    samples.map(({ timestamp, emotion, confidence, actionUnits, expressions }) => ({
+      participantId,
+      timestamp,
+      emotion,
+      confidence,
+      ...(actionUnits && { actionUnits: roundValues(actionUnits) }),
+      ...(expressions && { expressions: roundValues(expressions) }),
+    })));
 
 /**
  * Compute Eye Tracking analytics from gaze response data.

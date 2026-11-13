@@ -555,7 +555,7 @@ export interface EyeTrackingStimulus {
     participants: EyeTrackingParticipant[];
     qualitySummary?: { total: number; good: number; fair: number; low: number };
     emotions: EmotionAggregation;
-    emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number }>;
+    emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number; actionUnits?: Record<string, number>; expressions?: Partial<Record<EkmanEmotion, number>> }>;
     predictionHeatmap?: Array<{ x: number; y: number; value: number }>;
     predictionProcessedAt?: string;
     /** Gaze points with video timestamps (only for video stimuli) */

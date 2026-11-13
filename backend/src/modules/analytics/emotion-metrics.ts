@@ -5,6 +5,7 @@ export interface EmotionSample {
   emotion: EkmanEmotion;
   confidence: number;
   actionUnits?: Record<string, number>;
+  expressions?: Partial<Record<EkmanEmotion, number>>;
 }
 
 export interface MicroExpression {
@@ -34,7 +35,7 @@ export interface EmotionAggregation {
     sampleCount: number;
     distribution: Record<EkmanEmotion, number>;
   }>;
-  timeline: Array<Required<EmotionSample>>;
+  timeline: Array<Required<Omit<EmotionSample, 'expressions'>>>;
   microExpressions?: {
     total: number;
     briefCount: number;
@@ -89,7 +90,7 @@ const mostFrequent = (counts: Record<EkmanEmotion, number>): EkmanEmotion =>
   (Object.entries(counts) as [EkmanEmotion, number][])
     .reduce((best, [emotion, count]) => count > best[1] ? [emotion, count] : best, ['neutral' as EkmanEmotion, 0])[0];
 
-const buildTimeline = (samples: EmotionSample[]): Array<Required<EmotionSample>> => {
+const buildTimeline = (samples: EmotionSample[]): Array<Required<Omit<EmotionSample, 'expressions'>>> => {
   const buckets = new Map<number, EmotionSample[]>();
   for (const sample of samples) {
     const key = Math.floor(sample.timestamp / TIMELINE_BUCKET_MS) * TIMELINE_BUCKET_MS;

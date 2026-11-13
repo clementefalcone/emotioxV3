@@ -27,7 +27,7 @@ vi.mock('@vladmandic/face-api', () => {
 const LANDMARKS_68 = Array.from({ length: 68 }, (_, i) => ({ x: 100 + (i % 17) * 6, y: 100 + Math.floor(i / 17) * 20 }));
 
 const faceWith = (expressions: Record<string, number>) => ({
-    expressions,
+    expressions: { neutral: 0, happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, ...expressions },
     landmarks: { positions: LANDMARKS_68 },
 });
 
@@ -100,6 +100,7 @@ describe('useFaceApiEmotions', () => {
         const [sample] = result.current.getSamples();
         expect(sample.emotion).toBe('joy');
         expect(sample.confidence).toBe(0.8);
+        expect(sample.expressions).toEqual({ joy: 0.8, sadness: 0, anger: 0.05, surprise: 0.05, disgust: 0, fear: 0, neutral: 0.1 });
         expect(Object.keys(sample.actionUnits).sort()).toEqual(['AU1', 'AU12', 'AU15', 'AU2', 'AU20', 'AU25', 'AU26', 'AU4', 'AU6']);
     });
 

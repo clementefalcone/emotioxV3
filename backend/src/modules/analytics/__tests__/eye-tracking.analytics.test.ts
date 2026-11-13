@@ -63,7 +63,7 @@ function buildRow(pid: string, opts: {
   calibrationRmsePx?: number | null;
   integrityScore?: number;
   calibrationQuality?: string;
-  emotions?: Array<{ timestamp: number; emotion: string; confidence: number; actionUnits: Record<string, number> }>;
+  emotions?: Array<{ timestamp: number; emotion: string; confidence: number; actionUnits?: Record<string, number>; expressions?: Record<string, number> }>;
   microExpressions?: Array<{ emotion: string; durationMs: number; startTimestamp: number; category: string; peakConfidence: number }>;
   zoneMass?: Record<string, number>;
   v3?: any;
@@ -848,13 +848,19 @@ describe('getEyeTrackingResults', () => {
       const rows = [
         buildRow('p1', {
           emotions: [
-            { timestamp: 0, emotion: 'joy', confidence: 0.9, actionUnits: { AU6: 0.8 } },
+            {
+              timestamp: 0,
+              emotion: 'joy',
+              confidence: 0.9,
+              actionUnits: { AU6: 0.81234, AU12: 0.7 },
+              expressions: { joy: 0.9, sadness: 0.004, surprise: 0.05, anger: 0.01, disgust: 0, fear: 0.006, neutral: 0.03 },
+            },
             { timestamp: 1200, emotion: 'surprise', confidence: 0.7, actionUnits: {} },
           ],
           calibrationRmsePx: 60,
           integrityScore: 0.9,
         }),
-        buildRow('p2', { emotions: [{ timestamp: 300, emotion: 'fear', confidence: 0.6, actionUnits: {} }], calibrationRmsePx: 60, integrityScore: 0.9 }),
+        buildRow('p2', { emotions: [{ timestamp: 300, emotion: 'fear', confidence: 0.6 }], calibrationRmsePx: 60, integrityScore: 0.9 }),
       ];
       setupStandardMocks({
         modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ emotionRecognition: true }) }],
@@ -864,8 +870,15 @@ describe('getEyeTrackingResults', () => {
       const result = await getEyeTrackingResults('research-1');
 
       expect(result.stimuli[0].emotionSamples).toEqual([
-        { participantId: 'p1', timestamp: 0, emotion: 'joy', confidence: 0.9 },
-        { participantId: 'p1', timestamp: 1200, emotion: 'surprise', confidence: 0.7 },
+        {
+          participantId: 'p1',
+          timestamp: 0,
+          emotion: 'joy',
+          confidence: 0.9,
+          actionUnits: { AU6: 0.81, AU12: 0.7 },
+          expressions: { joy: 0.9, sadness: 0, surprise: 0.05, anger: 0.01, disgust: 0, fear: 0.01, neutral: 0.03 },
+        },
+        { participantId: 'p1', timestamp: 1200, emotion: 'surprise', confidence: 0.7, actionUnits: {} },
         { participantId: 'p2', timestamp: 300, emotion: 'fear', confidence: 0.6 },
       ]);
     });
