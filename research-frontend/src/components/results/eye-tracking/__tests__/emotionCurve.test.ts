@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EkmanEmotion } from '../../../../services/analytics.service';
-import { buildEmotionCurve, buildFacePresence, findLeadingEmotion, fitEmotionAxisMax, type ParticipantEmotionSample } from '../emotionCurve';
+import { alignSamplesToVideo, buildEmotionCurve, buildFacePresence, findLeadingEmotion, fitEmotionAxisMax, type ParticipantEmotionSample } from '../emotionCurve';
 
 const NO_EXPRESSIONS: Record<EkmanEmotion, number> = { joy: 0, surprise: 0, anger: 0, fear: 0, disgust: 0, sadness: 0, neutral: 0 };
 
@@ -97,5 +97,17 @@ describe('fitEmotionAxisMax', () => {
     expect(fitEmotionAxisMax(0)).toBe(5);
     expect(fitEmotionAxisMax(1.2)).toBe(5);
     expect(fitEmotionAxisMax(140)).toBe(100);
+  });
+});
+
+describe('alignSamplesToVideo', () => {
+  it('shifts each participant by their own video start lag and drops samples before playback', () => {
+    const gaze = [
+      { participantId: 'p1', x: 0, y: 0, t: 400, videoTime: 0.1 },
+      { participantId: 'p1', x: 0, y: 0, t: 1300, videoTime: 1 },
+      { participantId: 'p2', x: 0, y: 0, t: 1000, videoTime: 1 },
+    ];
+    const aligned = alignSamplesToVideo([sample('p1', 200, {}), sample('p1', 2300, {}), sample('p2', 1500, {})], gaze);
+    expect(aligned.map(({ participantId, timestamp }) => [participantId, timestamp])).toEqual([['p1', 2000], ['p2', 1500]]);
   });
 });

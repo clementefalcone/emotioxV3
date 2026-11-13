@@ -109,3 +109,27 @@ export const buildFacePresence = (samples: readonly ParticipantEmotionSample[], 
     return { participantId, segments };
   });
 };
+
+type VideoGazePoint = NonNullable<EyeTrackingStimulus['gazeTimeline']>[number];
+
+const median = (values: readonly number[]): number => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+};
+
+export const alignSamplesToVideo = (
+  samples: readonly ParticipantEmotionSample[],
+  gazeTimeline: readonly VideoGazePoint[],
+): ParticipantEmotionSample[] => {
+  const lagsByParticipant = new Map<string, number[]>();
+  for (const point of gazeTimeline) {
+    if (point.videoTime == null) continue;
+    lagsByParticipant.set(point.participantId, [...(lagsByParticipant.get(point.participantId) ?? []), point.t - point.videoTime * 1000]);
+  }
+  return samples.flatMap(sample => {
+    const lags = lagsByParticipant.get(sample.participantId);
+    const videoMs = Math.round(sample.timestamp - (lags ? median(lags) : 0));
+    return videoMs < 0 ? [] : [{ ...sample, timestamp: videoMs }];
+  });
+};

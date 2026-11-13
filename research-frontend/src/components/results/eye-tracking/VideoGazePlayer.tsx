@@ -2,15 +2,19 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
 import { drawGazeHeat, GAZE_DEFAULT_EXPOSURE, GAZE_DEFAULT_SPREAD } from '../cognitive-task/components/paintHeatmap';
+import { EmotionCurveTimeline, type EmotionCurveTimelineProps } from './EmotionCurveTimeline';
+import { alignSamplesToVideo } from './emotionCurve';
 
 type OverlayMode = 'dots' | 'heatmap';
 
 export const VideoGazePlayer = ({
   videoUrl,
   gazeTimeline,
+  curve,
 }: {
   videoUrl: string;
   gazeTimeline: NonNullable<EyeTrackingStimulus['gazeTimeline']>;
+  curve?: EmotionCurveTimelineProps;
 }) => {
   const videoPlayerRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -18,6 +22,7 @@ export const VideoGazePlayer = ({
   const [currentGazePoints, setCurrentGazePoints] = useState<Array<{ x: number; y: number }>>([]);
   const [selectedParticipant, setSelectedParticipant] = useState<string>('all');
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('heatmap');
+  const [videoMs, setVideoMs] = useState(0);
   const rafRef = useRef(0);
   const lastUpdateRef = useRef(0);
 
@@ -30,6 +35,28 @@ export const VideoGazePlayer = ({
     if (selectedParticipant === 'all') return gazeTimeline;
     return gazeTimeline.filter(p => p.participantId === selectedParticipant);
   }, [gazeTimeline, selectedParticipant]);
+
+  const videoEmotionSamples = useMemo(() => {
+    if (!curve) return [];
+    const samples = selectedParticipant === 'all' ? curve.samples : curve.samples.filter(sample => sample.participantId === selectedParticipant);
+    return alignSamplesToVideo(samples, gazeTimeline);
+  }, [curve, selectedParticipant, gazeTimeline]);
+
+  useEffect(() => {
+    const video = videoPlayerRef.current;
+    if (!video) return;
+    const syncVideoMs = () => setVideoMs(Math.round(video.currentTime * 1000));
+    video.addEventListener('timeupdate', syncVideoMs);
+    video.addEventListener('seeked', syncVideoMs);
+    return () => {
+      video.removeEventListener('timeupdate', syncVideoMs);
+      video.removeEventListener('seeked', syncVideoMs);
+    };
+  }, []);
+
+  const seekVideo = useCallback((timeMs: number) => {
+    if (videoPlayerRef.current) videoPlayerRef.current.currentTime = timeMs / 1000;
+  }, []);
 
   // Pre-sort timeline by videoTime for faster binary search
   const sortedTimeline = useRef(filteredTimeline);
@@ -211,6 +238,11 @@ export const VideoGazePlayer = ({
         {filteredTimeline.length.toLocaleString()} gaze points synced to video timeline
         {selectedParticipant !== 'all' && ` (filtered from ${gazeTimeline.length.toLocaleString()})`}
       </p>
+      {curve && videoEmotionSamples.length > 0 && (
+        <div className="mt-4">
+          <EmotionCurveTimeline samples={videoEmotionSamples} tracks={curve.tracks} zones={curve.zones} markerMs={videoMs} onMark={seekVideo} />
+        </div>
+      )}
     </div>
   );
 };

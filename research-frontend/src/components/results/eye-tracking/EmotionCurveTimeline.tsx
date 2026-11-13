@@ -92,9 +92,11 @@ export interface EmotionCurveTimelineProps {
   readonly samples: readonly ParticipantEmotionSample[];
   readonly tracks: readonly ParticipantTrack[];
   readonly zones: readonly ReplayZone[];
+  readonly markerMs?: number | null;
+  readonly onMark?: (timeMs: number) => void;
 }
 
-export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTimelineProps) {
+export function EmotionCurveTimeline({ samples, tracks, zones, markerMs: controlledMarkerMs, onMark }: EmotionCurveTimelineProps) {
   const { labels, colors } = useEmotionVocabulary();
   const seriesLabels: Record<EmotionSeries, string> = { ...labels, valence: 'Valencia', arousal: 'Arousal' };
   const seriesColors = {
@@ -105,7 +107,9 @@ export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTim
   const [visibleSeries, setVisibleSeries] = useState<readonly EmotionSeries[]>(DEFAULT_VISIBLE_SERIES);
   const [zoomWindowMs, setZoomWindowMs] = useState<number | null>(null);
   const [windowStartMs, setWindowStartMs] = useState(0);
-  const [markerMs, setMarkerMs] = useState<number | null>(null);
+  const [ownMarkerMs, setOwnMarkerMs] = useState<number | null>(null);
+  const markerMs = controlledMarkerMs === undefined ? ownMarkerMs : controlledMarkerMs;
+  const setMarkerMs = onMark ?? setOwnMarkerMs;
 
   const participantIds = useMemo(() => [...new Set(samples.map(sample => sample.participantId))], [samples]);
   const shownSamples = useMemo(

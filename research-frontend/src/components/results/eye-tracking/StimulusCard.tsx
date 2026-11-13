@@ -596,7 +596,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
             shelfColumnUrls={buildShelfColumns(resolvedShelfUrls, stimulus.shelfItems ?? 5, stimulus.shelfRepetitions ?? 1)}
           />
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
-          <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} />
+          <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} curve={stimulus.emotions.enabled ? emotionCurve : undefined} />
         ) : viewMode === 'emotions' ? (
           <EmotionPanel emotions={shownStimulus.emotions} curve={emotionCurve} />
         ) : viewMode === 'prediction' ? (
