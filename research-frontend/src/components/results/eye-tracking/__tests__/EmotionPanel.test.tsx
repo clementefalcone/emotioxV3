@@ -151,6 +151,18 @@ describe('EmotionPanel', () => {
         expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
 
+    it('renames the emotions to the FMCG scenario and back', () => {
+        render(<EmotionPanel emotions={buildEmotions()} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'FMCG' }));
+
+        expect(screen.getAllByText('Comfort').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Curiosity').length).toBeGreaterThan(0);
+        expect(screen.queryByText('Joy')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'UX/UI' }));
+        expect(screen.queryByText('Comfort')).not.toBeInTheDocument();
+    });
+
     it('hides the micro-expressions section when none were detected', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
         expect(screen.queryByText('Micro-Expressions')).not.toBeInTheDocument();

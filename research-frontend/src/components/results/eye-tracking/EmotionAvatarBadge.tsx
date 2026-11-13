@@ -2,7 +2,8 @@ import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { EkmanEmotion } from '../../../services/analytics.service';
 import { EMOTION_AVATARS } from './emotionAvatars';
-import { EMOTION_COLORS, EMOTION_LABELS } from './shared';
+import { useEmotionLabels } from './emotionLabels';
+import { EMOTION_COLORS } from './shared';
 
 const TOOLTIP_WIDTH_PX = 170;
 const TOOLTIP_HEIGHT_PX = 230;
@@ -27,6 +28,7 @@ export function EmotionAvatarBadge({ emotion, className, children }: EmotionAvat
   const badgeRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const colors = EMOTION_COLORS[emotion];
+  const labels = useEmotionLabels();
   return (
     <>
       <span
@@ -43,8 +45,8 @@ export function EmotionAvatarBadge({ emotion, className, children }: EmotionAvat
           className="fixed z-[9999] flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg pointer-events-none"
           style={{ top: position.top, left: position.left, width: TOOLTIP_WIDTH_PX }}
         >
-          <img src={EMOTION_AVATARS[emotion]} alt={EMOTION_LABELS[emotion]} width={150} height={190} className="h-[190px] w-[150px] rounded-md object-cover object-top" />
-          <figcaption className={`text-[11px] font-medium ${colors.text}`}>{EMOTION_LABELS[emotion]}</figcaption>
+          <img src={EMOTION_AVATARS[emotion]} alt={labels[emotion]} width={150} height={190} className="h-[190px] w-[150px] rounded-md object-cover object-top" />
+          <figcaption className={`text-[11px] font-medium ${colors.text}`}>{labels[emotion]}</figcaption>
         </figure>,
         document.body,
       )}

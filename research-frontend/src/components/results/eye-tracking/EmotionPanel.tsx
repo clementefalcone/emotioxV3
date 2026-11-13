@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { SmilePlus } from 'lucide-react';
 import type { EmotionAggregation, EkmanEmotion } from '../../../services/analytics.service';
-import { EMOTION_COLORS, EMOTION_LABELS } from './shared';
+import { EMOTION_COLORS } from './shared';
+import { EmotionLabelsContext, SCENARIO_EMOTION_LABELS, useEmotionLabels, type EmotionScenario } from './emotionLabels';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { ActionUnitFace } from './ActionUnitFace';
 import { EmotionAvatarBadge } from './EmotionAvatarBadge';
@@ -15,6 +16,7 @@ const EmotionDistributionChart = ({ distribution }: { distribution: Record<Ekman
     [distribution],
   );
   const maxPct = Math.max(...sorted.map(([, v]) => v), 1);
+  const labels = useEmotionLabels();
 
   return (
     <div className="space-y-2">
@@ -23,7 +25,7 @@ const EmotionDistributionChart = ({ distribution }: { distribution: Record<Ekman
         return (
           <div key={emotion} className="flex items-center gap-3">
             <span className={`text-xs font-medium w-16 text-right ${colors.text}`}>
-              {EMOTION_LABELS[emotion]}
+              {labels[emotion]}
             </span>
             <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
               <div
@@ -40,6 +42,7 @@ const EmotionDistributionChart = ({ distribution }: { distribution: Record<Ekman
 };
 
 const EmotionTimeline = ({ timeline }: { timeline: EmotionAggregation['timeline'] }) => {
+  const labels = useEmotionLabels();
   if (timeline.length === 0) return null;
 
   const maxTs = timeline[timeline.length - 1].timestamp;
@@ -56,7 +59,7 @@ const EmotionTimeline = ({ timeline }: { timeline: EmotionAggregation['timeline'
               key={i}
               className={`h-8 ${colors.bar}`}
               style={{ width: `${cellWidth}%`, opacity: Math.max(0.3, sample.confidence) }}
-              title={`${(sample.timestamp / 1000).toFixed(1)}s — ${EMOTION_LABELS[sample.emotion]} (${(sample.confidence * 100).toFixed(0)}%)`}
+              title={`${(sample.timestamp / 1000).toFixed(1)}s — ${labels[sample.emotion]} (${(sample.confidence * 100).toFixed(0)}%)`}
             />
           );
         })}
@@ -186,6 +189,7 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
     [...data.events].sort((a, b) => a.startTimestamp - b.startTimestamp),
     [data.events],
   );
+  const labels = useEmotionLabels();
 
   return (
     <div className="space-y-3">
@@ -203,7 +207,7 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
             .sort((a, b) => b[1] - a[1])
             .map(([emotion, count]) => (
               <EmotionAvatarBadge key={emotion} emotion={emotion as EkmanEmotion} className="px-2 py-1 rounded text-xs font-medium">
-                {EMOTION_LABELS[emotion as EkmanEmotion]}: {count}
+                {labels[emotion as EkmanEmotion]}: {count}
               </EmotionAvatarBadge>
             ))}
         </div>
@@ -230,7 +234,7 @@ const MicroExpressionsPanel = ({ data }: { data: NonNullable<EmotionAggregation[
                     <td className="px-3 py-1.5 text-gray-600">{(event.startTimestamp / 1000).toFixed(1)}s</td>
                     <td className="px-3 py-1.5">
                       <EmotionAvatarBadge emotion={emotion} className="px-1.5 py-0.5 rounded text-[10px] font-medium">
-                        {EMOTION_LABELS[emotion]}
+                        {labels[emotion]}
                       </EmotionAvatarBadge>
                     </td>
                     <td className="px-3 py-1.5 text-gray-600">{event.durationMs}ms</td>
@@ -299,7 +303,35 @@ const EmScoreCard = ({ distribution }: { distribution: Record<EkmanEmotion, numb
   );
 };
 
+const SCENARIO_OPTIONS: readonly { value: EmotionScenario; label: string }[] = [
+  { value: 'ux', label: 'UX/UI' },
+  { value: 'fmcg', label: 'FMCG' },
+];
+
+const ScenarioToggle = ({ scenario, onChange }: { scenario: EmotionScenario; onChange: (scenario: EmotionScenario) => void }) => (
+  <div role="group" aria-label="Nombres de emociones" className="ml-auto flex rounded-full border border-gray-200 p-0.5 text-xs">
+    {SCENARIO_OPTIONS.map(option => (
+      <button
+        key={option.value}
+        type="button"
+        aria-pressed={scenario === option.value}
+        onClick={() => onChange(option.value)}
+        className={`rounded-full px-3 py-1 font-medium transition-colors ${scenario === option.value ? 'bg-[#006AFF] text-white' : 'text-slate-500 hover:text-slate-700'}`}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
+);
+
+const DominantEmotionBadge = ({ emotion }: { emotion: EkmanEmotion }) => {
+  const labels = useEmotionLabels();
+  const colors = EMOTION_COLORS[emotion];
+  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors.bg} ${colors.text}`}>{labels[emotion]}</span>;
+};
+
 export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation; curve?: EmotionCurveTimelineProps }) => {
+  const [scenario, setScenario] = useState<EmotionScenario>('ux');
   if (!emotions.enabled) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
@@ -320,17 +352,20 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
   }
 
   const dominantColors = EMOTION_COLORS[emotions.dominantEmotion];
+  const labels = SCENARIO_EMOTION_LABELS[scenario];
 
   return (
+    <EmotionLabelsContext.Provider value={labels}>
     <div className="space-y-5">
       {/* Dominant emotion + confidence */}
       <div className="flex items-center gap-4">
         <div className={`px-3 py-1.5 rounded-full text-sm font-semibold ${dominantColors.bg} ${dominantColors.text}`}>
-          {EMOTION_LABELS[emotions.dominantEmotion]}
+          {labels[emotions.dominantEmotion]}
         </div>
         <span className="text-xs text-gray-500">
           Emoción dominante &middot; {emotions.totalSamples.toLocaleString()} muestras &middot; {(emotions.avgConfidence * 100).toFixed(0)}% confianza promedio
         </span>
+        <ScenarioToggle scenario={scenario} onChange={setScenario} />
       </div>
 
       {/* EmScore */}
@@ -373,6 +408,7 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
         </div>
       )}
     </div>
+    </EmotionLabelsContext.Provider>
   );
 };
 
@@ -382,10 +418,7 @@ const emotionParticipantColumns: DataTableColumn<EmotionParticipant>[] = [
   { key: 'participant', header: 'Participant', render: (p) => <span className="font-mono text-xs text-gray-700">{p.participantId}</span> },
   {
     key: 'dominant', header: 'Dominant',
-    render: (p) => {
-      const c = EMOTION_COLORS[p.dominantEmotion];
-      return <span className={`px-2 py-0.5 rounded text-xs font-medium ${c.bg} ${c.text}`}>{EMOTION_LABELS[p.dominantEmotion]}</span>;
-    },
+    render: (p) => <DominantEmotionBadge emotion={p.dominantEmotion} />,
   },
   { key: 'samples', header: 'Samples', align: 'right', accessor: 'sampleCount', cellClassName: 'text-gray-500' },
 ];

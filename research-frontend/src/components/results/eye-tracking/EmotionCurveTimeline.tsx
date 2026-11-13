@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { EkmanEmotion } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
-import { EMOTION_LABELS } from './shared';
+import { useEmotionLabels } from './emotionLabels';
 import { EmotionCurveChart } from './EmotionCurveChart';
 import { FacePresenceBars } from './FacePresenceBars';
 import { countZoneOccupancy, type ParticipantTrack, type ReplayZone } from './gazeReplay';
@@ -30,7 +30,6 @@ const ZOOM_OPTIONS: readonly { label: string; windowMs: number | null }[] = [
   { label: 'Todo', windowMs: null },
 ];
 
-const SERIES_LABELS: Record<EmotionSeries, string> = { ...EMOTION_LABELS, valence: 'Valencia', arousal: 'Arousal' };
 
 const isEmotion = (series: EmotionSeries): series is EkmanEmotion => series !== 'valence' && series !== 'arousal';
 
@@ -59,6 +58,7 @@ function SeriesChip({ label, color, isActive, onClick }: SeriesChipProps) {
 }
 
 function LeadingEmotionNote({ points, emotions, markerMs }: { readonly points: readonly EmotionCurvePoint[]; readonly emotions: readonly EkmanEmotion[]; readonly markerMs: number }) {
+  const labels = useEmotionLabels();
   if (emotions.length === 0) return <p className="text-xs text-gray-400">Activa al menos una emoción para ver cuál predomina.</p>;
   const leading = findLeadingEmotion(points, emotions, markerMs, LEADING_WINDOW_MS);
   if (!leading) return <p className="text-xs text-gray-400">Sin rostro detectado en los 2 segundos previos a {formatClock(markerMs)}.</p>;
@@ -70,7 +70,7 @@ function LeadingEmotionNote({ points, emotions, markerMs }: { readonly points: r
     : `con una distancia de ${Math.round(leading.gapToNext * 100)}% de la siguiente más cercana`;
   return (
     <p className="border-l-2 border-pink-600 pl-2 text-xs text-slate-600">
-      <span className="font-semibold">Observación:</span> {EMOTION_LABELS[leading.emotion]} predomina en los 2 segundos previos a {formatClock(markerMs)}, {lead}.
+      <span className="font-semibold">Observación:</span> {labels[leading.emotion]} predomina en los 2 segundos previos a {formatClock(markerMs)}, {lead}.
     </p>
   );
 }
@@ -95,6 +95,8 @@ export interface EmotionCurveTimelineProps {
 }
 
 export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTimelineProps) {
+  const labels = useEmotionLabels();
+  const seriesLabels: Record<EmotionSeries, string> = { ...labels, valence: 'Valencia', arousal: 'Arousal' };
   const [participantId, setParticipantId] = useState(ALL_PARTICIPANTS);
   const [visibleSeries, setVisibleSeries] = useState<readonly EmotionSeries[]>(DEFAULT_VISIBLE_SERIES);
   const [zoomWindowMs, setZoomWindowMs] = useState<number | null>(null);
@@ -155,7 +157,7 @@ export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTim
           onClick={() => setVisibleSeries(visibleSeries.length > 0 ? [] : ALL_SERIES)}
         />
         {ALL_SERIES.map(series => (
-          <SeriesChip key={series} label={SERIES_LABELS[series]} color={SERIES_COLORS[series]} isActive={visibleSeries.includes(series)} onClick={() => toggleSeries(series)} />
+          <SeriesChip key={series} label={seriesLabels[series]} color={SERIES_COLORS[series]} isActive={visibleSeries.includes(series)} onClick={() => toggleSeries(series)} />
         ))}
       </div>
 
@@ -169,7 +171,7 @@ export function EmotionCurveTimeline({ samples, tracks, zones }: EmotionCurveTim
       <EmotionCurveChart
         points={points}
         visibleSeries={visibleSeries}
-        seriesLabels={SERIES_LABELS}
+        seriesLabels={seriesLabels}
         domainMs={domainMs}
         markerMs={markerMs}
         onMark={setMarkerMs}
