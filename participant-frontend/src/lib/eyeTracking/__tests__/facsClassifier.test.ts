@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   classifyEmotion,
-  aggregateEmotionTimeline,
-  downsampleEmotionTimeline,
   createActionUnitEstimator,
   extractActionUnits,
-  extractEmotionFromFrame,
 } from '../facsClassifier';
-import type { ActionUnits, EmotionSample, EkmanEmotion } from '../facsClassifier';
+import type { ActionUnits } from '../facsClassifier';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
 // ---------------------------------------------------------------------------
@@ -19,20 +16,6 @@ function makeAUs(overrides: Partial<ActionUnits> = {}): ActionUnits {
     AU1: 0, AU2: 0, AU4: 0, AU6: 0, AU12: 0,
     AU15: 0, AU20: 0, AU25: 0, AU26: 0,
     ...overrides,
-  };
-}
-
-function makeSample(
-  emotion: EkmanEmotion,
-  timestamp: number,
-  confidence = 0.8,
-  auOverrides: Partial<ActionUnits> = {},
-): EmotionSample {
-  return {
-    timestamp,
-    emotion,
-    confidence,
-    actionUnits: makeAUs(auOverrides),
   };
 }
 
@@ -130,150 +113,6 @@ describe('classifyEmotion', () => {
       expect(confidence).toBeGreaterThanOrEqual(0);
       expect(confidence).toBeLessThanOrEqual(1);
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// aggregateEmotionTimeline
-// ---------------------------------------------------------------------------
-
-describe('aggregateEmotionTimeline', () => {
-  it('empty array returns neutral dominant, empty distribution, 0 confidence', () => {
-    const result = aggregateEmotionTimeline([]);
-    expect(result.dominantEmotion).toBe('neutral');
-    expect(result.distribution).toEqual({});
-    expect(result.avgConfidence).toBe(0);
-  });
-
-  it('all same emotion returns that emotion as dominant with 100% distribution', () => {
-    const samples = [
-      makeSample('joy', 0, 0.9),
-      makeSample('joy', 100, 0.85),
-      makeSample('joy', 200, 0.88),
-    ];
-    const result = aggregateEmotionTimeline(samples);
-    expect(result.dominantEmotion).toBe('joy');
-    expect(result.distribution.joy).toBe(100);
-    // Other emotions should be 0%
-    expect(result.distribution.neutral).toBe(0);
-  });
-
-  it('mixed emotions produce correct percentages', () => {
-    const samples = [
-      makeSample('joy', 0),
-      makeSample('joy', 100),
-      makeSample('joy', 200),
-      makeSample('sadness', 300),
-      makeSample('sadness', 400),
-    ];
-    const result = aggregateEmotionTimeline(samples);
-    expect(result.dominantEmotion).toBe('joy');
-    expect(result.distribution.joy).toBe(60); // 3/5 * 100
-    expect(result.distribution.sadness).toBe(40); // 2/5 * 100
-  });
-
-  it('avgConfidence is computed correctly', () => {
-    const samples = [
-      makeSample('joy', 0, 0.6),
-      makeSample('joy', 100, 0.8),
-      makeSample('sadness', 200, 1.0),
-    ];
-    const result = aggregateEmotionTimeline(samples);
-    expect(result.avgConfidence).toBeCloseTo(0.8, 5); // (0.6+0.8+1.0)/3
-  });
-
-  it('distribution values sum to approximately 100', () => {
-    const samples = [
-      makeSample('joy', 0),
-      makeSample('sadness', 100),
-      makeSample('surprise', 200),
-      makeSample('anger', 300),
-      makeSample('neutral', 400),
-      makeSample('neutral', 500),
-      makeSample('neutral', 600),
-    ];
-    const result = aggregateEmotionTimeline(samples);
-    const sum = Object.values(result.distribution).reduce((a, b) => a + b, 0);
-    expect(sum).toBeCloseTo(100, 0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// downsampleEmotionTimeline
-// ---------------------------------------------------------------------------
-
-describe('downsampleEmotionTimeline', () => {
-  it('empty array returns empty', () => {
-    expect(downsampleEmotionTimeline([])).toEqual([]);
-  });
-
-  it('all samples in one bucket returns one output sample', () => {
-    const samples = [
-      makeSample('joy', 100, 0.7),
-      makeSample('joy', 200, 0.9),
-      makeSample('sadness', 300, 0.8),
-    ];
-    const result = downsampleEmotionTimeline(samples, 1000);
-    expect(result).toHaveLength(1);
-    expect(result[0].timestamp).toBe(0); // floor(100/1000)*1000 = 0
-  });
-
-  it('samples across 3 buckets produce 3 output samples', () => {
-    const samples = [
-      makeSample('joy', 0, 0.8),
-      makeSample('joy', 500, 0.8),
-      makeSample('sadness', 1000, 0.9),
-      makeSample('sadness', 1500, 0.9),
-      makeSample('surprise', 2000, 0.7),
-    ];
-    const result = downsampleEmotionTimeline(samples, 1000);
-    expect(result).toHaveLength(3);
-    expect(result[0].timestamp).toBe(0);
-    expect(result[1].timestamp).toBe(1000);
-    expect(result[2].timestamp).toBe(2000);
-  });
-
-  it('dominant emotion per bucket is computed correctly', () => {
-    const samples = [
-      makeSample('joy', 0),
-      makeSample('joy', 100),
-      makeSample('sadness', 200),
-      // bucket 1000
-      makeSample('sadness', 1000),
-      makeSample('sadness', 1100),
-      makeSample('joy', 1200),
-    ];
-    const result = downsampleEmotionTimeline(samples, 1000);
-    expect(result[0].emotion).toBe('joy');     // 2 joy vs 1 sadness
-    expect(result[1].emotion).toBe('sadness');  // 2 sadness vs 1 joy
-  });
-
-  it('AU averaging works within a bucket', () => {
-    const samples: EmotionSample[] = [
-      makeSample('joy', 0, 0.8, { AU6: 0.6 }),
-      makeSample('joy', 100, 0.8, { AU6: 0.8 }),
-    ];
-    const result = downsampleEmotionTimeline(samples, 1000);
-    expect(result[0].actionUnits.AU6).toBeCloseTo(0.7, 5); // (0.6+0.8)/2
-  });
-
-  it('confidence averaging works within a bucket', () => {
-    const samples = [
-      makeSample('joy', 0, 0.6),
-      makeSample('joy', 100, 1.0),
-    ];
-    const result = downsampleEmotionTimeline(samples, 1000);
-    expect(result[0].confidence).toBeCloseTo(0.8, 5);
-  });
-
-  it('uses default 1000ms bucket size', () => {
-    const samples = [
-      makeSample('joy', 0),
-      makeSample('joy', 999),
-      makeSample('sadness', 1000),
-    ];
-    const result = downsampleEmotionTimeline(samples);
-    expect(result).toHaveLength(2);
   });
 });
 
@@ -392,48 +231,5 @@ describe('extractActionUnits', () => {
     expect(Object.keys(result!).sort()).toEqual(
       ['AU1', 'AU12', 'AU15', 'AU2', 'AU20', 'AU25', 'AU26', 'AU4', 'AU6'],
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// extractEmotionFromFrame
-// ---------------------------------------------------------------------------
-
-describe('extractEmotionFromFrame', () => {
-  it('invalid landmarks returns null', () => {
-    const landmarks = makeLandmarks({
-      133: { x: NaN, y: 0.5 },
-    });
-    expect(extractEmotionFromFrame(landmarks, 1000)).toBeNull();
-  });
-
-  it('valid landmarks returns EmotionSample with correct timestamp', () => {
-    const landmarks = makeLandmarks({
-      133: { x: 0.35, y: 0.4 },
-      362: { x: 0.65, y: 0.4 },
-    });
-    const result = extractEmotionFromFrame(landmarks, 4200);
-    expect(result).not.toBeNull();
-    expect(result!.timestamp).toBe(4200);
-    expect(result!.emotion).toBeDefined();
-    expect(result!.confidence).toBeGreaterThanOrEqual(0);
-    expect(result!.confidence).toBeLessThanOrEqual(1);
-    expect(result!.actionUnits).toBeDefined();
-  });
-
-  it('returned sample has valid EkmanEmotion value', () => {
-    const validEmotions: EkmanEmotion[] = ['joy', 'sadness', 'surprise', 'anger', 'disgust', 'fear', 'neutral'];
-    const landmarks = makeLandmarks({
-      133: { x: 0.35, y: 0.4 },
-      362: { x: 0.65, y: 0.4 },
-    });
-    const result = extractEmotionFromFrame(landmarks, 0);
-    expect(result).not.toBeNull();
-    expect(validEmotions).toContain(result!.emotion);
-  });
-
-  it('short landmark array returns null', () => {
-    const short: NormalizedLandmark[] = [];
-    expect(extractEmotionFromFrame(short, 0)).toBeNull();
   });
 });

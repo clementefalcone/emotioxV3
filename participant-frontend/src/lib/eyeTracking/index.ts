@@ -114,9 +114,6 @@ export {
   extractActionUnits,
   createActionUnitEstimator,
   classifyEmotion,
-  extractEmotionFromFrame,
-  aggregateEmotionTimeline,
-  downsampleEmotionTimeline,
 } from './facsClassifier';
 
 export type {

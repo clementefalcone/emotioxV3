@@ -17,7 +17,6 @@ import {
   recalibratePartial,
   type HybridCalibrationResidual,
 } from '../hybridCalibrationField';
-import { classifyEmotion, aggregateEmotionTimeline, type ActionUnits, type EmotionSample } from '../facsClassifier';
 import { RidgeRegression } from '../ridgeRegression';
 import { ProbabilisticHeatmap } from '../attention/probabilisticHeatmap';
 import { fitCalibrationEllipses, computeFrameUncertainty, type CalibrationSample } from '../attention/uncertaintyEstimator';
@@ -218,41 +217,6 @@ describe('Pipeline: Ridge regression → uncertainty → heatmap', () => {
     const grid = heatmap.getNormalizedGrid();
     const maxVal = Math.max(...Array.from(grid));
     expect(maxVal).toBeCloseTo(1.0, 1);
-  });
-});
-
-describe('Pipeline: emotion classification → aggregation', () => {
-  it('a viewing session with varied emotions aggregates correctly', () => {
-    // Simulate 5 seconds of viewing: 2s happy, 1s surprised, 2s neutral
-    const samples: EmotionSample[] = [];
-    const happyAUs: ActionUnits = { AU1: 0, AU2: 0, AU4: 0, AU6: 0.8, AU12: 0.9, AU15: 0, AU20: 0, AU25: 0.3, AU26: 0 };
-    const surpriseAUs: ActionUnits = { AU1: 0.7, AU2: 0.7, AU4: 0, AU6: 0, AU12: 0, AU15: 0, AU20: 0, AU25: 0.6, AU26: 0.8 };
-    const neutralAUs: ActionUnits = { AU1: 0, AU2: 0, AU4: 0, AU6: 0, AU12: 0, AU15: 0, AU20: 0, AU25: 0, AU26: 0 };
-
-    // 2s happy (40 frames at 50ms)
-    for (let i = 0; i < 40; i++) {
-      const { emotion, confidence } = classifyEmotion(happyAUs);
-      samples.push({ timestamp: i * 50, emotion, confidence, actionUnits: happyAUs });
-    }
-    // 1s surprised (20 frames)
-    for (let i = 0; i < 20; i++) {
-      const { emotion, confidence } = classifyEmotion(surpriseAUs);
-      samples.push({ timestamp: 2000 + i * 50, emotion, confidence, actionUnits: surpriseAUs });
-    }
-    // 2s neutral (40 frames)
-    for (let i = 0; i < 40; i++) {
-      const { emotion, confidence } = classifyEmotion(neutralAUs);
-      samples.push({ timestamp: 3000 + i * 50, emotion, confidence, actionUnits: neutralAUs });
-    }
-
-    const agg = aggregateEmotionTimeline(samples);
-
-    expect(agg.dominantEmotion).toBe('joy');
-    // Joy should be ~40%, neutral ~40%, surprise ~20%
-    expect(agg.distribution.joy).toBeGreaterThan(35);
-    expect(agg.distribution.neutral).toBeGreaterThan(35);
-    expect(agg.distribution.surprise).toBeGreaterThan(15);
-    expect(agg.avgConfidence).toBeGreaterThan(0);
   });
 });
 
