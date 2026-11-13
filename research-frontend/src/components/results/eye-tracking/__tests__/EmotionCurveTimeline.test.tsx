@@ -51,4 +51,18 @@ describe('EmotionCurveTimeline', () => {
     expect(screen.getByTitle('p-1')).toBeInTheDocument();
     expect(screen.getByTitle('p-2')).toBeInTheDocument();
   });
+
+  it('does not crown an emotion that is absent from the window', () => {
+    render(<EmotionCurveTimeline samples={[sample('p-1', 0, { neutral: 1 })]} tracks={[]} zones={[]} />);
+
+    expect(screen.getByText('Ninguna de las emociones visibles aparece en los 2 segundos previos a 0:00.')).toBeInTheDocument();
+  });
+
+  it('asks for an emotion when every emotion is hidden', () => {
+    renderTimeline();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar todo' }));
+
+    expect(screen.getByText('Activa al menos una emoción para ver cuál predomina.')).toBeInTheDocument();
+  });
 });

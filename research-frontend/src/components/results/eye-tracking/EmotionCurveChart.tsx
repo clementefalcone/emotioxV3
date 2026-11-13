@@ -56,7 +56,7 @@ const isEmotionSeries = (series: EmotionSeries): series is EkmanEmotion => !VALE
 export function EmotionCurveChart({ points, visibleSeries, seriesLabels, domainMs, markerMs, onMark }: EmotionCurveChartProps) {
   const rows = points.filter(point => point.timeMs >= domainMs[0] && point.timeMs <= domainMs[1]).map(toChartRow);
   return (
-    <div className="h-56 w-full">
+    <div className="h-56 w-full [&_.recharts-surface]:outline-none [&_.recharts-wrapper]:outline-none">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={rows}

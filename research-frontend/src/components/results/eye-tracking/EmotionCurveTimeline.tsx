@@ -59,8 +59,12 @@ function SeriesChip({ label, color, isActive, onClick }: SeriesChipProps) {
 }
 
 function LeadingEmotionNote({ points, emotions, markerMs }: { readonly points: readonly EmotionCurvePoint[]; readonly emotions: readonly EkmanEmotion[]; readonly markerMs: number }) {
+  if (emotions.length === 0) return <p className="text-xs text-gray-400">Activa al menos una emoción para ver cuál predomina.</p>;
   const leading = findLeadingEmotion(points, emotions, markerMs, LEADING_WINDOW_MS);
   if (!leading) return <p className="text-xs text-gray-400">Sin rostro detectado en los 2 segundos previos a {formatClock(markerMs)}.</p>;
+  if (Math.round(leading.share * 100) === 0) {
+    return <p className="text-xs text-gray-400">Ninguna de las emociones visibles aparece en los 2 segundos previos a {formatClock(markerMs)}.</p>;
+  }
   const lead = leading.gapToNext === null
     ? `con un promedio de ${Math.round(leading.share * 100)}%`
     : `con una distancia de ${Math.round(leading.gapToNext * 100)}% de la siguiente más cercana`;
