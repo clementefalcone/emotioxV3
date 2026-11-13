@@ -17,6 +17,7 @@ export function useScopedEyeTrackingStimulus({ researchId, stageId, moduleId, in
       return results.stimuli[0] ?? null;
     },
     placeholderData: keepPreviousData,
+    staleTime: 0,
   });
   return data ?? null;
 }

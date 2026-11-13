@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { renderWithProviders } from '../../../../test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const getScreenerResults = vi.hoisted(() => vi.fn(async () => ({
@@ -56,21 +57,21 @@ describe('results views when the filters match nobody', () => {
 
   it.each(views)('$name shows the notice and keeps the filters panel', async ({ element, contentText }) => {
     filterScope.filteredParticipantIds = new Set();
-    render(element);
+    renderWithProviders(element);
     expect(await screen.findByText('Ningún participante cumple los filtros activos')).toBeInTheDocument();
     expect(screen.getByText('Filters panel')).toBeInTheDocument();
     expect(screen.queryByText(contentText)).not.toBeInTheDocument();
   });
 
   it.each(views)('$name keeps its content when no filter is active', async ({ element, contentText }) => {
-    render(element);
+    renderWithProviders(element);
     expect(await screen.findByText(contentText)).toBeInTheDocument();
     expect(screen.queryByText('Ningún participante cumple los filtros activos')).not.toBeInTheDocument();
   });
 
   it('Screener asks the backend for the filtered participants only', async () => {
     filterScope.filteredParticipantIds = new Set(['p-1', 'p-2']);
-    render(<ScreenerResults researchId="research-1" />);
+    renderWithProviders(<ScreenerResults researchId="research-1" />);
     expect(await screen.findByText('Entrevistas completas')).toBeInTheDocument();
     expect(getScreenerResults).toHaveBeenLastCalledWith('research-1', ['p-1', 'p-2']);
   });

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, SlidersHorizontal } from 'lucide-react';
 import { Drawer } from '../../ui/Drawer';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
@@ -15,9 +16,11 @@ interface EyeTrackingResultsProps {
 }
 
 export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTrackingResultsProps) => {
-  const [data, setData] = useState<analyticsService.EyeTrackingResults | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['eye-tracking-results', researchId, stageId],
+    queryFn: () => analyticsService.getEyeTrackingResults(researchId, stageId),
+    staleTime: 0,
+  });
   const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
 
   const {
@@ -31,22 +34,11 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
     filteredParticipantIds,
   } = useResultsFilter(researchId);
 
-  const fetchData = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true);
-    setError(null);
-    try {
-      const results = await analyticsService.getEyeTrackingResults(researchId, stageId);
-      setData(results);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load eye tracking results'));
-    } finally {
-      if (!silent) setIsLoading(false);
-    }
-  }, [researchId, stageId]);
-
-  const refreshData = useCallback(() => fetchData(true), [fetchData]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const queryClient = useQueryClient();
+  const refreshData = useCallback(() => {
+    void refetch();
+    void queryClient.invalidateQueries({ queryKey: ['eye-tracking-scoped', researchId] });
+  }, [refetch, queryClient, researchId]);
 
   // Filter stimulus data by participant IDs
   const filteredStimuli = useMemo(() => {
@@ -100,7 +92,7 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
     <ResultsStateHandler
       isLoading={isLoading}
       error={error}
-      onRetry={fetchData}
+      onRetry={refreshData}
       loadingSkeleton={loadingSkeleton}
     >
       {data && (
