@@ -12,6 +12,7 @@ const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
 const { route } = require('./dist/router');
+const { sendJson, isJsonText } = require('./dist/utils/send-json');
 const cache = require('./dist/config/cache').default;
 const { monitorSSEService } = require('./dist/modules/monitor/monitor-sse.service');
 const { readAccessTokenCookie, verifyToken } = require('./dist/utils/auth.local');
@@ -456,20 +457,12 @@ app.use(async (req, res) => {
             return;
         }
 
-        // Parse body if it's a JSON string and send as JSON
-        let bodyToSend = result.body;
-        if (typeof result.body === 'string') {
-            try {
-                const parsed = JSON.parse(result.body);
-                res.status(result.statusCode).json(parsed);
-                return;
-            } catch (e) {
-                // Not JSON, send as-is
-                bodyToSend = result.body;
-            }
+        if (typeof result.body === 'string' && isJsonText(result.body)) {
+            await sendJson(req, res, result.statusCode, result.body);
+            return;
         }
 
-        res.status(result.statusCode).send(bodyToSend);
+        res.status(result.statusCode).send(result.body);
     } catch (error) {
         console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });

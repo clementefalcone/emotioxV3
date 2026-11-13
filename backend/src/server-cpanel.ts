@@ -16,6 +16,7 @@ import fs from 'fs';
 import multer from 'multer';
 import crypto from 'crypto';
 import { route } from './router';
+import { isJsonText, sendJson } from './utils/send-json';
 import cache from './config/cache';
 import { monitorSSEService } from './modules/monitor/monitor-sse.service';
 import { readAccessTokenCookie, verifyToken } from './utils/auth.local';
@@ -435,20 +436,12 @@ app.use(async (req: Request, res: Response) => {
             return;
         }
 
-        // Parse body if it's a JSON string and send as JSON
-        let bodyToSend: string | object = result.body;
-        if (typeof result.body === 'string') {
-            try {
-                const parsed = JSON.parse(result.body);
-                res.status(result.statusCode).json(parsed);
-                return;
-            } catch (e) {
-                // Not JSON, send as-is
-                bodyToSend = result.body;
-            }
+        if (typeof result.body === 'string' && isJsonText(result.body)) {
+            await sendJson(req, res, result.statusCode, result.body);
+            return;
         }
 
-        res.status(result.statusCode).send(bodyToSend);
+        res.status(result.statusCode).send(result.body);
     } catch (error) {
         console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });
