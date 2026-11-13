@@ -155,6 +155,7 @@ export const HeatmapSettingsModal = ({
                   blur={local.blur}
                   opacity={local.opacity}
                   threshold={local.threshold}
+                  darkOverlay={local.darkOverlay}
                   coordSystem={coordSystem}
                   className="w-full"
                 />
