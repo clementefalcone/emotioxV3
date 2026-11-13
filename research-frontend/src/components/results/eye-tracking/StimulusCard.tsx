@@ -60,7 +60,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
     includedParticipantIds: stimulus.participants.map(p => p.participantId).filter(id => !excludedParticipants.has(id)),
   });
   const shownStimulus = scopedStimulus
-    ? { ...stimulus, aois: scopedStimulus.aois, avgDwellTime: scopedStimulus.avgDwellTime, avgFixationCount: scopedStimulus.avgFixationCount }
+    ? { ...stimulus, aois: scopedStimulus.aois, avgDwellTime: scopedStimulus.avgDwellTime, avgFixationCount: scopedStimulus.avgFixationCount, emotions: scopedStimulus.emotions }
     : stimulus;
 
   /** Decode a base64 Float64Array grid into cell-center points with values. */
@@ -598,7 +598,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
           <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} />
         ) : viewMode === 'emotions' ? (
-          <EmotionPanel emotions={stimulus.emotions} curve={emotionCurve} />
+          <EmotionPanel emotions={shownStimulus.emotions} curve={emotionCurve} />
         ) : viewMode === 'prediction' ? (
           <PredictionPanel stimulus={stimulus} researchId={researchId} onPredictionComplete={onRefresh} displayImageUrl={effectiveStimulusUrl} />
         ) : stimulus.stimulusUrl ? (

@@ -62,6 +62,7 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
           ...stimulus.emotions,
           perParticipant: stimulus.emotions.perParticipant.filter(p => filteredParticipantIds.has(p.participantId)),
         },
+        emotionSamples: stimulus.emotionSamples.filter(sample => filteredParticipantIds.has(sample.participantId)),
         // Filter video gaze timeline by participant
         gazeTimeline: stimulus.gazeTimeline?.filter(p => filteredParticipantIds.has(p.participantId)),
         // Filter V3 heatmap per-participant data (grid stays aggregated — frontend re-filters AOI display)
