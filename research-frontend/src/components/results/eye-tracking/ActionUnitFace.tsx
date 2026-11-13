@@ -1,146 +1,141 @@
 import { useId } from 'react';
+import { buildAvatarPose, type ActionUnitKey, type AvatarPose, type BrowShape, type EyeShape, type MouthShape } from './actionUnitAvatar';
 
-interface Glow {
-  cx: number;
-  cy: number;
-  rx: number;
-  ry: number;
+interface Highlight {
+  readonly glow: { cx: number; cy: number; rx: number; ry: number };
+  readonly arrows: readonly string[];
 }
 
-interface FacePose {
-  glow: Glow;
-  arrows: string[];
-  leftBrow?: string;
-  rightBrow?: string;
-  mouth?: string;
-  eyeHeight?: number;
-  hasCheeks?: boolean;
-  hasFrownLines?: boolean;
-}
-
-const NEUTRAL = {
-  leftBrow: 'M30 39 Q37 36 43 38',
-  rightBrow: 'M53 38 Q59 36 66 39',
-  mouth: 'M40 70 Q48 72 56 70',
-  eyeHeight: 3,
+const HIGHLIGHTS: Record<ActionUnitKey, Highlight> = {
+  AU1: { glow: { cx: 100, cy: 98, rx: 26, ry: 12 }, arrows: ['M90 92 L90 80', 'M110 92 L110 80'] },
+  AU2: { glow: { cx: 100, cy: 98, rx: 46, ry: 12 }, arrows: ['M64 94 L64 82', 'M136 94 L136 82'] },
+  AU4: { glow: { cx: 100, cy: 104, rx: 30, ry: 12 }, arrows: ['M78 86 L87 95', 'M122 86 L113 95'] },
+  AU6: { glow: { cx: 100, cy: 132, rx: 46, ry: 14 }, arrows: ['M68 150 L72 139', 'M132 150 L128 139'] },
+  AU12: { glow: { cx: 100, cy: 158, rx: 32, ry: 12 }, arrows: ['M78 158 L67 150', 'M122 158 L133 150'] },
+  AU15: { glow: { cx: 100, cy: 166, rx: 28, ry: 12 }, arrows: ['M82 170 L78 181', 'M118 170 L122 181'] },
+  AU20: { glow: { cx: 100, cy: 162, rx: 38, ry: 10 }, arrows: ['M74 162 L62 162', 'M126 162 L138 162'] },
+  AU25: { glow: { cx: 100, cy: 162, rx: 22, ry: 14 }, arrows: ['M100 152 L100 146', 'M100 174 L100 183'] },
+  AU26: { glow: { cx: 100, cy: 180, rx: 26, ry: 22 }, arrows: ['M100 204 L100 216'] },
 };
 
-const AU_POSES: Record<string, FacePose> = {
-  AU1: {
-    leftBrow: 'M30 38 Q37 34 43 32',
-    rightBrow: 'M53 32 Q59 34 66 38',
-    arrows: ['M43 29 L43 23', 'M53 29 L53 23'],
-    glow: { cx: 48, cy: 33, rx: 16, ry: 8 },
-  },
-  AU2: {
-    leftBrow: 'M30 32 Q36 32 43 38',
-    rightBrow: 'M53 38 Q60 32 66 32',
-    arrows: ['M30 29 L30 23', 'M66 29 L66 23'],
-    glow: { cx: 48, cy: 34, rx: 24, ry: 8 },
-  },
-  AU4: {
-    leftBrow: 'M31 39 Q38 39 45 43',
-    rightBrow: 'M51 43 Q58 39 65 39',
-    hasFrownLines: true,
-    arrows: ['M39 30 L44 35', 'M57 30 L52 35'],
-    glow: { cx: 48, cy: 40, rx: 18, ry: 8 },
-  },
-  AU6: {
-    eyeHeight: 1.3,
-    hasCheeks: true,
-    arrows: ['M32 63 L34 57', 'M64 63 L62 57'],
-    glow: { cx: 48, cy: 52, rx: 24, ry: 9 },
-  },
-  AU12: {
-    mouth: 'M37 68 Q48 78 59 68',
-    arrows: ['M36 66 L31 62', 'M60 66 L65 62'],
-    glow: { cx: 48, cy: 70, rx: 18, ry: 8 },
-  },
-  AU15: {
-    mouth: 'M39 73 Q48 66 57 73',
-    arrows: ['M38 75 L35 80', 'M58 75 L61 80'],
-    glow: { cx: 48, cy: 72, rx: 16, ry: 8 },
-  },
-  AU20: {
-    mouth: 'M35 71 Q48 73 61 71',
-    arrows: ['M33 71 L28 71', 'M63 71 L68 71'],
-    glow: { cx: 48, cy: 71, rx: 22, ry: 7 },
-  },
-  AU25: {
-    mouth: 'M39 70 Q48 66 57 70 Q48 75 39 70 Z',
-    arrows: ['M48 64 L48 59', 'M48 76 L48 81'],
-    glow: { cx: 48, cy: 70, rx: 14, ry: 9 },
-  },
-  AU26: {
-    mouth: 'M42 71 Q42 64 48 64 Q54 64 54 71 Q54 80 48 80 Q42 80 42 71 Z',
-    arrows: ['M48 83 L48 91'],
-    glow: { cx: 48, cy: 76, rx: 14, ry: 12 },
-  },
-};
-
-const FEATURE = '#64748B';
+const SKIN = '#F3CDAE';
+const SKIN_SHADE = '#E2AC86';
+const SKIN_LINE = '#C98E6A';
+const HAIR = '#3B2A24';
+const IRIS = '#6B4F3A';
+const LIP = '#C45A70';
+const LIP_DARK = '#A8445A';
+const MOUTH_INSIDE = '#5B1A24';
+const TOP = '#0F766E';
 const ACTIVE = '#4F46E5';
 
-const featureColor = (isActive: boolean) => (isActive ? ACTIVE : FEATURE);
+const controlThrough = (apex: number, from: number, to: number): number => 2 * apex - (from + to) / 2;
+
+const browPath = ({ inner, middle, outer }: BrowShape): string =>
+  `M${inner.x} ${inner.y} Q${2 * middle.x - (inner.x + outer.x) / 2} ${2 * middle.y - (inner.y + outer.y) / 2} ${outer.x} ${outer.y}`;
+
+const eyePath = ({ center, upperLidY, lowerLidY }: EyeShape): string => {
+  const left = center.x - 13;
+  const right = center.x + 13;
+  return `M${left} ${center.y} Q${center.x} ${controlThrough(upperLidY, center.y, center.y)} ${right} ${center.y} Q${center.x} ${controlThrough(lowerLidY, center.y, center.y)} ${left} ${center.y} Z`;
+};
+
+const upperLidPath = ({ center, upperLidY }: EyeShape, flick: number): string =>
+  `M${center.x - 14} ${center.y + 1} Q${center.x} ${controlThrough(upperLidY, center.y, center.y)} ${center.x + 14} ${center.y} l${flick} -3`;
+
+const curveBetween = (mouth: MouthShape, apexY: number, isReversed = false): string => {
+  const { leftCorner: from, rightCorner: to } = isReversed ? { leftCorner: mouth.rightCorner, rightCorner: mouth.leftCorner } : mouth;
+  return `Q100 ${controlThrough(apexY, from.y, to.y)} ${to.x} ${to.y}`;
+};
+
+function Eye({ eye, clipId, flick }: { readonly eye: EyeShape; readonly clipId: string; readonly flick: number }) {
+  return (
+    <>
+      <clipPath id={clipId}><path d={eyePath(eye)} /></clipPath>
+      <path d={eyePath(eye)} fill="#FFFFFF" />
+      <g clipPath={`url(#${clipId})`}>
+        <circle cx={eye.center.x} cy={eye.center.y - 0.5} r={7} fill={IRIS} />
+        <circle cx={eye.center.x} cy={eye.center.y - 0.5} r={3.2} fill="#1C1917" />
+        <circle cx={eye.center.x + 2.2} cy={eye.center.y - 3} r={1.8} fill="#FFFFFF" />
+      </g>
+      <path d={upperLidPath(eye, flick)} fill="none" stroke={HAIR} strokeWidth={2.6} strokeLinecap="round" />
+    </>
+  );
+}
+
+function Mouth({ mouth }: { readonly mouth: MouthShape }) {
+  const { leftCorner, centerY, smileDepth, openGap } = mouth;
+  const lipLineY = centerY + smileDepth * 0.5;
+  const lowerLipTopY = lipLineY + openGap;
+  const start = `M${leftCorner.x} ${leftCorner.y}`;
+  return (
+    <>
+      {openGap > 0.5 && (
+        <>
+          <path d={`${start} ${curveBetween(mouth, lipLineY)} ${curveBetween(mouth, lowerLipTopY, true)} Z`} fill={MOUTH_INSIDE} />
+          {openGap > 2 && <path d={`${start} ${curveBetween(mouth, lipLineY)} ${curveBetween(mouth, lipLineY + Math.min(openGap, 5) * 0.8, true)} Z`} fill="#FFFFFF" />}
+        </>
+      )}
+      <path d={`${start} Q92 ${lipLineY - 9} 100 ${lipLineY - 5} Q108 ${lipLineY - 9} ${mouth.rightCorner.x} ${mouth.rightCorner.y} ${curveBetween(mouth, lipLineY, true)} Z`} fill={LIP_DARK} />
+      <path d={`${start} ${curveBetween(mouth, lowerLipTopY)} ${curveBetween(mouth, lowerLipTopY + 7, true)} Z`} fill={LIP} />
+    </>
+  );
+}
+
+function AvatarFace({ pose, idPrefix }: { readonly pose: AvatarPose; readonly idPrefix: string }) {
+  const { chinY } = pose;
+  return (
+    <>
+      <path d="M38 124 C28 52 70 22 100 22 C130 22 172 52 162 124 C166 166 152 206 140 214 L60 214 C48 206 34 166 38 124 Z" fill={HAIR} />
+      <path d="M86 168 L86 214 Q100 224 114 214 L114 168 Z" fill={SKIN_SHADE} />
+      <path d="M24 240 C28 216 62 206 100 206 C138 206 172 216 176 240 Z" fill={TOP} />
+      <path d="M86 206 L100 224 L114 206" fill={SKIN_SHADE} />
+      <ellipse cx={52} cy={120} rx={7} ry={12} fill={SKIN_SHADE} />
+      <ellipse cx={148} cy={120} rx={7} ry={12} fill={SKIN_SHADE} />
+      <path d={`M52 110 C52 64 74 46 100 46 C126 46 148 64 148 110 C148 150 126 ${chinY - 6} 100 ${chinY} C74 ${chinY - 6} 52 150 52 110 Z`} fill={SKIN} />
+      <ellipse cx={72} cy={142 - 4 * pose.cheekLift} rx={11} ry={6} fill="#F08A8A" opacity={0.18 + 0.3 * pose.cheekLift} />
+      <ellipse cx={128} cy={142 - 4 * pose.cheekLift} rx={11} ry={6} fill="#F08A8A" opacity={0.18 + 0.3 * pose.cheekLift} />
+      <Eye eye={pose.leftEye} clipId={`${idPrefix}-eye-left`} flick={-3} />
+      <Eye eye={pose.rightEye} clipId={`${idPrefix}-eye-right`} flick={3} />
+      <path d={browPath(pose.leftBrow)} fill="none" stroke={HAIR} strokeWidth={4.5} strokeLinecap="round" />
+      <path d={browPath(pose.rightBrow)} fill="none" stroke={HAIR} strokeWidth={4.5} strokeLinecap="round" />
+      <path d="M97 100 L98 108 M103 100 L102 108" stroke={SKIN_LINE} strokeWidth={1.4} strokeLinecap="round" opacity={pose.frownDepth} />
+      <path d="M102 127 C101 133 99 137 97 139 Q101 142 105 139" fill="none" stroke={SKIN_LINE} strokeWidth={1.6} strokeLinecap="round" />
+      <Mouth mouth={pose.mouth} />
+      <path d="M50 114 C46 62 76 36 106 38 C136 40 156 66 150 108 C142 84 128 70 112 68 C104 84 84 92 60 96 C56 100 52 106 50 114 Z" fill={HAIR} />
+    </>
+  );
+}
 
 export const ActionUnitFace = ({ au, label }: { au: string; label: string }) => {
-  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const pose = AU_POSES[au];
-  const hasBrowMove = Boolean(pose?.leftBrow);
-  const hasEyeMove = Boolean(pose?.eyeHeight);
-  const eyeHeight = pose?.eyeHeight ?? NEUTRAL.eyeHeight;
-  const mouth = pose?.mouth ?? NEUTRAL.mouth;
-  const isMouthOpen = mouth.endsWith('Z');
+  const idPrefix = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const unit = au as ActionUnitKey;
+  const highlight = HIGHLIGHTS[unit];
   return (
-    <svg viewBox="0 0 96 112" width={96} height={112} role="img" aria-label={`${au} ${label}`}>
+    <svg viewBox="0 0 200 240" width={120} height={144} role="img" aria-label={`${au} ${label}`}>
       <defs>
-        <linearGradient id={`${id}-backdrop`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${idPrefix}-backdrop`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#EEF2FF" />
           <stop offset="1" stopColor="#FFFFFF" />
         </linearGradient>
-        <linearGradient id={`${id}-skin`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FFFFFF" />
-          <stop offset="1" stopColor="#F1F5F9" />
-        </linearGradient>
-        <radialGradient id={`${id}-glow`}>
-          <stop offset="0" stopColor={ACTIVE} stopOpacity={0.32} />
+        <radialGradient id={`${idPrefix}-glow`}>
+          <stop offset="0" stopColor={ACTIVE} stopOpacity={0.3} />
           <stop offset="1" stopColor={ACTIVE} stopOpacity={0} />
         </radialGradient>
-        <marker id={`${id}-arrow`} viewBox="0 0 10 10" refX={5} refY={5} markerWidth={5} markerHeight={5} markerUnits="userSpaceOnUse" orient="auto">
+        <marker id={`${idPrefix}-arrow`} viewBox="0 0 10 10" refX={5} refY={5} markerWidth={9} markerHeight={9} markerUnits="userSpaceOnUse" orient="auto">
           <path d="M0 1 L9 5 L0 9 Z" fill={ACTIVE} />
         </marker>
       </defs>
-      <rect width={96} height={112} rx={18} fill={`url(#${id}-backdrop)`} />
-      <path d="M16 112 Q18 92 48 91 Q78 92 80 112 Z" fill="#E2E8F0" />
-      <rect x={41} y={78} width={14} height={16} rx={5} fill="#F1F5F9" />
-      <ellipse cx={20} cy={52} rx={3.5} ry={7} fill="#F1F5F9" stroke="#CBD5E1" strokeWidth={1} />
-      <ellipse cx={76} cy={52} rx={3.5} ry={7} fill="#F1F5F9" stroke="#CBD5E1" strokeWidth={1} />
-      <ellipse cx={48} cy={50} rx={28} ry={34} fill={`url(#${id}-skin)`} stroke="#CBD5E1" strokeWidth={1} />
-      <path d="M20 47 Q19 14 48 14 Q77 14 76 47 Q71 25 48 24 Q25 25 20 47 Z" fill="#CBD5E1" />
-      {pose && (
-        <ellipse className="motion-safe:animate-pulse" cx={pose.glow.cx} cy={pose.glow.cy} rx={pose.glow.rx} ry={pose.glow.ry} fill={`url(#${id}-glow)`} />
-      )}
-      <path d={pose?.leftBrow ?? NEUTRAL.leftBrow} fill="none" stroke={featureColor(hasBrowMove)} strokeWidth={2.4} strokeLinecap="round" />
-      <path d={pose?.rightBrow ?? NEUTRAL.rightBrow} fill="none" stroke={featureColor(hasBrowMove)} strokeWidth={2.4} strokeLinecap="round" />
-      {pose?.hasFrownLines && (
-        <path d="M47 41 L47 45 M49 41 L49 45" stroke={ACTIVE} strokeWidth={1} strokeLinecap="round" />
-      )}
-      <ellipse cx={37} cy={46} rx={3.5} ry={eyeHeight} fill={featureColor(hasEyeMove)} />
-      <ellipse cx={59} cy={46} rx={3.5} ry={eyeHeight} fill={featureColor(hasEyeMove)} />
-      {!hasEyeMove && (
+      <rect width={200} height={240} rx={28} fill={`url(#${idPrefix}-backdrop)`} />
+      <AvatarFace pose={buildAvatarPose(highlight ? { [unit]: 1 } : {})} idPrefix={idPrefix} />
+      {highlight && (
         <>
-          <circle cx={38.2} cy={45} r={0.9} fill="#FFFFFF" />
-          <circle cx={60.2} cy={45} r={0.9} fill="#FFFFFF" />
+          <ellipse className="motion-safe:animate-pulse" {...highlight.glow} fill={`url(#${idPrefix}-glow)`} />
+          {highlight.arrows.map(arrow => (
+            <path key={arrow} d={arrow} stroke={ACTIVE} strokeWidth={2.6} strokeLinecap="round" markerEnd={`url(#${idPrefix}-arrow)`} />
+          ))}
         </>
       )}
-      {pose?.hasCheeks && (
-        <path d="M30 54 Q35 50 40 53 M56 53 Q61 50 66 54" fill="none" stroke={ACTIVE} strokeWidth={2} strokeLinecap="round" />
-      )}
-      <path d="M44.5 58 Q48 61.5 51.5 58" fill="none" stroke="#94A3B8" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={mouth} fill={isMouthOpen ? '#E0E7FF' : 'none'} stroke={featureColor(Boolean(pose?.mouth))} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-      {pose?.arrows.map(arrow => (
-        <path key={arrow} d={arrow} stroke={ACTIVE} strokeWidth={1.6} strokeLinecap="round" markerEnd={`url(#${id}-arrow)`} />
-      ))}
     </svg>
   );
 };
