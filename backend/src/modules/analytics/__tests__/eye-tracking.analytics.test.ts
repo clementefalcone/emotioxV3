@@ -283,6 +283,20 @@ describe('getEyeTrackingResults', () => {
     expect(s.heatmapData).toHaveLength(3);
   });
 
+  it('aggregates emotions only for participants in scope', async () => {
+    const rows = [
+      buildRow('p1', { fixations: [{ x: 10, y: 20, duration: 400, timestamp: 0 }], emotions: [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }] }),
+      buildRow('p2', { fixations: [{ x: 50, y: 60, duration: 600, timestamp: 0 }], emotions: [{ timestamp: 0, emotion: 'sadness', confidence: 0.9 }] }),
+    ];
+    setupStandardMocks({ responses: [rows] });
+
+    const s = (await getEyeTrackingResults('research-1', undefined, { participantIds: new Set(['p1']) })).stimuli[0];
+
+    expect(s.emotions.totalSamples).toBe(1);
+    expect(s.emotions.dominantEmotion).toBe('joy');
+    expect(s.emotionSamples.map(sample => sample.participantId)).toEqual(['p1']);
+  });
+
   // -----------------------------------------------------------------------
   // Quality classification
   // -----------------------------------------------------------------------

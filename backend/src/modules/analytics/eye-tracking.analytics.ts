@@ -498,7 +498,9 @@ const computeEyeTrackingMetrics = (
     low: Array.from(participantMap.values()).filter(p => p.qualityGrade === 'low').length,
   };
 
-  const participantEmotions = hasEmotionRecognition ? readParticipantEmotions(responses) : [];
+  const participantEmotions = hasEmotionRecognition
+    ? readParticipantEmotions(responses).filter(participant => !excludedPids.has(participant.participantId))
+    : [];
   const emotions = hasEmotionRecognition ? aggregateEmotions(participantEmotions) : emptyEmotionAggregation(false);
   const emotionSamples = flattenEmotionSamples(participantEmotions);
 
