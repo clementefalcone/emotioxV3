@@ -112,7 +112,7 @@ export const ActionUnitFace = ({ au, label }: { au: string; label: string }) => 
   const unit = au as ActionUnitKey;
   const highlight = HIGHLIGHTS[unit];
   return (
-    <svg viewBox="0 0 200 240" width={120} height={144} role="img" aria-label={`${au} ${label}`}>
+    <svg viewBox="0 0 200 240" width={180} height={216} role="img" aria-label={`${au} ${label}`}>
       <defs>
         <linearGradient id={`${idPrefix}-backdrop`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#EEF2FF" />
