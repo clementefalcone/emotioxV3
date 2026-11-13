@@ -372,6 +372,8 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
               data={emotions.perParticipant}
               rowKey={(p) => p.participantId}
               size="compact"
+              stickyHeader
+              className="max-h-80 overflow-y-auto"
             />
           </div>
         </div>
