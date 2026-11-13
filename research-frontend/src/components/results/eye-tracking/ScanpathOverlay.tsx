@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 import { CustomSelect } from '../../ui/CustomSelect';
+import { buildScanpathConnections } from './scanpathConnections';
 
 /** Color gradient from cool (first) to warm (last) fixation */
 const SCANPATH_GRADIENT = [
@@ -23,6 +24,7 @@ export const ScanpathOverlay = ({
   fixations: EyeTrackingStimulus['fixations'];
 }) => {
   const [selectedParticipant, setSelectedParticipant] = useState<string>('all');
+  const [showConnections, setShowConnections] = useState(false);
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
   // Load image natural dimensions for correct viewBox (cleanup on URL change)
@@ -68,6 +70,8 @@ export const ScanpathOverlay = ({
     return rawVisible;
   }, [rawVisible, vw, vh]);
 
+  const connections = useMemo(() => buildScanpathConnections(visibleFixations), [visibleFixations]);
+
   const maxDur = useMemo(
     () => Math.max(...visibleFixations.map(f => f.duration), 1),
     [visibleFixations]
@@ -89,6 +93,19 @@ export const ScanpathOverlay = ({
           />
         </div>
         <span className="text-xs text-gray-400">{visibleFixations.length} fixations</span>
+        <div role="group" aria-label="Conexiones del recorrido" className="ml-auto flex rounded-full border border-gray-200 p-0.5 text-xs">
+          {[false, true].map(isConnected => (
+            <button
+              key={String(isConnected)}
+              type="button"
+              aria-pressed={showConnections === isConnected}
+              onClick={() => setShowConnections(isConnected)}
+              className={`rounded-full px-3 py-1 font-medium transition-colors ${showConnections === isConnected ? 'bg-[#006AFF] text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {isConnected ? 'Con conexiones' : 'Sin conexiones'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Image with scanpath overlay */}
@@ -101,18 +118,17 @@ export const ScanpathOverlay = ({
             preserveAspectRatio="xMidYMid meet"
           >
           {/* Connection lines */}
-          {visibleFixations.map((fix, i) => {
-            if (i === 0) return null;
-            const prev = visibleFixations[i - 1];
-            if (selectedParticipant === 'all' && fix.participantId !== prev.participantId) return null;
+          {showConnections && connections.map(({ fromIndex, toIndex }) => {
+            const prev = visibleFixations[fromIndex];
+            const fix = visibleFixations[toIndex];
             return (
               <line
-                key={`line-${i}`}
+                key={`line-${toIndex}`}
                 x1={prev.x}
                 y1={prev.y}
                 x2={fix.x}
                 y2={fix.y}
-                stroke={getScanpathColor(i, visibleFixations.length)}
+                stroke={getScanpathColor(toIndex, visibleFixations.length)}
                 strokeWidth={Math.max(vw * 0.002, 1)}
                 strokeOpacity={0.6}
               />
