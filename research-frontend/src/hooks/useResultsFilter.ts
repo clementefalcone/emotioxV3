@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import * as analyticsService from '../services/analytics.service';
 import apiClient from '../services/api/client';
 
@@ -12,8 +13,21 @@ export type DemographicFiltersState = Record<string, string[]>;
  */
 export type SentimentFilter = string[]; // e.g. ['positive', 'negative']
 
+const EMPTY_PROGRESS: ReadonlyMap<string, number> = new Map();
+
+const fetchParticipantProgress = async (researchId: string): Promise<ReadonlyMap<string, number>> => {
+  const res = await apiClient.get<Array<{ id: string; progress: number }>>(`/research/${researchId}/participants/status`);
+  const participants = Array.isArray(res) ? res : (res as unknown as { data: Array<{ id: string; progress: number }> }).data ?? [];
+  return new Map(participants.map(participant => [participant.id, participant.progress]));
+};
+
 export function useResultsFilter(researchId: string) {
-  const [demographicData, setDemographicData] = useState<analyticsService.DemographicResponsesResult | null>(null);
+  const { data: demographicData = null } = useQuery({
+    queryKey: ['results-demographics', researchId],
+    queryFn: () => analyticsService.getDemographicResponses(researchId),
+    enabled: !!researchId,
+    staleTime: 0,
+  });
   const [demographicFilters, setDemographicFilters] = useState<DemographicFiltersState>({});
   const [userIdFilter, setUserIdFilter] = useState('');
   const [completionMin, setCompletionMin] = useState(() => {
@@ -22,7 +36,12 @@ export function useResultsFilter(researchId: string) {
       return saved ? Number(saved) : 0;
     } catch { return 0; }
   });
-  const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
+  const { data: progressMap = EMPTY_PROGRESS } = useQuery({
+    queryKey: ['results-participant-progress', researchId],
+    queryFn: () => fetchParticipantProgress(researchId),
+    enabled: !!researchId,
+    staleTime: 0,
+  });
   useEffect(() => {
     try {
       if (completionMin > 0) {
@@ -34,30 +53,6 @@ export function useResultsFilter(researchId: string) {
   }, [completionMin, researchId]);
 
   const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>([]);
-
-  useEffect(() => {
-    if (!researchId) return;
-    let cancelled = false;
-    analyticsService.getDemographicResponses(researchId)
-      .then((result) => { if (!cancelled) setDemographicData(result); })
-      .catch(() => { if (!cancelled) setDemographicData({ participants: [], demographicTypes: [] }); });
-    return () => { cancelled = true; };
-  }, [researchId]);
-
-  useEffect(() => {
-    if (!researchId) return;
-    let cancelled = false;
-    apiClient.get<Array<{ id: string; progress: number }>>(`/research/${researchId}/participants/status`)
-      .then((res) => {
-        if (cancelled) return;
-        const arr = Array.isArray(res) ? res : (res as unknown as { data: Array<{ id: string; progress: number }> }).data ?? [];
-        const map = new Map<string, number>();
-        for (const p of arr) map.set(p.id, p.progress);
-        setProgressMap(map);
-      })
-      .catch(() => { if (!cancelled) setProgressMap(new Map()); });
-    return () => { cancelled = true; };
-  }, [researchId]);
 
   const filteredParticipantIds = useMemo(() => {
     if (!demographicData?.participants.length) {
