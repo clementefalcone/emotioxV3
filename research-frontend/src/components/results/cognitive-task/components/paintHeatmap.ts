@@ -35,6 +35,7 @@ export const OVERLAY_DIM_FACTORS: Record<HeatmapVisualProfile, number> = {
     precise: 0.15,
     balanced: 0.16,
     smooth: 0.35,
+    gaze: 0.15,
 };
 
 export const HEATMAP_GRADIENTS: Record<HeatmapVisualProfile, Record<number, string>> = {
@@ -42,6 +43,7 @@ export const HEATMAP_GRADIENTS: Record<HeatmapVisualProfile, Record<number, stri
     precise:  { 0.20: '#00ff00', 0.40: '#88ff00', 0.55: '#ffff00', 0.72: '#ff8800', 0.88: '#ff0000', 1.0: '#ff0000' },
     balanced: { 0.15: '#00ff00', 0.35: '#88ff00', 0.5: '#ffff00', 0.7: '#ff8800', 0.85: '#ff0000', 1.0: '#ff0000' },
     smooth:   { 0.10: '#00cc00', 0.30: '#66ff00', 0.45: '#ccff00', 0.6: '#ffcc00', 0.75: '#ff6600', 0.9: '#ff0000', 1.0: '#ff0000' },
+    gaze:     { 0.01: '#00c8ff', 0.25: '#00e0ff', 0.45: '#00ff66', 0.62: '#ffff00', 0.8: '#ff8800', 0.95: '#ff0000', 1.0: '#ff0000' },
 };
 
 const dimLayerByHeatCanvas = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
@@ -59,6 +61,76 @@ const buildDimLayer = (heatCanvas: HTMLCanvasElement, overlayOpacity: number): H
     dimCtx.drawImage(heatCanvas, 0, 0);
     dimCtx.globalCompositeOperation = 'source-over';
     return dimLayer;
+};
+
+const compositeHeat = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanvasElement, overlayOpacity: number, heatAlpha: number): void => {
+    ctx.drawImage(buildDimLayer(heatCanvas, overlayOpacity), 0, 0);
+    ctx.globalAlpha = heatAlpha;
+    ctx.drawImage(heatCanvas, 0, 0);
+    ctx.globalAlpha = 1;
+};
+
+const GAZE_DEFAULT_SPREAD = 12;
+const GAZE_DEFAULT_EXPOSURE = 35;
+const GAZE_SIGMA_PER_SPREAD = 0.0025;
+const GAZE_GRID_CELL_PX = 4;
+const GAZE_VISIBLE_DENSITY = 0.03;
+const GAZE_ALPHA_GAIN = 2.5;
+
+const buildGazePalette = (): Uint8ClampedArray => {
+    const paletteCanvas = document.createElement('canvas');
+    paletteCanvas.width = 256;
+    paletteCanvas.height = 1;
+    const paletteCtx = paletteCanvas.getContext('2d');
+    if (!paletteCtx) return new Uint8ClampedArray(256 * 4);
+    const gradient = paletteCtx.createLinearGradient(0, 0, 256, 0);
+    for (const [stop, color] of Object.entries(HEATMAP_GRADIENTS.gaze)) gradient.addColorStop(Number(stop), color);
+    paletteCtx.fillStyle = gradient;
+    paletteCtx.fillRect(0, 0, 256, 1);
+    return paletteCtx.getImageData(0, 0, 256, 1).data;
+};
+
+const accumulateGazeDensity = (points: ReadonlyArray<[number, number, number]>, cols: number, rows: number, sigmaCells: number): Float32Array => {
+    const density = new Float32Array(cols * rows);
+    const reach = Math.ceil(sigmaCells * 3);
+    const twoSigmaSquared = 2 * sigmaCells * sigmaCells;
+    for (const [x, y, value] of points) {
+        const centerCol = x / GAZE_GRID_CELL_PX;
+        const centerRow = y / GAZE_GRID_CELL_PX;
+        for (let row = Math.max(0, Math.floor(centerRow - reach)); row <= Math.min(rows - 1, Math.ceil(centerRow + reach)); row++) {
+            for (let col = Math.max(0, Math.floor(centerCol - reach)); col <= Math.min(cols - 1, Math.ceil(centerCol + reach)); col++) {
+                const distanceSquared = (col - centerCol) ** 2 + (row - centerRow) ** 2;
+                density[row * cols + col] += value * Math.exp(-distanceSquared / twoSigmaSquared);
+            }
+        }
+    }
+    return density;
+};
+
+const drawGazeHeat = (heatCanvas: HTMLCanvasElement, points: ReadonlyArray<[number, number, number]>, { spread, exposure }: { spread: number; exposure: number }): void => {
+    const heatCtx = heatCanvas.getContext('2d', { willReadFrequently: true });
+    if (!heatCtx || points.length === 0) return;
+    const cols = Math.ceil(heatCanvas.width / GAZE_GRID_CELL_PX);
+    const rows = Math.ceil(heatCanvas.height / GAZE_GRID_CELL_PX);
+    const sigmaCells = Math.max(2, (Math.min(heatCanvas.width, heatCanvas.height) * GAZE_SIGMA_PER_SPREAD * spread) / GAZE_GRID_CELL_PX);
+    const density = accumulateGazeDensity(points, cols, rows, sigmaCells);
+    const peak = density.reduce((max, cell) => Math.max(max, cell), 0);
+    if (peak <= 0) return;
+    const gamma = 1.4 - exposure / 100;
+    const palette = buildGazePalette();
+    const grid = new ImageData(cols, rows);
+    density.forEach((cell, index) => {
+        const intensity = Math.pow(cell / peak, gamma);
+        if (intensity < GAZE_VISIBLE_DENSITY) return;
+        const paletteIndex = Math.min(255, Math.round(intensity * 255)) * 4;
+        grid.data.set([palette[paletteIndex], palette[paletteIndex + 1], palette[paletteIndex + 2], Math.min(255, intensity * GAZE_ALPHA_GAIN * 255)], index * 4);
+    });
+    const gridCanvas = document.createElement('canvas');
+    gridCanvas.width = cols;
+    gridCanvas.height = rows;
+    gridCanvas.getContext('2d')?.putImageData(grid, 0, 0);
+    heatCtx.imageSmoothingEnabled = true;
+    heatCtx.drawImage(gridCanvas, 0, 0, cols * GAZE_GRID_CELL_PX, rows * GAZE_GRID_CELL_PX);
 };
 
 export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanvasElement, options: HeatmapPaintOptions): void => {
@@ -110,6 +182,12 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
         else if (x <= 100 && y <= 100) { x = (x / 100) * w; y = (y / 100) * h; }
         return [x, y, point.value ?? 1];
     };
+
+    if (visualProfile === 'gaze') {
+        drawGazeHeat(heatCanvas, data.map(toPixel), { spread: blurProp ?? GAZE_DEFAULT_SPREAD, exposure: thresholdProp ?? GAZE_DEFAULT_EXPOSURE });
+        compositeHeat(ctx, heatCanvas, overlayOpacity, 0.35 + ((opacityProp ?? 72) / 100) * 0.6);
+        return;
+    }
 
     let points: Array<[number, number, number]>;
 
@@ -169,8 +247,5 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
     const heatAlpha = opacityProp != null
         ? heatAlphaBase + (opacityProp / 100) * heatAlphaSpan
         : heatAlphaBase + heatAlphaSpan * 0.5;
-    ctx.drawImage(buildDimLayer(heatCanvas, overlayOpacity), 0, 0);
-    ctx.globalAlpha = heatAlpha;
-    ctx.drawImage(heatCanvas, 0, 0);
-    ctx.globalAlpha = 1;
+    compositeHeat(ctx, heatCanvas, overlayOpacity, heatAlpha);
 };

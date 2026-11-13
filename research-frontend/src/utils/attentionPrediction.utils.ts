@@ -109,7 +109,7 @@ export function getHeatmapMapModeLabel(mode: HeatmapMapMode): string {
     }
 }
 
-export type HeatmapVisualProfile = 'lab' | 'precise' | 'balanced' | 'smooth';
+export type HeatmapVisualProfile = 'lab' | 'precise' | 'balanced' | 'smooth' | 'gaze';
 
 /** Point count above which heatmapData is treated as pre-v0.79 dense export */
 export const LEGACY_HEATMAP_POINT_THRESHOLD = 600;

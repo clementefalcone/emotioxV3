@@ -9,7 +9,8 @@ import type { HeatmapVisualProfile } from '../attentionPrediction.utils';
 
 /* ─── Helpers ─── */
 
-const ALL_PROFILES: HeatmapVisualProfile[] = ['lab', 'precise', 'balanced', 'smooth'];
+const WARM_PROFILES: HeatmapVisualProfile[] = ['lab', 'precise', 'balanced', 'smooth'];
+const ALL_PROFILES: HeatmapVisualProfile[] = [...WARM_PROFILES, 'gaze'];
 
 /** Parse 6-digit hex to {r, g, b} */
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -93,32 +94,32 @@ describe('HEATMAP_GRADIENTS — completeness & structure', () => {
    ═══════════════════════════════════════════════════════════════ */
 
 describe('HEATMAP_GRADIENTS — warm color science', () => {
-    it.each(ALL_PROFILES)('%s — no blue-dominant stop (never reads as cold)', (profile) => {
+    it.each(WARM_PROFILES)('%s — no blue-dominant stop (never reads as cold)', (profile) => {
         for (const hex of Object.values(HEATMAP_GRADIENTS[profile])) {
             const { r, g, b } = hexToRgb(hex);
             expect(b).toBeLessThanOrEqual(Math.max(r, g));
         }
     });
 
-    it.each(ALL_PROFILES)('%s — blue channel stays off (b === 0 in every stop)', (profile) => {
+    it.each(WARM_PROFILES)('%s — blue channel stays off (b === 0 in every stop)', (profile) => {
         for (const hex of Object.values(HEATMAP_GRADIENTS[profile])) {
             expect(hexToRgb(hex).b).toBe(0);
         }
     });
 
-    it.each(ALL_PROFILES)('%s — lowest-intensity stop is green (g dominates)', (profile) => {
+    it.each(WARM_PROFILES)('%s — lowest-intensity stop is green (g dominates)', (profile) => {
         const keys = sortedKeys(HEATMAP_GRADIENTS[profile]);
         const { r, g } = hexToRgb(HEATMAP_GRADIENTS[profile][keys[0]]);
         expect(g).toBeGreaterThan(r);
     });
 
-    it.each(ALL_PROFILES)('%s — highest-intensity stop is red (r dominates)', (profile) => {
+    it.each(WARM_PROFILES)('%s — highest-intensity stop is red (r dominates)', (profile) => {
         const keys = sortedKeys(HEATMAP_GRADIENTS[profile]);
         const { r, g } = hexToRgb(HEATMAP_GRADIENTS[profile][keys[keys.length - 1]]);
         expect(r).toBeGreaterThan(g);
     });
 
-    it.each(ALL_PROFILES)('%s — red rises monotonically with intensity', (profile) => {
+    it.each(WARM_PROFILES)('%s — red rises monotonically with intensity', (profile) => {
         const keys = sortedKeys(HEATMAP_GRADIENTS[profile]);
         for (let i = 1; i < keys.length; i++) {
             const prev = hexToRgb(HEATMAP_GRADIENTS[profile][keys[i - 1]]).r;
@@ -130,7 +131,7 @@ describe('HEATMAP_GRADIENTS — warm color science', () => {
     // `smooth` brightens before it warms (#00cc00 → #66ff00), so green peaks a
     // stop or two in. What must hold is that green only falls after that peak
     // and reaches zero at full intensity.
-    it.each(ALL_PROFILES)('%s — green falls monotonically after its peak', (profile) => {
+    it.each(WARM_PROFILES)('%s — green falls monotonically after its peak', (profile) => {
         const greens = sortedKeys(HEATMAP_GRADIENTS[profile])
             .map(k => hexToRgb(HEATMAP_GRADIENTS[profile][k]).g);
         const peakIdx = greens.indexOf(Math.max(...greens));
@@ -139,14 +140,14 @@ describe('HEATMAP_GRADIENTS — warm color science', () => {
         }
     });
 
-    it.each(ALL_PROFILES)('%s — green is fully off at peak intensity', (profile) => {
+    it.each(WARM_PROFILES)('%s — green is fully off at peak intensity', (profile) => {
         const keys = sortedKeys(HEATMAP_GRADIENTS[profile]);
         expect(hexToRgb(HEATMAP_GRADIENTS[profile][keys[keys.length - 1]]).g).toBe(0);
     });
 
     // The heatmap sits over a dimmed stimulus (OVERLAY_DIM_FACTORS), not over
     // white — so the guard is saturation, not WCAG contrast against a white bg.
-    it.each(ALL_PROFILES)('%s — every stop is saturated (peak channel >= 0xcc)', (profile) => {
+    it.each(WARM_PROFILES)('%s — every stop is saturated (peak channel >= 0xcc)', (profile) => {
         for (const hex of Object.values(HEATMAP_GRADIENTS[profile])) {
             const { r, g, b } = hexToRgb(hex);
             expect(Math.max(r, g, b)).toBeGreaterThanOrEqual(0xcc);
@@ -164,6 +165,16 @@ describe('HEATMAP_GRADIENTS — warm color science', () => {
 /* ═══════════════════════════════════════════════════════════════
    3. OVERLAY DIM FACTORS — completeness & ordering
    ═══════════════════════════════════════════════════════════════ */
+
+describe('HEATMAP_GRADIENTS — eye tracking gaze', () => {
+    it('starts with a cyan halo and ends red', () => {
+        const keys = sortedKeys(HEATMAP_GRADIENTS.gaze);
+        const lowest = hexToRgb(HEATMAP_GRADIENTS.gaze[keys[0]]);
+        const highest = hexToRgb(HEATMAP_GRADIENTS.gaze[keys[keys.length - 1]]);
+        expect(lowest.b).toBeGreaterThan(lowest.r);
+        expect(highest).toEqual({ r: 255, g: 0, b: 0 });
+    });
+});
 
 describe('OVERLAY_DIM_FACTORS — completeness & ordering', () => {
     it('covers every HeatmapVisualProfile exactly', () => {

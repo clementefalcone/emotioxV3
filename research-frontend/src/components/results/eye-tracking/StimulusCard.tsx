@@ -613,6 +613,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                   opacity={heatmapSettings.opacity}
                   threshold={heatmapSettings.threshold}
                   darkOverlay={heatmapSettings.darkOverlay}
+                  visualProfile="gaze"
                   className="w-full h-full"
                   canvasClassName="w-full h-full block object-contain"
                 />
