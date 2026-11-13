@@ -13,13 +13,13 @@ const MODULES_WITH_OWN_ENDPOINT = new Set([
 ]);
 
 export const getCognitiveTaskResults = async (researchId: string) => {
-  // Get all modules for this research (include config to extract question text)
   const modulesQuery = `
-    SELECT id, name, description, config
-    FROM modules
-    WHERE research_id = ?
-      AND stage_id IS NOT NULL
-    ORDER BY order_index
+    SELECT m.id, m.name, m.description, m.config
+    FROM modules m
+    INNER JOIN stages s ON s.id = m.stage_id
+    WHERE m.research_id = ?
+      AND LOWER(s.name) LIKE '%cognitive task%'
+    ORDER BY m.order_index
   `;
   const modulesResult = await pool.query(modulesQuery, [researchId]);
   const allModules = modulesResult.rows;
