@@ -555,6 +555,7 @@ export interface EyeTrackingStimulus {
     aois: EyeTrackingAOI[];
     participants: EyeTrackingParticipant[];
     qualitySummary?: { total: number; good: number; fair: number; low: number };
+    unplaceableShelfResponses?: number;
     emotions: EmotionAggregation;
     emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number; valence: number; arousal: number; actionUnits?: Record<string, number>; expressions?: Partial<Record<EkmanEmotion, number>> }>;
     predictionHeatmap?: Array<{ x: number; y: number; value: number }>;
