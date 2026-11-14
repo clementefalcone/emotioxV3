@@ -1,6 +1,41 @@
 # HANDOFF — EmotioX V3
 
-Actualizado: 2026-11-02 · Versión: v0.99.68 · Producción = `main` = `origin/main`.
+Actualizado: 2026-11-14 · Producción = `main` (último commit desplegado `d3fe433`).
+
+## Sesión 2026-11-14 — feedback UserEmotion "Emotio - Eye Tracking.pdf" + capturas del Desktop
+
+Hecho y desplegado (commits `9c56534` → `d3fe433`):
+- **Resultados:**
+  - Pestañas con nombre propio: IAT por paradigma y Eye Tracking como Shelf o Stand Alone.
+  - Modo análisis (`?mode=analysis`) oculta el panel izquierdo.
+  - Los filtros usan `ResultsFiltersLayout` en las 5 pestañas: columna fija desde 1536 px (`2xl`) y botón "Filtros" con drawer por debajo.
+- **Mapa de calor de Eye Tracking:**
+  - Perfil `gaze` en `paintHeatmap.ts`: densidad gaussiana con halo cian→rojo. La capa negra queda solo bajo el calor.
+  - Sliders rápidos gracias a una caché de densidad: de 60 ms a 28 ms (Blur/Exposure) y de 67 ms a 6 ms (capa negra/opacidad).
+  - El Replay acumulado usa una escala fija con el pico de la sesión y por defecto muestra todos los participantes. La etiqueta indica a quién corresponde el replay exportado.
+- **Vistas de Eye Tracking:**
+  - Scan Path: vista con o sin conexiones.
+  - First Look: acumula fijaciones y atenúa las que vienen después de la primera.
+  - AOI: una sola lista con las métricas en línea y tooltips.
+  - Video: heatmap de densidad, redibujo con el video en pausa y curva de emociones sincronizada bajo el video.
+  - Las emociones respetan los filtros (backend).
+- **Shelf:** las respuestas sin `shelfColumnOrder` (anteriores al 23-oct) se excluyen de la mirada y se muestra un aviso con cuántas son. En el estudio "IAT Bebidas - Eye Tracking Only" son 5 de 16.
+- **Rendimiento:**
+  - gzip en las respuestas JSON (`backend/src/utils/send-json.ts`, montado en las dos entradas de cPanel).
+  - `/cognitive-tasks` carga solo sus módulos: de 1,7 MB a menos de 1 KB.
+  - React Query cachea los datos entre pestañas.
+
+Tests al cierre: research 768, backend 736. Todos pasando.
+
+Decisiones:
+- Mapa alpha (captura-1, recuadro verde): se deja como está, porque producción ya coincide píxel a píxel con lo pedido. Si el cliente pide que la capa negra "revele" el producto donde se miró, eso sería otra mejora.
+
+Falta:
+- Ver en un teléfono real Screener, IAT y SmartVOC con el drawer de filtros (no se pudo verificar visualmente).
+- Responder al cliente sobre las abreviaturas IAT (RTT, CT…). Son solo texto en `IAT_TYPE_TITLES` (`research-frontend/src/utils/implicitAssociationBuilder.ts`).
+- Working tree sin tocar: `docs/prowash.jpeg` borrado y PNG de emociones nuevos en `docs/`, ambos del usuario.
+
+Ficheros clave: `paintHeatmap.ts`, `components/results/eye-tracking/*` (`StimulusCard`, `GazeReplayPanel`, `VideoGazePlayer`, `emotionCurve.ts`, `firstLook.ts`, `scanpathConnections.ts`), `components/results/shared/ResultsFiltersLayout.tsx`, `backend/src/modules/analytics/eye-tracking.analytics.ts`.
 
 ## Sesión 2026-11-02
 - v0.99.67: caras de Action Units rediseñadas (`ActionUnitFace.tsx`), research desplegado. Falta verlas dentro de Resultados.
