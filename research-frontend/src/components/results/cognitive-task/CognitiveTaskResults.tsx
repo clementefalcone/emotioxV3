@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ListFilter } from 'lucide-react';
 import { Card } from '../../ui/Card';
+import { ResultsFiltersLayout } from '../shared/ResultsFiltersLayout';
 import { Filters } from '../shared/Filters';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
 import { VOCComments } from '../smart-voc/components/VOCComments';
@@ -262,6 +263,21 @@ export const CognitiveTaskResults = ({ researchId, stageId, className }: Cogniti
     }
   };
 
+  const filtersPanel = (
+    <Filters
+      researchId={researchId}
+      demographicData={demographicData}
+      selectedFilters={demographicFilters}
+      onFilterChange={setDemographicFilters}
+      userIdFilter={userIdFilter}
+      onUserIdFilterChange={setUserIdFilter}
+      completionMin={completionMin}
+      onCompletionMinChange={setCompletionMin}
+      sentimentFilter={sentimentFilter}
+      onSentimentFilterChange={setSentimentFilter}
+    />
+  );
+
   return (
     <ResultsStateHandler
       isLoading={isLoading}
@@ -275,11 +291,8 @@ export const CognitiveTaskResults = ({ researchId, stageId, className }: Cogniti
         </div>
       }
     >
-      <div className={cn(className)}>
-        {/* Main Content + Sidebar */}
-        <div className="flex gap-6">
-          {/* Left: Main Content */}
-          <div className="flex-1 space-y-6">
+      <ResultsFiltersLayout className={cn(className)} filters={filtersPanel}>
+          <div className="space-y-6">
             {filteredParticipantIds?.size === 0 ? (
               <NoMatchingParticipantsNotice />
             ) : (
@@ -360,24 +373,7 @@ export const CognitiveTaskResults = ({ researchId, stageId, className }: Cogniti
               </>
             )}
           </div>
-
-          {/* Right: Filters Sidebar */}
-          <div className="w-80 shrink-0 sticky top-4 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-            <Filters
-              researchId={researchId}
-              demographicData={demographicData}
-              selectedFilters={demographicFilters}
-              onFilterChange={setDemographicFilters}
-              userIdFilter={userIdFilter}
-              onUserIdFilterChange={setUserIdFilter}
-              completionMin={completionMin}
-              onCompletionMinChange={setCompletionMin}
-              sentimentFilter={sentimentFilter}
-              onSentimentFilterChange={setSentimentFilter}
-            />
-          </div>
-        </div>
-      </div>
+      </ResultsFiltersLayout>
     </ResultsStateHandler>
   );
 };

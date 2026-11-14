@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, SlidersHorizontal } from 'lucide-react';
-import { Drawer } from '../../ui/Drawer';
+import { Eye } from 'lucide-react';
+import { ResultsFiltersLayout } from '../shared/ResultsFiltersLayout';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { Filters } from '../shared/Filters';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
@@ -21,7 +21,6 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
     queryFn: () => analyticsService.getEyeTrackingResults(researchId, stageId),
     staleTime: 0,
   });
-  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
 
   const {
     demographicData,
@@ -96,47 +95,29 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
       loadingSkeleton={loadingSkeleton}
     >
       {data && (
-        <div className={`flex gap-6 ${className ?? ''}`}>
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-end mb-3 2xl:hidden">
-              <button
-                type="button"
-                onClick={() => setIsFiltersDrawerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Filtros
-              </button>
-            </div>
-            {filteredParticipantIds?.size === 0 ? (
-              <NoMatchingParticipantsNotice />
-            ) : (
-              <>
-                {filteredStimuli.length === 0 ? (
-                  <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-                    <Eye className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-lg font-medium text-gray-900 mb-2">No Eye Tracking modules found</p>
-                    <p className="text-sm text-gray-500">
-                      This research does not have Eye Tracking stimuli configured.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    {filteredStimuli.map(stimulus => (
-                      <StimulusCard key={stimulus.moduleId} stimulus={stimulus} researchId={researchId} stageId={stageId} onRefresh={refreshData} />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          <div className="hidden 2xl:block w-80 shrink-0 sticky top-0 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-            {filters}
-          </div>
-          <Drawer isOpen={isFiltersDrawerOpen} onClose={() => setIsFiltersDrawerOpen(false)} title="Filtros" width="sm">
-            {filters}
-          </Drawer>
-        </div>
+        <ResultsFiltersLayout filters={filters} className={className}>
+          {filteredParticipantIds?.size === 0 ? (
+            <NoMatchingParticipantsNotice />
+          ) : (
+            <>
+              {filteredStimuli.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+                  <Eye className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">No Eye Tracking modules found</p>
+                  <p className="text-sm text-gray-500">
+                    This research does not have Eye Tracking stimuli configured.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {filteredStimuli.map(stimulus => (
+                    <StimulusCard key={stimulus.moduleId} stimulus={stimulus} researchId={researchId} stageId={stageId} onRefresh={refreshData} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </ResultsFiltersLayout>
       )}
     </ResultsStateHandler>
   );
