@@ -94,14 +94,17 @@ const accumulateGazeDensity = (points: ReadonlyArray<[number, number, number]>, 
     const density = new Float32Array(cols * rows);
     const reach = Math.ceil(sigmaCells * 3);
     const twoSigmaSquared = 2 * sigmaCells * sigmaCells;
+    const colWeights = new Float32Array(2 * reach + 2);
     for (const [x, y, value] of points) {
         const centerCol = x / GAZE_GRID_CELL_PX;
         const centerRow = y / GAZE_GRID_CELL_PX;
+        const firstCol = Math.max(0, Math.floor(centerCol - reach));
+        const lastCol = Math.min(cols - 1, Math.ceil(centerCol + reach));
+        for (let col = firstCol; col <= lastCol; col++) colWeights[col - firstCol] = Math.exp(-((col - centerCol) ** 2) / twoSigmaSquared);
         for (let row = Math.max(0, Math.floor(centerRow - reach)); row <= Math.min(rows - 1, Math.ceil(centerRow + reach)); row++) {
-            for (let col = Math.max(0, Math.floor(centerCol - reach)); col <= Math.min(cols - 1, Math.ceil(centerCol + reach)); col++) {
-                const distanceSquared = (col - centerCol) ** 2 + (row - centerRow) ** 2;
-                density[row * cols + col] += value * Math.exp(-distanceSquared / twoSigmaSquared);
-            }
+            const rowWeight = value * Math.exp(-((row - centerRow) ** 2) / twoSigmaSquared);
+            const rowOffset = row * cols;
+            for (let col = firstCol; col <= lastCol; col++) density[rowOffset + col] += rowWeight * colWeights[col - firstCol];
         }
     }
     return density;
@@ -133,6 +136,20 @@ export const drawGazeHeat = (heatCanvas: HTMLCanvasElement, points: ReadonlyArra
     heatCtx.drawImage(gridCanvas, 0, 0, cols * GAZE_GRID_CELL_PX, rows * GAZE_GRID_CELL_PX);
 };
 
+interface GazeHeatKey {
+    readonly data: readonly HeatmapPoint[];
+    readonly width: number;
+    readonly height: number;
+    readonly spread: number;
+    readonly exposure: number;
+}
+
+const gazeHeatKeys = new WeakMap<HTMLCanvasElement, GazeHeatKey>();
+
+const isSameGazeHeat = (cached: GazeHeatKey | undefined, next: GazeHeatKey): boolean =>
+    cached !== undefined && cached.data === next.data && cached.width === next.width && cached.height === next.height
+    && cached.spread === next.spread && cached.exposure === next.exposure;
+
 export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanvasElement, options: HeatmapPaintOptions): void => {
     const { data, radius: radiusProp, blur: blurProp, opacity: opacityProp, threshold: thresholdProp, darkOverlay = 0, granularity, visualProfile, coordSystem } = options;
     const w = ctx.canvas.width;
@@ -146,7 +163,14 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
         heatCanvas.width = w;
         heatCanvas.height = h;
     }
-    heatCanvas.getContext('2d', { willReadFrequently: true })?.clearRect(0, 0, w, h);
+    const gazeKey: GazeHeatKey | null = visualProfile === 'gaze'
+        ? { data, width: w, height: h, spread: blurProp ?? GAZE_DEFAULT_SPREAD, exposure: thresholdProp ?? GAZE_DEFAULT_EXPOSURE }
+        : null;
+    const isGazeHeatCached = gazeKey !== null && isSameGazeHeat(gazeHeatKeys.get(heatCanvas), gazeKey);
+    if (!isGazeHeatCached) {
+        gazeHeatKeys.delete(heatCanvas);
+        heatCanvas.getContext('2d', { willReadFrequently: true })?.clearRect(0, 0, w, h);
+    }
 
     const heat = simpleheat(heatCanvas);
     const isPrecise = granularity === 'precise';
@@ -183,8 +207,11 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
         return [x, y, point.value ?? 1];
     };
 
-    if (visualProfile === 'gaze') {
-        drawGazeHeat(heatCanvas, data.map(toPixel), { spread: blurProp ?? GAZE_DEFAULT_SPREAD, exposure: thresholdProp ?? GAZE_DEFAULT_EXPOSURE });
+    if (gazeKey) {
+        if (!isGazeHeatCached) {
+            drawGazeHeat(heatCanvas, data.map(toPixel), { spread: gazeKey.spread, exposure: gazeKey.exposure });
+            gazeHeatKeys.set(heatCanvas, gazeKey);
+        }
         compositeHeat(ctx, heatCanvas, overlayOpacity, 0.35 + ((opacityProp ?? 72) / 100) * 0.6);
         return;
     }
