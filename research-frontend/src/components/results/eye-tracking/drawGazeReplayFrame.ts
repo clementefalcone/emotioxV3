@@ -32,7 +32,7 @@ export interface GroupReplayFrame {
 export interface HeatmapReplayFrame {
   readonly image: CanvasImageSource;
   readonly points: readonly HeatPoint[];
-  readonly intensityPointCount: number;
+  readonly referencePoints?: readonly HeatPoint[];
   readonly settings: Pick<HeatmapSettings, 'opacity' | 'blur' | 'threshold' | 'darkOverlay'>;
   readonly zones: readonly ReplayZone[];
   readonly hudText: string;
@@ -137,9 +137,9 @@ export const drawHeatmapReplayFrame = (ctx: CanvasRenderingContext2D, frame: Hea
     threshold: frame.settings.threshold,
     darkOverlay: frame.settings.darkOverlay,
     granularity: 'precise',
-    visualProfile: 'precise',
+    visualProfile: 'gaze',
     coordSystem: 'percent',
-    intensityPointCount: frame.intensityPointCount,
+    referenceData: frame.referencePoints,
   });
   drawZones(ctx, canvas, frame.zones, () => ({ fillAlpha: 0, isActive: false, suffix: '' }));
   drawHud(ctx, canvas, frame.hudText, frame.points.length > 0);

@@ -141,9 +141,12 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     [isAllParticipants, tracks, selectedTrack],
   );
   const subjectLabel = isAllParticipants ? `Todos (${tracks.length})` : selectedTrack?.participantId ?? '';
-  const heatIntensityPointCount = visibleTracks.reduce((count, track) => count + track.fixations.length, 0);
   const [view, setView] = useState<ReplayView>('heatmap');
   const [heatWindowMs, setHeatWindowMs] = useState(ACCUMULATED_HEAT);
+  const sessionHeatPoints = useMemo(
+    () => (heatWindowMs === ACCUMULATED_HEAT ? collectHeatPoints(visibleTracks, durationMs, null) : undefined),
+    [heatWindowMs, visibleTracks, durationMs],
+  );
 
   const [timeMs, setTimeMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -188,7 +191,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
       drawHeatmapReplayFrame(ctx, {
         image,
         points: collectHeatPoints(visibleTracks, timeMs, windowMs),
-        intensityPointCount: heatIntensityPointCount,
+        referencePoints: sessionHeatPoints,
         settings: heatmapSettings,
         zones,
         hudText: `${subjectLabel} · ${formatSeconds(timeMs)} · ${timingLabel}`,
@@ -198,7 +201,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     } else if (selectedTrack) {
       drawGazeReplayFrame(ctx, { image, fixations: selectedTrack.fixations, gazeSamples: selectedTrack.samples, zones, timeMs, participantLabel: subjectLabel });
     }
-  }, [image, view, heatWindowMs, visibleTracks, heatIntensityPointCount, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs, subjectLabel]);
+  }, [image, view, heatWindowMs, visibleTracks, sessionHeatPoints, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs, subjectLabel]);
 
   useEffect(() => {
     if (!isPlaying) return;

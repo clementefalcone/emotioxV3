@@ -27,7 +27,7 @@ export interface HeatmapPaintOptions {
     readonly granularity: HeatmapGranularity;
     readonly visualProfile: HeatmapVisualProfile;
     readonly coordSystem?: HeatmapCoordSystem;
-    readonly intensityPointCount?: number;
+    readonly referenceData?: readonly HeatmapPoint[];
 }
 
 export const OVERLAY_DIM_FACTORS: Record<HeatmapVisualProfile, number> = {
@@ -110,14 +110,23 @@ const accumulateGazeDensity = (points: ReadonlyArray<[number, number, number]>, 
     return density;
 };
 
-export const drawGazeHeat = (heatCanvas: HTMLCanvasElement, points: ReadonlyArray<[number, number, number]>, { spread, exposure }: { spread: number; exposure: number }): void => {
+const measureGazeDensity = (width: number, height: number, points: ReadonlyArray<[number, number, number]>, spread: number) => {
+    const cols = Math.ceil(width / GAZE_GRID_CELL_PX);
+    const rows = Math.ceil(height / GAZE_GRID_CELL_PX);
+    const sigmaCells = Math.max(2, (Math.min(width, height) * GAZE_SIGMA_PER_SPREAD * spread) / GAZE_GRID_CELL_PX);
+    const density = accumulateGazeDensity(points, cols, rows, sigmaCells);
+    return { cols, rows, density, peak: density.reduce((max, cell) => Math.max(max, cell), 0) };
+};
+
+export const drawGazeHeat = (
+    heatCanvas: HTMLCanvasElement,
+    points: ReadonlyArray<[number, number, number]>,
+    { spread, exposure, referencePeak }: { spread: number; exposure: number; referencePeak?: number },
+): void => {
     const heatCtx = heatCanvas.getContext('2d', { willReadFrequently: true });
     if (!heatCtx || points.length === 0) return;
-    const cols = Math.ceil(heatCanvas.width / GAZE_GRID_CELL_PX);
-    const rows = Math.ceil(heatCanvas.height / GAZE_GRID_CELL_PX);
-    const sigmaCells = Math.max(2, (Math.min(heatCanvas.width, heatCanvas.height) * GAZE_SIGMA_PER_SPREAD * spread) / GAZE_GRID_CELL_PX);
-    const density = accumulateGazeDensity(points, cols, rows, sigmaCells);
-    const peak = density.reduce((max, cell) => Math.max(max, cell), 0);
+    const { cols, rows, density, peak: framePeak } = measureGazeDensity(heatCanvas.width, heatCanvas.height, points, spread);
+    const peak = Math.max(referencePeak ?? 0, framePeak);
     if (peak <= 0) return;
     const gamma = 1.4 - exposure / 100;
     const palette = buildGazePalette();
@@ -138,6 +147,7 @@ export const drawGazeHeat = (heatCanvas: HTMLCanvasElement, points: ReadonlyArra
 
 interface GazeHeatKey {
     readonly data: readonly HeatmapPoint[];
+    readonly referenceData: readonly HeatmapPoint[] | undefined;
     readonly width: number;
     readonly height: number;
     readonly spread: number;
@@ -145,9 +155,19 @@ interface GazeHeatKey {
 }
 
 const gazeHeatKeys = new WeakMap<HTMLCanvasElement, GazeHeatKey>();
+const referencePeaks = new WeakMap<readonly HeatmapPoint[], { readonly key: string; readonly peak: number }>();
+
+const resolveReferencePeak = (referenceData: readonly HeatmapPoint[], width: number, height: number, spread: number, toPixel: (point: HeatmapPoint) => [number, number, number]): number => {
+    const key = `${width}x${height}:${spread}`;
+    const cached = referencePeaks.get(referenceData);
+    if (cached?.key === key) return cached.peak;
+    const { peak } = measureGazeDensity(width, height, referenceData.map(toPixel), spread);
+    referencePeaks.set(referenceData, { key, peak });
+    return peak;
+};
 
 const isSameGazeHeat = (cached: GazeHeatKey | undefined, next: GazeHeatKey): boolean =>
-    cached !== undefined && cached.data === next.data && cached.width === next.width && cached.height === next.height
+    cached !== undefined && cached.data === next.data && cached.referenceData === next.referenceData && cached.width === next.width && cached.height === next.height
     && cached.spread === next.spread && cached.exposure === next.exposure;
 
 export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanvasElement, options: HeatmapPaintOptions): void => {
@@ -164,7 +184,7 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
         heatCanvas.height = h;
     }
     const gazeKey: GazeHeatKey | null = visualProfile === 'gaze'
-        ? { data, width: w, height: h, spread: blurProp ?? GAZE_DEFAULT_SPREAD, exposure: thresholdProp ?? GAZE_DEFAULT_EXPOSURE }
+        ? { data, referenceData: options.referenceData, width: w, height: h, spread: blurProp ?? GAZE_DEFAULT_SPREAD, exposure: thresholdProp ?? GAZE_DEFAULT_EXPOSURE }
         : null;
     const isGazeHeatCached = gazeKey !== null && isSameGazeHeat(gazeHeatKeys.get(heatCanvas), gazeKey);
     if (!isGazeHeatCached) {
@@ -209,7 +229,8 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
 
     if (gazeKey) {
         if (!isGazeHeatCached) {
-            drawGazeHeat(heatCanvas, data.map(toPixel), { spread: gazeKey.spread, exposure: gazeKey.exposure });
+            const referencePeak = options.referenceData ? resolveReferencePeak(options.referenceData, w, h, gazeKey.spread, toPixel) : undefined;
+            drawGazeHeat(heatCanvas, data.map(toPixel), { spread: gazeKey.spread, exposure: gazeKey.exposure, referencePeak });
             gazeHeatKeys.set(heatCanvas, gazeKey);
         }
         compositeHeat(ctx, heatCanvas, overlayOpacity, 0.35 + ((opacityProp ?? 72) / 100) * 0.6);
@@ -255,7 +276,7 @@ export const paintHeatmap = (ctx: CanvasRenderingContext2D, heatCanvas: HTMLCanv
         points = data.map(toPixel);
     }
 
-    const intensityPointCount = options.intensityPointCount ?? points.length;
+    const intensityPointCount = points.length;
     heat.data(points);
     heat.max(isPrecise
         ? Math.max(2, Math.ceil(intensityPointCount * (visualProfile === 'lab' ? 0.06 : 0.08)))
