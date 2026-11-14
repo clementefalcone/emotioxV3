@@ -27,6 +27,7 @@ function buildETConfig(opts: {
   stimulusS3Key?: string;
   modality?: string;
   shelfCheckbox?: boolean;
+  randomize?: boolean;
   aois?: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>;
   emotionRecognition?: boolean;
   taskDescription?: string;
@@ -49,6 +50,9 @@ function buildETConfig(opts: {
   }
   if (opts.shelfCheckbox !== undefined) {
     components.push({ id: 'is-shelf-task', value: String(opts.shelfCheckbox) });
+  }
+  if (opts.randomize !== undefined) {
+    components.push({ id: 'randomize-stimuli', value: String(opts.randomize) });
   }
 
   const config: any = { structure: { components } };
@@ -1072,6 +1076,30 @@ describe('getEyeTrackingResults', () => {
 
       const result = await getEyeTrackingResults('research-1');
       expect(result.stimuli[0].stimulusUrl).toBe('/api/media/uploads/photo.png');
+    });
+
+    it('drops gaze of randomized shelf responses that lack a saved column order', async () => {
+      const rows = [
+        buildRow('p1', { fixations: [{ x: 10, y: 50, duration: 300, timestamp: 0 }], shelfColumnOrder: [0, 1], emotions: [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }] }),
+        buildRow('p2', { fixations: [{ x: 60, y: 50, duration: 300, timestamp: 0 }], emotions: [{ timestamp: 0, emotion: 'joy', confidence: 0.9 }] }),
+      ];
+      setupStandardMocks({ modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ modality: 'shelf', randomize: true }) }], responses: [rows] });
+
+      const s = (await getEyeTrackingResults('research-1')).stimuli[0];
+
+      expect(s.fixations.map(f => f.participantId)).toEqual(['p1']);
+      expect(s.unplaceableShelfResponses).toBe(1);
+      expect(s.emotions.totalSamples).toBe(2);
+    });
+
+    it('keeps shelf responses without a column order when columns were never randomized', async () => {
+      const rows = [buildRow('p2', { fixations: [{ x: 60, y: 50, duration: 300, timestamp: 0 }] })];
+      setupStandardMocks({ modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ modality: 'shelf', randomize: false }) }], responses: [rows] });
+
+      const s = (await getEyeTrackingResults('research-1')).stimuli[0];
+
+      expect(s.fixations).toHaveLength(1);
+      expect(s.unplaceableShelfResponses).toBe(0);
     });
 
     it('detects shelf modality from display-mode component', async () => {

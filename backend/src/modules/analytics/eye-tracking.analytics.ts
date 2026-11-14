@@ -62,6 +62,7 @@ interface EyeTrackingStimulus {
     fair: number;
     low: number;
   };
+  unplaceableShelfResponses: number;
   emotions: EmotionAggregation;
   emotionSamples: Array<{ participantId: string; timestamp: number; emotion: EkmanEmotion; confidence: number; valence: number; arousal: number; actionUnits?: Record<string, number>; expressions?: Partial<Record<EkmanEmotion, number>> }>;
   /** TranSalNet saliency prediction data (if run). Points with x%, y%, value 0–1. */
@@ -264,7 +265,9 @@ const extractEyeTrackingConfig = (config: any) => {
   const emotionComp = components.find((c: any) => c.id === 'emotion-recognition');
   const hasEmotionRecognition = emotionComp ? String(emotionComp.value) === 'true' : true;
 
-  return { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems, shelfRepetitions };
+  const randomizeStimuli = String(components.find((c: any) => c.id === 'randomize-stimuli')?.value) === 'true';
+
+  return { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli };
 };
 
 /**
@@ -370,9 +373,10 @@ export const readWebcamRecording = (value: unknown): { url: string; offsetMs: nu
 const computeEyeTrackingMetrics = (
   responses: any[],
   configAois: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>,
-  options: { hasEmotionRecognition: boolean; includedParticipantIds?: ReadonlySet<string> },
+  options: { hasEmotionRecognition: boolean; includedParticipantIds?: ReadonlySet<string>; requiresShelfColumnOrder: boolean },
 ) => {
-  const { hasEmotionRecognition, includedParticipantIds } = options;
+  const { hasEmotionRecognition, includedParticipantIds, requiresShelfColumnOrder } = options;
+  const unplaceableShelfPids = new Set<string>();
   type Fixation = { x: number; y: number; duration: number; participantId: string; timestamp: number; uncertainty?: GazeUncertainty };
   const allFixationsRaw: Fixation[] = [];
   const participantMap = new Map<string, {
@@ -399,6 +403,8 @@ const computeEyeTrackingMetrics = (
       const vpH: number | undefined = parsed?.viewportHeight;
       const isStimulusPercent = parsed?.fixationUnit === 'stimulus-percent';
       const shelfColumnOrder = isShelfColumnOrder(parsed?.shelfColumnOrder) ? parsed.shelfColumnOrder : null;
+      const isUnplaceableShelf = requiresShelfColumnOrder && !shelfColumnOrder;
+      if (isUnplaceableShelf) unplaceableShelfPids.add(pid);
 
       // Detect if fixations are in viewport pixels (legacy: no viewportWidth saved)
       // Heuristic: if max coord > 100, they're viewport pixels, not percentages
@@ -414,7 +420,7 @@ const computeEyeTrackingMetrics = (
         const nx = needsNormalization ? (f.x / scaleX) * 100 : f.x;
         const ny = needsNormalization ? (f.y / scaleY) * 100 : f.y;
         const x = shelfColumnOrder ? placeInShelfColumn(nx, shelfColumnOrder) : nx;
-        allFixationsRaw.push({ x, y: ny, duration: f.duration, participantId: pid, timestamp: f.timestamp ?? 0, uncertainty });
+        if (!isUnplaceableShelf) allFixationsRaw.push({ x, y: ny, duration: f.duration, participantId: pid, timestamp: f.timestamp ?? 0, uncertainty });
         totalDwell += f.duration;
       }
 
@@ -460,7 +466,7 @@ const computeEyeTrackingMetrics = (
   const aggregatedZoneMass: Record<string, number> = {};
   for (const row of responses) {
     try {
-      if (excludedPids.has(row.participant_id)) continue;
+      if (excludedPids.has(row.participant_id) || unplaceableShelfPids.has(row.participant_id)) continue;
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
       if (parsed?.zoneMass && typeof parsed.zoneMass === 'object') {
         for (const [zoneId, mass] of Object.entries(parsed.zoneMass)) {
@@ -589,6 +595,7 @@ const computeEyeTrackingMetrics = (
     emotions,
     emotionSamples,
     sequenceAnalysis,
+    unplaceableShelfResponses: unplaceableShelfPids.size,
   };
 };
 
@@ -805,7 +812,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
       config = typeof mod.config === 'string' ? JSON.parse(mod.config) : mod.config;
     } catch { /* ignore */ }
 
-    const { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems, shelfRepetitions } = extractEyeTrackingConfig(config);
+    const { stimulusUrl, shelfUrls, modality, taskDescription, configAois, hasEmotionRecognition, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli } = extractEyeTrackingConfig(config);
 
     // 3. Get responses for this module (component_id = 'eye-tracking-data')
     const responsesQuery = `
@@ -816,7 +823,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
     `;
     const responsesResult = await pool.query(responsesQuery, [researchId, mod.id]);
 
-    const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition, includedParticipantIds: scope.participantIds });
+    const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition, includedParticipantIds: scope.participantIds, requiresShelfColumnOrder: modality === 'shelf' && randomizeStimuli });
 
     // V3 probabilistic heatmap (aggregated across participants)
     const v3Heatmap = extractV3Heatmap(responsesResult.rows);
@@ -976,7 +983,7 @@ export const getBenchmarkResults = async (researchId: string) => {
         modConfig = typeof mod.config === 'string' ? JSON.parse(mod.config) : mod.config;
       } catch { /* ignore */ }
 
-      const { stimulusUrl, configAois } = extractEyeTrackingConfig(modConfig);
+      const { stimulusUrl, configAois, modality, randomizeStimuli } = extractEyeTrackingConfig(modConfig);
 
       // Get responses
       const responsesQuery = `
@@ -987,7 +994,7 @@ export const getBenchmarkResults = async (researchId: string) => {
       `;
       const responsesResult = await pool.query(responsesQuery, [targetResearchId, mod.id]);
 
-      const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition: false });
+      const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition: false, requiresShelfColumnOrder: modality === 'shelf' && randomizeStimuli });
 
       modules.push({
         moduleId: mod.id,
