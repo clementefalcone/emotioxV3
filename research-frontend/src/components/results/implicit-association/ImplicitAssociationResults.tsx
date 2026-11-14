@@ -8,6 +8,7 @@ import {
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
 import { Filters } from '../shared/Filters';
+import { ResultsFiltersLayout } from '../shared/ResultsFiltersLayout';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { IATReliabilityFilter } from './IATReliabilityFilter';
 import { downloadIATRawData } from './iatRawDataExport';
@@ -1296,10 +1297,21 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
       loadingSkeleton={loadingSkeleton}
     >
       {data && (
-        <div className={`flex gap-6 ${className ?? ''}`}>
-          <div className="flex-1 min-w-0">
-            {/* Header */}
-
+        <ResultsFiltersLayout
+          className={className}
+          filters={
+            <Filters
+              researchId={researchId}
+              demographicData={demographicData}
+              selectedFilters={demographicFilters}
+              onFilterChange={setDemographicFilters}
+              userIdFilter={userIdFilter}
+              onUserIdFilterChange={setUserIdFilter}
+              completionMin={completionMin}
+              onCompletionMinChange={setCompletionMin}
+            />
+          }
+        >
             {data.modules.length === 0 ? (
               <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
                 <p className="text-sm font-semibold text-gray-700 mb-1">No IAT modules found</p>
@@ -1312,20 +1324,7 @@ export const ImplicitAssociationResults = ({ researchId, stageId, className }: I
                 ))}
               </div>
             )}
-          </div>
-          <div className="w-80 shrink-0 sticky top-4 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-            <Filters
-              researchId={researchId}
-              demographicData={demographicData}
-              selectedFilters={demographicFilters}
-              onFilterChange={setDemographicFilters}
-              userIdFilter={userIdFilter}
-              onUserIdFilterChange={setUserIdFilter}
-              completionMin={completionMin}
-              onCompletionMinChange={setCompletionMin}
-            />
-          </div>
-        </div>
+        </ResultsFiltersLayout>
       )}
     </ResultsStateHandler>
   );

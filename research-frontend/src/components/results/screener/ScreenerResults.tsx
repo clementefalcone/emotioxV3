@@ -7,6 +7,7 @@ import {
 import { Card, CardContent } from '../../ui/Card';
 import { ResultsStateHandler } from '../shared/ResultsStateHandler';
 import { Filters } from '../shared/Filters';
+import { ResultsFiltersLayout } from '../shared/ResultsFiltersLayout';
 import { useResultsFilter } from '../../../hooks/useResultsFilter';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
 import { TrendingUp, TrendingDown, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
@@ -78,13 +79,24 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
             <h2 className="text-xl font-semibold text-gray-900 mb-6">{data.questionText}</h2>
           ) : null}
 
-          <div className="flex items-start gap-6">
+          <ResultsFiltersLayout
+            filters={
+              <Filters
+                researchId={researchId}
+                demographicData={demographicData}
+                selectedFilters={demographicFilters}
+                onFilterChange={setDemographicFilters}
+                userIdFilter={userIdFilter}
+                onUserIdFilterChange={setUserIdFilter}
+                completionMin={completionMin}
+                onCompletionMinChange={setCompletionMin}
+              />
+            }
+          >
             {filteredParticipantIds?.size === 0 ? (
-              <div className="flex-1 min-w-0">
-                <NoMatchingParticipantsNotice />
-              </div>
+              <NoMatchingParticipantsNotice />
             ) : (
-              <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <Card className="lg:col-span-3 rounded-lg shadow-none">
                   <CardContent className="p-6">
                     <DistributionChart data={data} />
@@ -116,20 +128,7 @@ export const ScreenerResults = ({ researchId, className }: ScreenerResultsProps)
                 </div>
               </div>
             )}
-
-            <div className="w-80 shrink-0 sticky top-0 max-h-[calc(100vh-8rem)] overflow-y-auto">
-              <Filters
-                researchId={researchId}
-                demographicData={demographicData}
-                selectedFilters={demographicFilters}
-                onFilterChange={setDemographicFilters}
-                userIdFilter={userIdFilter}
-                onUserIdFilterChange={setUserIdFilter}
-                completionMin={completionMin}
-                onCompletionMinChange={setCompletionMin}
-              />
-            </div>
-          </div>
+          </ResultsFiltersLayout>
         </div>
       )}
     </ResultsStateHandler>

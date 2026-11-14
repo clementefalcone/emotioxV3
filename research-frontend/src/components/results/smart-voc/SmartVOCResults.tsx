@@ -13,6 +13,7 @@ import { NPSAnalysis } from './components/NPSAnalysis';
 import { VOCComments } from './components/VOCComments';
 import { Filters } from './components/Filters';
 import { NoMatchingParticipantsNotice } from '../shared/NoMatchingParticipantsNotice';
+import { ResultsFiltersLayout } from '../shared/ResultsFiltersLayout';
 import { safeCalculatePercentage, calculateCSAT, calculateCES, calculateCV, hasScores, getCESZones } from '../shared/utils/calculations';
 import { cn } from '../../../lib/utils';
 
@@ -463,9 +464,23 @@ export const SmartVOCResults = ({ researchId, className }: SmartVOCResultsProps)
           </p>
         </div>
       )}
-      <div className={cn('flex gap-6', className)}>
-        {/* Left: Main scrollable content */}
-        <div className="flex-1">
+      <ResultsFiltersLayout
+        className={className}
+        filters={
+          <Filters
+            researchId={researchId}
+            demographicData={demographicData}
+            selectedFilters={demographicFilters}
+            onFilterChange={setDemographicFilters}
+            userIdFilter={userIdFilter}
+            onUserIdFilterChange={setUserIdFilter}
+            completionMin={completionMin}
+            onCompletionMinChange={setCompletionMin}
+            sentimentFilter={sentimentFilter}
+            onSentimentFilterChange={setSentimentFilter}
+          />
+        }
+      >
           {filteredParticipantIds?.size === 0 ? (
             <NoMatchingParticipantsNotice />
           ) : (
@@ -528,24 +543,7 @@ export const SmartVOCResults = ({ researchId, className }: SmartVOCResultsProps)
               </div>
             </>
           )}
-        </div>
-
-        {/* Right: Filters — fixed column */}
-        <div className="w-80 shrink-0 sticky top-4 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-          <Filters
-            researchId={researchId}
-            demographicData={demographicData}
-            selectedFilters={demographicFilters}
-            onFilterChange={setDemographicFilters}
-            userIdFilter={userIdFilter}
-            onUserIdFilterChange={setUserIdFilter}
-            completionMin={completionMin}
-            onCompletionMinChange={setCompletionMin}
-            sentimentFilter={sentimentFilter}
-            onSentimentFilterChange={setSentimentFilter}
-          />
-        </div>
-      </div>
+      </ResultsFiltersLayout>
     </ResultsStateHandler>
   );
 };
