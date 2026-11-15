@@ -278,7 +278,6 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
               onChange={setExcludedParticipants}
             />
           </div>
-          <GazePrecisionNotice participants={stimulus.participants} excludedParticipants={excludedParticipants} aois={stimulus.aois} />
           {(stimulus.unplaceableShelfResponses ?? 0) > 0 && (
             <p className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-t border-amber-100">
               {stimulus.unplaceableShelfResponses} {stimulus.unplaceableShelfResponses === 1 ? 'respuesta antigua excluida' : 'respuestas antiguas excluidas'} del heatmap y las AOI: se grabaron cuando las columnas del anaquel rotaban y no se puede saber qué producto miraban.
@@ -286,6 +285,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
           )}
           {stimulus.participants.length > 0 && (
             <CollapsibleContent expanded={showQualityTable}>
+            <GazePrecisionNotice participants={stimulus.participants} excludedParticipants={excludedParticipants} aois={stimulus.aois} />
             <div className="px-4 pb-3 bg-white overflow-x-auto max-h-80 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 bg-white">
