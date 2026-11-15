@@ -57,6 +57,7 @@ export const PredictionPanel = ({
             opacity={settings.opacity}
             threshold={settings.threshold}
             darkOverlay={settings.darkOverlay}
+            visualProfile="gaze"
             className="w-full"
           />
         </div>
