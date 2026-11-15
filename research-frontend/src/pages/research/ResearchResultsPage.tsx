@@ -13,7 +13,7 @@ import {
     getCognitiveTaskResults,
     getImplicitAssociationResults,
 } from '../../services/analytics.service';
-import { downloadResearchExport } from '../../services/export.service';
+import { downloadRawData } from '../../services/export.service';
 import { generateResultsPptx } from '../../services/pptx-export.service';
 import { smartVOCService } from '../../services/smartVOC.service';
 import { ExecutiveSummaryPanel } from '../../components/results/shared/ExecutiveSummaryPanel';
@@ -21,6 +21,7 @@ import { AlertsBar } from '../../components/results/shared/AlertsBar';
 import { ReportGeneratorButton } from '../../components/results/shared/ReportGenerator';
 import { BlockchainCertification } from '../../components/results/shared/BlockchainCertification';
 import { ShareResultsButton } from '../../components/results/shared/ShareResultsButton';
+import { SectionCsvButton } from '../../components/results/shared/SectionCsvButton';
 import { useResultsFilter } from '../../hooks/useResultsFilter';
 import { eyeTrackingStageLabel } from '../../utils/eyeTrackingModality';
 import { iatStageLabel } from '../../utils/implicitAssociationBuilder';
@@ -113,13 +114,13 @@ export const ResearchResultsPage = () => {
         if (!id || exporting) return;
         setExporting(true);
         try {
-            await downloadResearchExport(id, research?.name || 'research', filteredPidsArray);
+            await downloadRawData(id, research?.name || 'research');
         } catch (error) {
             toast.error(`No se pudo exportar el estudio: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
             setExporting(false);
         }
-    }, [id, exporting, research?.name, filteredPidsArray, toast]);
+    }, [id, exporting, research?.name, toast]);
 
     const handleExportPptx = useCallback(async () => {
         if (!id || exportingPptx) return;
@@ -229,12 +230,12 @@ export const ResearchResultsPage = () => {
                     <button
                         onClick={handleExport}
                         disabled={exporting}
-                        title="Export CSV"
-                        aria-label="Export CSV"
+                        title="Descargar todos los datos del estudio (RAW DATA, una fila por respuesta)"
+                        aria-label="Export RAW data"
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
                         <Download className="h-3.5 w-3.5" />
-                        <span className="hidden 2xl:inline">{exporting ? '...' : 'Export CSV'}</span>
+                        <span className="hidden 2xl:inline">{exporting ? '...' : 'Export RAW data'}</span>
                     </button>
                     <button
                         onClick={handleExportPptx}
@@ -271,6 +272,19 @@ export const ResearchResultsPage = () => {
                         </div>
                     ) : (
                         <>
+                            <div className="flex justify-end mb-3">
+                                <SectionCsvButton
+                                    researchId={id}
+                                    researchName={research?.name || 'research'}
+                                    section={{
+                                        stageType: activeTab.stageType,
+                                        stageId: activeTab.stageId,
+                                        label: activeTab.label,
+                                        moduleIds: research?.stages?.find(stage => stage.id === activeTab.stageId)?.modules.map(module => module.id) ?? [],
+                                    }}
+                                    participantIds={filteredPidsArray}
+                                />
+                            </div>
                             {activeTab.stageType === 'screener' && <ScreenerResults researchId={id} />}
                             {activeTab.stageType === 'smart-voc' && <SmartVOCResults researchId={id} />}
                             {activeTab.stageType === 'cognitive-task' && <CognitiveTaskResults researchId={id} stageId={activeTab.stageId} />}
