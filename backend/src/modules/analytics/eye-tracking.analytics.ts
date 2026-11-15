@@ -55,6 +55,7 @@ interface EyeTrackingStimulus {
     totalDwellTime: number;
     qualityGrade: 'good' | 'fair' | 'low';
     webcamRecording: { url: string; offsetMs: number } | null;
+    aoiMetrics: Array<{ aoiId: string; label: string; dwellTimePercent: number; fixationCount: number; avgTTFF: number; isNoticed: boolean }>;
   }>;
   qualitySummary: {
     total: number;
@@ -492,10 +493,17 @@ const computeEyeTrackingMetrics = (
     ? Math.round(allFixations.length / uniqueParticipants.size)
     : 0;
 
-  const participants = Array.from(participantMap.entries()).map(([pid, data]) => ({
-    participantId: pid,
-    ...data,
-  }));
+  const participants = Array.from(participantMap.entries()).map(([pid, data]) => {
+    const ownFixations = allFixations.filter(f => f.participantId === pid);
+    return {
+      participantId: pid,
+      ...data,
+      aoiMetrics: configAois.map(aoi => {
+        const metrics = computeAoiMetrics({ fixations: ownFixations, rectFor: () => aoi, allRectsFor: () => configAois, emotionsByParticipant });
+        return { aoiId: aoi.id, label: aoi.label, dwellTimePercent: metrics.dwellTimePercent, fixationCount: metrics.fixationCount, avgTTFF: metrics.avgTTFF, isNoticed: metrics.noticeRate > 0 };
+      }),
+    };
+  });
 
   const qualitySummary = {
     total: participantMap.size,

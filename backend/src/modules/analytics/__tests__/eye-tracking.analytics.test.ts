@@ -572,6 +572,25 @@ describe('getEyeTrackingResults', () => {
       expect(ctaAoi.participantCount).toBe(0);
     });
 
+    it('reports each participant own AOI metrics so the section CSV can list them per row', async () => {
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
+        responses: [[
+          buildRow('p1', { fixations: [{ x: 50, y: 50, duration: 800, timestamp: 0 }], calibrationRmsePx: 60, integrityScore: 0.9, viewportWidth: 1000, viewportHeight: 1000 }),
+          buildRow('p2', { fixations: [{ x: 250, y: 250, duration: 500, timestamp: 0 }], calibrationRmsePx: 60, integrityScore: 0.9, viewportWidth: 1000, viewportHeight: 1000 }),
+        ]],
+      });
+
+      const result = await getEyeTrackingResults('research-1');
+      const metricsOf = (participantId: string, label: string) =>
+        result.stimuli[0].participants.find(p => p.participantId === participantId)!.aoiMetrics.find(m => m.label === label)!;
+
+      expect(metricsOf('p1', 'Logo').isNoticed).toBe(true);
+      expect(metricsOf('p1', 'CTA').isNoticed).toBe(false);
+      expect(metricsOf('p2', 'CTA').isNoticed).toBe(true);
+      expect(metricsOf('p2', 'Logo').dwellTimePercent).toBe(0);
+    });
+
     it('gives 0% dwell to AOI when all fixations are far outside', async () => {
       const row = buildRow('p1', {
         fixations: [
