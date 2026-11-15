@@ -48,7 +48,14 @@ export const EyeTrackingResults = ({ researchId, stageId, className }: EyeTracki
         ...stimulus,
         fixations: stimulus.fixations.filter(f => filteredParticipantIds.has(f.participantId)),
         participants: filteredParticipants,
-        uniqueParticipants: filteredParticipants.length,
+        uniqueParticipants: new Set(filteredParticipants.map(p => p.participantId)).size,
+        totalResponses: filteredParticipants.length,
+        qualitySummary: stimulus.qualitySummary && {
+          total: filteredParticipants.length,
+          good: filteredParticipants.filter(p => p.qualityGrade === 'good').length,
+          fair: filteredParticipants.filter(p => p.qualityGrade === 'fair').length,
+          low: filteredParticipants.filter(p => p.qualityGrade === 'low').length,
+        },
         emotions: {
           ...stimulus.emotions,
           perParticipant: stimulus.emotions.perParticipant.filter(p => filteredParticipantIds.has(p.participantId)),

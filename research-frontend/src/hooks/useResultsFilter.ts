@@ -1,17 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as analyticsService from '../services/analytics.service';
 import apiClient from '../services/api/client';
-
-export type DemographicFiltersState = Record<string, string[]>;
-
-/**
- * Shared results filter hook — extracts the identical demographic filtering
- * logic used by SmartVOCResults and CognitiveTaskResults into a reusable hook.
- *
- * Returns filter state, setters, filtered participant IDs, and a filterByParticipant helper.
- */
-export type SentimentFilter = string[]; // e.g. ['positive', 'negative']
+import { initialResultsFilters, useResultsFilterStore, type DemographicFiltersState, type SentimentFilter } from '../stores/useResultsFilterStore';
 
 const EMPTY_PROGRESS: ReadonlyMap<string, number> = new Map();
 
@@ -21,6 +12,13 @@ const fetchParticipantProgress = async (researchId: string): Promise<ReadonlyMap
   return new Map(participants.map(participant => [participant.id, participant.progress]));
 };
 
+const matchesDemographics = (demographics: Record<string, string>, demographicFilters: DemographicFiltersState): boolean =>
+  Object.entries(demographicFilters).every(([type, selected]) => {
+    if (selected.length === 0) return true;
+    const value = demographics[type];
+    return selected.includes(value != null && value !== '' ? String(value) : '—');
+  });
+
 export function useResultsFilter(researchId: string) {
   const { data: demographicData = null } = useQuery({
     queryKey: ['results-demographics', researchId],
@@ -28,68 +26,33 @@ export function useResultsFilter(researchId: string) {
     enabled: !!researchId,
     staleTime: 0,
   });
-  const [demographicFilters, setDemographicFilters] = useState<DemographicFiltersState>({});
-  const [userIdFilter, setUserIdFilter] = useState('');
-  const [completionMin, setCompletionMin] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`completionMin-${researchId}`);
-      return saved ? Number(saved) : 0;
-    } catch { return 0; }
-  });
   const { data: progressMap = EMPTY_PROGRESS } = useQuery({
     queryKey: ['results-participant-progress', researchId],
     queryFn: () => fetchParticipantProgress(researchId),
     enabled: !!researchId,
     staleTime: 0,
   });
-  useEffect(() => {
-    try {
-      if (completionMin > 0) {
-        localStorage.setItem(`completionMin-${researchId}`, String(completionMin));
-      } else {
-        localStorage.removeItem(`completionMin-${researchId}`);
-      }
-    } catch { /* localStorage unavailable */ }
-  }, [completionMin, researchId]);
+  const savedFilters = useResultsFilterStore(state => state.filtersByResearch[researchId]);
+  const updateFilters = useResultsFilterStore(state => state.updateFilters);
+  const defaultFilters = useMemo(() => initialResultsFilters(researchId), [researchId]);
+  const { demographicFilters, userIdFilter, completionMin, sentimentFilter } = savedFilters ?? defaultFilters;
 
-  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>([]);
+  const setDemographicFilters = useCallback((next: DemographicFiltersState) => updateFilters(researchId, { demographicFilters: next }), [researchId, updateFilters]);
+  const setUserIdFilter = useCallback((next: string) => updateFilters(researchId, { userIdFilter: next }), [researchId, updateFilters]);
+  const setCompletionMin = useCallback((next: number) => updateFilters(researchId, { completionMin: next }), [researchId, updateFilters]);
+  const setSentimentFilter = useCallback((next: SentimentFilter) => updateFilters(researchId, { sentimentFilter: next }), [researchId, updateFilters]);
 
   const filteredParticipantIds = useMemo(() => {
-    if (!demographicData?.participants.length) {
-      // Even without demographics, apply completion filter if active
-      if (completionMin > 0 && progressMap.size > 0) {
-        return new Set(
-          Array.from(progressMap.entries())
-            .filter(([, prog]) => prog >= completionMin)
-            .map(([id]) => id)
-        );
-      }
-      return null;
-    }
-    const hasAnyFilter = Object.values(demographicFilters).some((arr) => arr.length > 0) || userIdFilter.trim() !== '' || completionMin > 0;
+    const userId = userIdFilter.trim().toLowerCase();
+    const hasAnyFilter = Object.values(demographicFilters).some(selected => selected.length > 0) || userId !== '' || completionMin > 0;
     if (!hasAnyFilter) return null;
-
-    const idSet = new Set(
-      demographicData.participants
-        .filter((p) => {
-          for (const [type, selected] of Object.entries(demographicFilters)) {
-            if (selected.length === 0) continue;
-            const val = p.demographics[type];
-            const key = val != null && val !== '' ? String(val) : '—';
-            if (!selected.includes(key)) return false;
-          }
-          if (userIdFilter.trim()) {
-            if (!p.participantId.toLowerCase().includes(userIdFilter.trim().toLowerCase())) return false;
-          }
-          if (completionMin > 0) {
-            const prog = progressMap.get(p.participantId) ?? 0;
-            if (prog < completionMin) return false;
-          }
-          return true;
-        })
-        .map((p) => p.participantId)
-    );
-    return idSet;
+    const demographicsById = new Map((demographicData?.participants ?? []).map(participant => [participant.participantId, participant.demographics]));
+    const allParticipantIds = new Set([...demographicsById.keys(), ...progressMap.keys()]);
+    return new Set([...allParticipantIds].filter(participantId =>
+      matchesDemographics(demographicsById.get(participantId) ?? {}, demographicFilters)
+      && (userId === '' || participantId.toLowerCase().includes(userId))
+      && (completionMin === 0 || (progressMap.get(participantId) ?? 0) >= completionMin),
+    ));
   }, [demographicData?.participants, demographicFilters, userIdFilter, completionMin, progressMap]);
 
   const filterByParticipant = <T extends { participantId?: string }>(items: T[]): T[] => {
