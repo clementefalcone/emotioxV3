@@ -76,6 +76,18 @@ const GAZE_SIGMA_PER_SPREAD = 0.0025;
 const GAZE_GRID_CELL_PX = 4;
 const GAZE_VISIBLE_DENSITY = 0.03;
 const GAZE_ALPHA_GAIN = 2.5;
+const GAZE_FADE_DENSITY = 0.2;
+
+export const resolveGazeAlpha = (intensity: number): number => {
+    if (intensity <= GAZE_VISIBLE_DENSITY) return 0;
+    const fade = Math.min(1, (intensity - GAZE_VISIBLE_DENSITY) / (GAZE_FADE_DENSITY - GAZE_VISIBLE_DENSITY));
+    return Math.min(1, intensity * GAZE_ALPHA_GAIN) * fade * fade * (3 - 2 * fade);
+};
+
+export const resolveEdgeFade = (distanceToEdge: number, marginCells: number): number => {
+    const fade = Math.min(1, Math.max(0, distanceToEdge / marginCells));
+    return fade * fade * (3 - 2 * fade);
+};
 
 const buildGazePalette = (): Uint8ClampedArray => {
     const paletteCanvas = document.createElement('canvas');
@@ -115,7 +127,7 @@ const measureGazeDensity = (width: number, height: number, points: ReadonlyArray
     const rows = Math.ceil(height / GAZE_GRID_CELL_PX);
     const sigmaCells = Math.max(2, (Math.min(width, height) * GAZE_SIGMA_PER_SPREAD * spread) / GAZE_GRID_CELL_PX);
     const density = accumulateGazeDensity(points, cols, rows, sigmaCells);
-    return { cols, rows, density, peak: density.reduce((max, cell) => Math.max(max, cell), 0) };
+    return { cols, rows, sigmaCells, density, peak: density.reduce((max, cell) => Math.max(max, cell), 0) };
 };
 
 export const drawGazeHeat = (
@@ -125,17 +137,21 @@ export const drawGazeHeat = (
 ): void => {
     const heatCtx = heatCanvas.getContext('2d', { willReadFrequently: true });
     if (!heatCtx || points.length === 0) return;
-    const { cols, rows, density, peak: framePeak } = measureGazeDensity(heatCanvas.width, heatCanvas.height, points, spread);
+    const { cols, rows, sigmaCells, density, peak: framePeak } = measureGazeDensity(heatCanvas.width, heatCanvas.height, points, spread);
     const peak = Math.max(referencePeak ?? 0, framePeak);
     if (peak <= 0) return;
     const gamma = 1.4 - exposure / 100;
     const palette = buildGazePalette();
     const grid = new ImageData(cols, rows);
     density.forEach((cell, index) => {
-        const intensity = Math.pow(cell / peak, gamma);
-        if (intensity < GAZE_VISIBLE_DENSITY) return;
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const distanceToEdge = Math.min(col, row, cols - 1 - col, rows - 1 - row) + 0.5;
+        const intensity = Math.pow((cell * resolveEdgeFade(distanceToEdge, sigmaCells)) / peak, gamma);
+        const alpha = resolveGazeAlpha(intensity);
+        if (alpha === 0) return;
         const paletteIndex = Math.min(255, Math.round(intensity * 255)) * 4;
-        grid.data.set([palette[paletteIndex], palette[paletteIndex + 1], palette[paletteIndex + 2], Math.min(255, intensity * GAZE_ALPHA_GAIN * 255)], index * 4);
+        grid.data.set([palette[paletteIndex], palette[paletteIndex + 1], palette[paletteIndex + 2], alpha * 255], index * 4);
     });
     const gridCanvas = document.createElement('canvas');
     gridCanvas.width = cols;

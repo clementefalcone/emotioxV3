@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     HEATMAP_GRADIENTS,
     OVERLAY_DIM_FACTORS,
+    resolveEdgeFade,
+    resolveGazeAlpha,
 } from '../../components/results/cognitive-task/components/paintHeatmap';
 import { COLD_MAP_GRADIENT } from '../coldMapRender';
 import { THERMAL_GRADIENT } from '../thermalContrast';
@@ -401,5 +403,24 @@ describe('cross-mode color isolation', () => {
         const tLast = hexToRgb(THERMAL_GRADIENT[thermalKeys[thermalKeys.length - 1]]);
         expect(tFirst.b).toBeGreaterThan(tFirst.r);
         expect(tLast.r).toBeGreaterThan(tLast.b);
+    });
+});
+
+describe('resolveGazeAlpha — fade-out edge', () => {
+    it('reaches zero continuously with no step at the visible threshold', () => {
+        const samples = Array.from({ length: 1001 }, (_, i) => resolveGazeAlpha(i / 1000));
+        expect(samples[0]).toBe(0);
+        expect(samples[1000]).toBe(1);
+        const largestJump = samples.slice(1).reduce((max, alpha, i) => Math.max(max, Math.abs(alpha - samples[i])), 0);
+        expect(largestJump).toBeLessThan(0.02);
+    });
+});
+
+describe('resolveEdgeFade — image border fade-out', () => {
+    it('is zero at the border, full past the margin, and monotonic between', () => {
+        const samples = Array.from({ length: 21 }, (_, i) => resolveEdgeFade(i / 2, 8));
+        expect(samples[0]).toBe(0);
+        expect(samples[16]).toBe(1);
+        expect(samples.every((value, i) => i === 0 || value >= samples[i - 1])).toBe(true);
     });
 });
