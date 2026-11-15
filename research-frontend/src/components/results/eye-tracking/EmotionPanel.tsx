@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { SmilePlus } from 'lucide-react';
+import { Info, SmilePlus } from 'lucide-react';
 import type { EmotionAggregation, EkmanEmotion } from '../../../services/analytics.service';
 import {
   classifyEmotionPresence,
@@ -328,9 +328,17 @@ const EmScoreCard = ({ meanIntensity }: { meanIntensity: Record<EkmanEmotion, nu
     <div className="rounded-lg border border-gray-200 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-semibold text-gray-700">EmScore</h4>
-          <p className="text-xs text-gray-400 mt-0.5">Clima emocional del diseño · promedio de intensidad de cada emoción durante la exposición</p>
-          <p className="text-[11px] text-gray-400 mt-1">Incertidumbre (escepticismo) no se mide con la cámara: cuenta como 0.</p>
+          <div className="flex items-center gap-1">
+            <h4 className="text-sm font-semibold text-gray-700">EmScore</h4>
+            <span className="relative group cursor-help">
+              <Info className="h-3.5 w-3.5 text-gray-400" />
+              <span className="absolute left-full top-1/2 z-20 ml-2 w-64 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-3 text-left opacity-0 shadow-lg pointer-events-none transition-opacity group-hover:opacity-100">
+                <span className="block text-[11px] leading-snug text-slate-500"><span className="font-semibold text-slate-800">EmScore:</span> Promedio de intensidad emocional durante la exposición.</span>
+                <span className="mt-1.5 block text-[11px] leading-snug text-slate-500">Fórmula: (Comfort + Curiosity) × 2 + (Engagement × 1.5) − (Worry + Anger) − (Ethical × 2).</span>
+              </span>
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">Clima emocional del diseño. Es el promedio de intensidad de cada emoción durante la exposición del ejercicio.</p>
         </div>
         <p className={`text-3xl font-bold ${emScore >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
           {emScore.toFixed(1)}

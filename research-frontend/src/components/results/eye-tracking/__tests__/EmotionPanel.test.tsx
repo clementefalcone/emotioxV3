@@ -48,7 +48,7 @@ describe('EmotionPanel', () => {
 
     it('scores EmScore from mean intensity, leaving neutral out of the penalty', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
-        const score = screen.getByText('EmScore').parentElement?.nextElementSibling;
+        const score = screen.getByText('EmScore').parentElement?.parentElement?.nextElementSibling;
         expect(score?.textContent).toBe('106.0');
         expect(score?.className).toContain('text-emerald-600');
     });
@@ -59,7 +59,7 @@ describe('EmotionPanel', () => {
             meanIntensity: distributionOf({ disgust: 60, fear: 20, neutral: 20 }),
             dominantEmotion: 'disgust',
         })} />);
-        const score = screen.getByText('EmScore').parentElement?.nextElementSibling;
+        const score = screen.getByText('EmScore').parentElement?.parentElement?.nextElementSibling;
         expect(score?.textContent).toBe('-140.0');
         expect(score?.className).toContain('text-red-600');
     });
