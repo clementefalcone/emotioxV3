@@ -1,6 +1,7 @@
 import pool from '../../config/database';
 import { getMediaUrl } from '../../config/local-storage';
 import { computeAoiMetrics, type GazeUncertainty } from './aoi-metrics';
+import { applyFixationParameters, type FixationParameters, type RecordedFixation } from './fixation-parameters';
 import { aggregateEmotions, computeVA, emptyEmotionAggregation, type EkmanEmotion, type EmotionAggregation, type EmotionSample, type MicroExpression, type ParticipantEmotions } from './emotion-metrics';
 
 /**
@@ -374,9 +375,9 @@ export const readWebcamRecording = (value: unknown): { url: string; offsetMs: nu
 const computeEyeTrackingMetrics = (
   responses: any[],
   configAois: Array<{ id: string; label: string; x: number; y: number; width: number; height: number }>,
-  options: { hasEmotionRecognition: boolean; includedParticipantIds?: ReadonlySet<string>; requiresShelfColumnOrder: boolean },
+  options: { hasEmotionRecognition: boolean; includedParticipantIds?: ReadonlySet<string>; requiresShelfColumnOrder: boolean; fixationParameters?: FixationParameters },
 ) => {
-  const { hasEmotionRecognition, includedParticipantIds, requiresShelfColumnOrder } = options;
+  const { hasEmotionRecognition, includedParticipantIds, requiresShelfColumnOrder, fixationParameters } = options;
   const unplaceableShelfPids = new Set<string>();
   type Fixation = { x: number; y: number; duration: number; participantId: string; timestamp: number; uncertainty?: GazeUncertainty };
   const allFixationsRaw: Fixation[] = [];
@@ -398,7 +399,8 @@ const computeEyeTrackingMetrics = (
   for (const row of responses) {
     try {
       const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-      const fixations: Array<{ x: number; y: number; duration: number; timestamp?: number }> = parsed?.fixations ?? [];
+      const recordedFixations: RecordedFixation[] = parsed?.fixations ?? [];
+      const fixations = fixationParameters ? applyFixationParameters(parsed, recordedFixations, fixationParameters) : recordedFixations;
       const pid = row.participant_id;
       const vpW: number | undefined = parsed?.viewportWidth;
       const vpH: number | undefined = parsed?.viewportHeight;
@@ -438,7 +440,7 @@ const computeEyeTrackingMetrics = (
       const calQuality = parsed?.calibrationQuality ?? 'unknown';
       const screenWidthPx = typeof parsed?.viewportWidth === 'number' && parsed.viewportWidth > 0 ? parsed.viewportWidth : null;
       const calibrationErrorRatio = rmsePx !== null && screenWidthPx !== null ? rmsePx / screenWidthPx : null;
-      const grade = classifyQuality(calibrationErrorRatio, integrity, fixations.length, calQuality);
+      const grade = classifyQuality(calibrationErrorRatio, integrity, recordedFixations.length, calQuality);
 
       participantMap.set(pid, {
         deviceType: typeof parsed?.deviceType === 'string' ? parsed.deviceType : 'unknown',
@@ -782,6 +784,7 @@ function extractV3Heatmap(responses: any[]): V3AggregatedHeatmap | undefined {
 export interface EyeTrackingResultsScope {
   moduleId?: string;
   participantIds?: ReadonlySet<string>;
+  fixationParameters?: FixationParameters;
 }
 
 export const getEyeTrackingResults = async (researchId: string, filterStageId?: string, scope: EyeTrackingResultsScope = {}) => {
@@ -831,7 +834,7 @@ export const getEyeTrackingResults = async (researchId: string, filterStageId?: 
     `;
     const responsesResult = await pool.query(responsesQuery, [researchId, mod.id]);
 
-    const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition, includedParticipantIds: scope.participantIds, requiresShelfColumnOrder: modality === 'shelf' && randomizeStimuli });
+    const metrics = computeEyeTrackingMetrics(responsesResult.rows, configAois, { hasEmotionRecognition, includedParticipantIds: scope.participantIds, requiresShelfColumnOrder: modality === 'shelf' && randomizeStimuli, fixationParameters: scope.fixationParameters });
 
     // V3 probabilistic heatmap (aggregated across participants)
     const v3Heatmap = extractV3Heatmap(responsesResult.rows);

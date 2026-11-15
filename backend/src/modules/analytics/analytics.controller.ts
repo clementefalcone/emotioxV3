@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { success, error } from '../../utils/response';
 import { isAuthError, requireAuth } from '../../utils/auth';
 import * as analyticsService from './index';
+import { InvalidFixationParameterError, readFixationParameters } from './fixation-parameters';
 import { getRequestOrigin } from '../../utils/request';
 import pool from '../../config/database';
 import { buildUserOwnership, canAccessResearch, hasPublicResults, researchNotFound, researchResultsNotPublic } from '../research/research-access';
@@ -103,7 +104,8 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
             const stageId = queryParams?.stageId as string | undefined;
             const moduleId = queryParams?.moduleId as string | undefined;
             const participantIds = readParticipantIds(queryParams?.participants);
-            const results = await analyticsService.getEyeTrackingResults(researchId, stageId, { moduleId, participantIds });
+            const fixationParameters = readFixationParameters(queryParams ?? {});
+            const results = await analyticsService.getEyeTrackingResults(researchId, stageId, { moduleId, participantIds, fixationParameters });
             return success({ results }, 200, undefined, origin);
         }
 
@@ -278,6 +280,9 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
         console.error('Analytics error:', err);
         if (isAuthError(err)) {
             return error(errorMessage, err.statusCode, undefined, origin);
+        }
+        if (err instanceof InvalidFixationParameterError) {
+            return error(errorMessage, 400, undefined, origin);
         }
         return error(errorMessage, 500, undefined, origin);
     }

@@ -4,7 +4,7 @@ import { CollapsibleContent } from '../../ui/CollapsibleContent';
 import { toPng } from 'html-to-image';
 import { cn } from '../../../lib/utils';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
-import type { EyeTrackingStimulus, EyeTrackingAOI } from '../../../services/analytics.service';
+import type { EyeTrackingStimulus, EyeTrackingAOI, FixationParameters } from '../../../services/analytics.service';
 import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIMetricStats, AOI_METRIC_HELP, MetricHelpLabel } from './shared';
 import type { ViewMode } from './shared';
 import { ZoneHeatmapOverlay } from './ZoneHeatmapOverlay';
@@ -29,10 +29,26 @@ import { gazePrecisionWeight } from './gazePrecisionWeight';
 import { GazePrecisionNotice } from './GazePrecisionNotice';
 import { GazeReplayPanel } from './GazeReplayPanel';
 import { HeatmapSliders } from './HeatmapSliders';
+import { FixationParametersPanel } from './FixationParametersPanel';
 import { buildGridZones, buildParticipantTracks } from './gazeReplay';
 
+const FIXATION_VIEW_MODES: ReadonlySet<ViewMode> = new Set(['heatmap', 'density', 'scanpath', 'firstlook', 'transparency', 'replay', 'comparison']);
+
 export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRefresh }: { stimulus: EyeTrackingStimulus; researchId: string; stageId?: string; onRefresh: () => void }) => {
-  const stimulus = { ...rawStimulus, stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl) };
+  const [excludedParticipants, setExcludedParticipants] = useState<Set<string>>(() => new Set());
+  const [fixationParameters, setFixationParameters] = useState<FixationParameters | null>(null);
+  const scopedStimulus = useScopedEyeTrackingStimulus({
+    researchId,
+    stageId,
+    moduleId: rawStimulus.moduleId,
+    includedParticipantIds: rawStimulus.participants.map(p => p.participantId).filter(id => !excludedParticipants.has(id)),
+    fixationParameters,
+  });
+  const stimulus = {
+    ...rawStimulus,
+    stimulusUrl: resolveStimulusUrl(rawStimulus.stimulusUrl),
+    ...(fixationParameters && scopedStimulus && { fixations: scopedStimulus.fixations }),
+  };
   const isShelf = stimulus.modality === 'shelf' && stimulus.shelfUrls && stimulus.shelfUrls.length > 0;
   const resolvedShelfUrls = useMemo(
     () => stimulus.shelfUrls?.map(u => resolveStimulusUrl(u)) ?? [],
@@ -52,14 +68,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   const [showSettings, setShowSettings] = useState(false);
   const [showAoiModal, setShowAoiModal] = useState(false);
   const [showQualityTable, setShowQualityTable] = useState(false);
-  const [excludedParticipants, setExcludedParticipants] = useState<Set<string>>(() => new Set());
   const [stimulusSize, setStimulusSize] = useState<{ width: number; height: number } | null>(null);
-  const scopedStimulus = useScopedEyeTrackingStimulus({
-    researchId,
-    stageId,
-    moduleId: stimulus.moduleId,
-    includedParticipantIds: stimulus.participants.map(p => p.participantId).filter(id => !excludedParticipants.has(id)),
-  });
   const shownStimulus = scopedStimulus
     ? { ...stimulus, aois: scopedStimulus.aois, avgDwellTime: scopedStimulus.avgDwellTime, avgFixationCount: scopedStimulus.avgFixationCount, emotions: scopedStimulus.emotions }
     : stimulus;
@@ -669,6 +678,9 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
 
         {viewMode === 'heatmap' && hasHeatData && (
           <HeatmapSliders settings={heatmapSettings} onChange={setHeatmapSettings} />
+        )}
+        {!isVideo && rawStimulus.fixations.length > 0 && FIXATION_VIEW_MODES.has(viewMode) && (
+          <FixationParametersPanel parameters={fixationParameters} onApply={setFixationParameters} />
         )}
       </div>
       </>}

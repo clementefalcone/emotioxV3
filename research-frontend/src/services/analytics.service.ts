@@ -619,15 +619,27 @@ export interface EyeTrackingResults {
     stimuli: EyeTrackingStimulus[];
 }
 
+export interface FixationParameters {
+    windowStartS: number;
+    windowEndS: number | null;
+    minDurationMs: number;
+    maxDurationMs: number | null;
+    maxDispersionPercent: number;
+    mergeRangePercent: number;
+}
+
 export const getEyeTrackingResults = async (
     researchId: string,
     stageId?: string,
-    scope: { moduleId?: string; participantIds?: readonly string[] } = {},
+    scope: { moduleId?: string; participantIds?: readonly string[]; fixationParameters?: FixationParameters | null } = {},
 ): Promise<EyeTrackingResults> => {
     const params = new URLSearchParams();
     if (stageId) params.set('stageId', stageId);
     if (scope.moduleId) params.set('moduleId', scope.moduleId);
     if (scope.participantIds) params.set('participants', scope.participantIds.join(','));
+    for (const [name, value] of Object.entries(scope.fixationParameters ?? {})) {
+        if (value !== null) params.set(name, String(value));
+    }
     const qs = params.size > 0 ? `?${params.toString()}` : '';
     const response = await apiClient.get<{ results: EyeTrackingResults }>(
         `/analytics/research/${researchId}/eye-tracking${qs}`

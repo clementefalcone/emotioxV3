@@ -591,6 +591,26 @@ describe('getEyeTrackingResults', () => {
       expect(metricsOf('p2', 'Logo').dwellTimePercent).toBe(0);
     });
 
+    it('recomputes AOI metrics with the researcher fixation parameters', async () => {
+      setupStandardMocks({
+        modules: [{ id: 'mod-1', name: 'S1', config: buildETConfig({ aois }) }],
+        responses: [[
+          buildRow('p1', {
+            fixations: [{ x: 50, y: 50, duration: 800, timestamp: 0 }, { x: 250, y: 250, duration: 90, timestamp: 900 }],
+            calibrationRmsePx: 60, integrityScore: 0.9, viewportWidth: 1000, viewportHeight: 1000,
+          }),
+        ]],
+      });
+
+      const result = await getEyeTrackingResults('research-1', undefined, {
+        fixationParameters: { windowStartMs: 0, windowEndMs: null, minDurationMs: 100, maxDurationMs: null, maxDispersionPercent: null, mergeRangePercent: 0 },
+      });
+      const participant = result.stimuli[0].participants[0];
+
+      expect(participant.totalFixations).toBe(1);
+      expect(result.stimuli[0].aois.find(a => a.label === 'CTA')!.fixationCount).toBe(0);
+    });
+
     it('gives 0% dwell to AOI when all fixations are far outside', async () => {
       const row = buildRow('p1', {
         fixations: [
