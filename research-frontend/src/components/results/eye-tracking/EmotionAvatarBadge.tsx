@@ -4,15 +4,15 @@ import type { EkmanEmotion } from '../../../services/analytics.service';
 import { EMOTION_AVATARS } from './emotionAvatars';
 import { useEmotionVocabulary } from './emotionScenario';
 
-const TOOLTIP_WIDTH_PX = 170;
+export const AVATAR_TOOLTIP_WIDTH_PX = 170;
 const TOOLTIP_HEIGHT_PX = 230;
 const TOOLTIP_GAP_PX = 8;
 
 const placeTooltip = (rect: DOMRect): { top: number; left: number } => {
-  const fitsRight = rect.right + TOOLTIP_GAP_PX + TOOLTIP_WIDTH_PX <= window.innerWidth;
+  const fitsRight = rect.right + TOOLTIP_GAP_PX + AVATAR_TOOLTIP_WIDTH_PX <= window.innerWidth;
   const top = rect.top + rect.height / 2 - TOOLTIP_HEIGHT_PX / 2;
   return {
-    left: fitsRight ? rect.right + TOOLTIP_GAP_PX : rect.left - TOOLTIP_GAP_PX - TOOLTIP_WIDTH_PX,
+    left: fitsRight ? rect.right + TOOLTIP_GAP_PX : rect.left - TOOLTIP_GAP_PX - AVATAR_TOOLTIP_WIDTH_PX,
     top: Math.min(Math.max(TOOLTIP_GAP_PX, top), window.innerHeight - TOOLTIP_HEIGHT_PX - TOOLTIP_GAP_PX),
   };
 };
@@ -42,7 +42,7 @@ export function EmotionAvatarBadge({ emotion, className, children }: EmotionAvat
         <figure
           role="tooltip"
           className="fixed z-[9999] flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg pointer-events-none"
-          style={{ top: position.top, left: position.left, width: TOOLTIP_WIDTH_PX }}
+          style={{ top: position.top, left: position.left, width: AVATAR_TOOLTIP_WIDTH_PX }}
         >
           <img src={EMOTION_AVATARS[emotion]} alt={labels[emotion]} width={150} height={190} className="h-[190px] w-[150px] rounded-md object-cover object-top" />
           <figcaption className={`text-[11px] font-medium ${colors.text}`}>{labels[emotion]}</figcaption>
