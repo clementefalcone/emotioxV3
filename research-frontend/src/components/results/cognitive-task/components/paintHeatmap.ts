@@ -77,6 +77,7 @@ const GAZE_GRID_CELL_PX = 4;
 const GAZE_VISIBLE_DENSITY = 0.03;
 const GAZE_ALPHA_GAIN = 2.5;
 const GAZE_FADE_DENSITY = 0.2;
+const GAZE_EDGE_BLUR_PX = 6;
 
 export const resolveGazeAlpha = (intensity: number): number => {
     if (intensity <= GAZE_VISIBLE_DENSITY) return 0;
@@ -158,7 +159,9 @@ export const drawGazeHeat = (
     gridCanvas.height = rows;
     gridCanvas.getContext('2d')?.putImageData(grid, 0, 0);
     heatCtx.imageSmoothingEnabled = true;
+    heatCtx.filter = `blur(${GAZE_EDGE_BLUR_PX}px)`;
     heatCtx.drawImage(gridCanvas, 0, 0, cols * GAZE_GRID_CELL_PX, rows * GAZE_GRID_CELL_PX);
+    heatCtx.filter = 'none';
 };
 
 interface GazeHeatKey {
