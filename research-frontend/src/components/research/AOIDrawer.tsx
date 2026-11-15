@@ -18,6 +18,7 @@ interface AOIDrawerProps {
     onChange: (aois: AOI[]) => void;
     maxHeight?: number;
     renderAoiDetails?: (aoi: AOI) => React.ReactNode;
+    resolveThumbnailUrl?: (aoi: AOI) => string;
 }
 
 type DragMode = 'draw' | 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-w' | 'resize-e';
@@ -30,6 +31,7 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
     onChange,
     maxHeight = 500,
     renderAoiDetails,
+    resolveThumbnailUrl,
 }) => {
     const [drawing, setDrawing] = useState(false);
     const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
@@ -268,7 +270,9 @@ export const AOIDrawer: React.FC<AOIDrawerProps> = ({
                     {aois.map(aoi => (
                         <div key={aoi.id} className="flex items-center gap-3 p-2.5 bg-white border border-gray-200 rounded-lg">
                             <div className="w-14 h-10 rounded overflow-hidden flex-shrink-0 border bg-gray-50">
-                                <AoiThumbnail imageUrl={imageUrl} aoi={aoi} alt={aoi.label} />
+                                {resolveThumbnailUrl
+                                    ? <img src={resolveThumbnailUrl(aoi)} alt={aoi.label} className="block w-full h-full object-contain" />
+                                    : <AoiThumbnail imageUrl={imageUrl} aoi={aoi} alt={aoi.label} />}
                             </div>
                             <span className={cn('text-sm font-medium text-gray-900 min-w-0 truncate', renderAoiDetails ? 'w-32 flex-shrink-0' : 'flex-1')}>
                                 {aoi.label}

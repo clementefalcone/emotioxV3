@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { ShelfComparison } from '../StimulusCard';
+import { AOI_METRIC_HELP } from '../shared';
 import type { EyeTrackingAOI } from '../../../../services/analytics.service';
 
 function columnAoi(column: number, label: string, dwellTimePercent: number): EyeTrackingAOI {
@@ -29,5 +30,15 @@ describe('ShelfComparison', () => {
 
     expect(screen.getByAltText('Producto B').getAttribute('src')).toBe('b.jpg');
     expect(screen.getByAltText('Producto A').getAttribute('src')).toBe('a.jpg');
+  });
+
+  it('shows the explanation of a metric while hovering its label', () => {
+    render(<ShelfComparison aois={[columnAoi(0, 'Producto A', 10)]} shelfColumnUrls={['a.jpg']} />);
+
+    fireEvent.mouseEnter(screen.getByText('Fijaciones'));
+    expect(screen.getByRole('tooltip').textContent).toBe(AOI_METRIC_HELP.fixations);
+
+    fireEvent.mouseLeave(screen.getByText('Fijaciones'));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 });

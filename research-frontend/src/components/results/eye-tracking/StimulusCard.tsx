@@ -5,7 +5,7 @@ import { toPng } from 'html-to-image';
 import { cn } from '../../../lib/utils';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
 import type { EyeTrackingStimulus, EyeTrackingAOI } from '../../../services/analytics.service';
-import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIMetricStats, AOI_METRIC_HELP } from './shared';
+import { resolveStimulusUrl, MetricBadge, ViewModeTab, AOIMetricStats, AOI_METRIC_HELP, MetricHelpLabel } from './shared';
 import type { ViewMode } from './shared';
 import { ZoneHeatmapOverlay } from './ZoneHeatmapOverlay';
 import { AOIDrawer, type AOI } from '../../research/AOIDrawer';
@@ -178,6 +178,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   }, [isShelf, resolvedShelfUrls, stimulus.shelfItems, stimulus.shelfCount, stimulus.shelfRepetitions]);
 
   const effectiveStimulusUrl = isShelf && shelfCompositeUrl ? shelfCompositeUrl : stimulus.stimulusUrl;
+  const shelfColumnUrls = isShelf ? buildShelfColumns(resolvedShelfUrls, stimulus.shelfItems ?? 5, stimulus.shelfRepetitions ?? 1) : [];
 
   const includedFixations = useMemo(
     () => stimulus.fixations.filter(f => !excludedParticipants.has(f.participantId)),
@@ -599,7 +600,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         ) : viewMode === 'comparison' && shownStimulus.aois.length > 0 ? (
           <ShelfComparison
             aois={shownStimulus.aois}
-            shelfColumnUrls={buildShelfColumns(resolvedShelfUrls, stimulus.shelfItems ?? 5, stimulus.shelfRepetitions ?? 1)}
+            shelfColumnUrls={shelfColumnUrls}
           />
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
           <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} curve={stimulus.emotions.enabled ? emotionCurve : undefined} />
@@ -699,6 +700,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         <AoiModal
           stimulus={shownStimulus}
           displayImageUrl={effectiveStimulusUrl}
+          shelfColumnUrls={shelfColumnUrls}
           onClose={() => setShowAoiModal(false)}
           onSave={onRefresh}
         />
@@ -709,9 +711,16 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
 
 // ─── AOI Modal ──────────────────────────────────────────────────
 
-function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
+const findShelfColumnUrl = (aoi: Pick<AOI, 'x' | 'width'>, shelfColumnUrls: readonly string[]): string => {
+  const columnWidth = 100 / Math.max(shelfColumnUrls.length, 1);
+  const column = Math.floor((aoi.x + aoi.width / 2) / columnWidth);
+  return shelfColumnUrls[Math.min(Math.max(column, 0), shelfColumnUrls.length - 1)];
+};
+
+function AoiModal({ stimulus, displayImageUrl, shelfColumnUrls, onClose, onSave }: {
   stimulus: EyeTrackingStimulus & { stimulusUrl: string };
   displayImageUrl?: string;
+  shelfColumnUrls: readonly string[];
   onClose: () => void;
   onSave: () => void;
 }) {
@@ -795,6 +804,7 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
               aois={aois}
               onChange={setAois}
               maxHeight={400}
+              resolveThumbnailUrl={shelfColumnUrls.length > 0 ? aoi => findShelfColumnUrl(aoi, shelfColumnUrls) : undefined}
               renderAoiDetails={aoi => (
                 <AOIMetricStats aoi={stimulus.aois.find(a => a.id === aoi.id) ?? { dwellTimePercent: 0, fixationCount: 0, avgDuration: 0, participantCount: 0 }} />
               )}
@@ -809,18 +819,13 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
 export function ShelfComparison({ aois, shelfColumnUrls }: { aois: EyeTrackingAOI[]; shelfColumnUrls: string[] }) {
   const sorted = [...aois].sort((a, b) => b.dwellTimePercent - a.dwellTimePercent);
   const maxDwell = Math.max(...sorted.map(a => a.dwellTimePercent), 1);
-  const columnWidth = 100 / Math.max(shelfColumnUrls.length, 1);
-  const findColumnUrl = (aoi: EyeTrackingAOI) => {
-    const column = Math.floor((aoi.x + aoi.width / 2) / columnWidth);
-    return shelfColumnUrls[Math.min(Math.max(column, 0), shelfColumnUrls.length - 1)];
-  };
 
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-700 mb-3 cursor-help w-fit" title="Cada tarjeta es una AOI que cubre su columna completa del anaquel, de arriba abajo. Así, las métricas del producto incluyen todas las posiciones (filas) donde aparece en esa columna.">Comparativa por producto</h4>
+      <h4 className="text-sm font-semibold text-gray-700 mb-3 w-fit"><MetricHelpLabel help="Cada tarjeta es una AOI que cubre su columna completa del anaquel, de arriba abajo. Así, las métricas del producto incluyen todas las posiciones (filas) donde aparece en esa columna.">Comparativa por producto</MetricHelpLabel></h4>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {sorted.map((aoi, idx) => {
-          const imgUrl = findColumnUrl(aoi);
+          const imgUrl = findShelfColumnUrl(aoi, shelfColumnUrls);
           const isWinner = idx === 0 && aoi.dwellTimePercent > 0;
           return (
             <div key={aoi.id} className={`rounded-lg border p-3 ${isWinner ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
@@ -833,30 +838,30 @@ export function ShelfComparison({ aois, shelfColumnUrls }: { aois: EyeTrackingAO
               </div>
               <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                 <div>
-                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.dwell}>% AOI</span>
+                  <span className="text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.dwell}>% AOI</MetricHelpLabel></span>
                   <p className="font-semibold text-gray-800">{aoi.dwellTimePercent.toFixed(1)}%</p>
                 </div>
                 <div>
-                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.fixations}>Fijaciones</span>
+                  <span className="text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.fixations}>Fijaciones</MetricHelpLabel></span>
                   <p className="font-semibold text-gray-800">{aoi.fixationCount}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.duration}>Duración</span>
+                  <span className="text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.duration}>Duración</MetricHelpLabel></span>
                   <p className="font-semibold text-gray-800">{(aoi.avgDuration / 1000).toFixed(1)}s</p>
                 </div>
                 <div>
-                  <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.viewers}>Participantes</span>
+                  <span className="text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.viewers}>Participantes</MetricHelpLabel></span>
                   <p className="font-semibold text-gray-800">{aoi.participantCount}</p>
                 </div>
                 {aoi.avgTTFF !== undefined && (
                   <div>
-                    <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.firstLook}>1ra fijación</span>
+                    <span className="text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.firstLook}>1ra fijación</MetricHelpLabel></span>
                     <p className="font-semibold text-gray-800">{(aoi.avgTTFF / 1000).toFixed(1)}s</p>
                   </div>
                 )}
                 {aoi.noticeRate !== undefined && (
                   <div>
-                    <span className="text-gray-400 cursor-help" title={AOI_METRIC_HELP.noticed}>Notado</span>
+                    <span className="text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.noticed}>Notado</MetricHelpLabel></span>
                     <p className="font-semibold text-gray-800">{aoi.noticeRate.toFixed(0)}%</p>
                   </div>
                 )}

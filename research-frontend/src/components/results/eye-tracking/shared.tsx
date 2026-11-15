@@ -1,4 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- shared constants + small components co-located */
+import { useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Crosshair, Users } from 'lucide-react';
 import type { EyeTrackingAOI, EkmanEmotion } from '../../../services/analytics.service';
 import { resolveMediaUrl } from '../../../services/media.service';
@@ -85,6 +87,38 @@ export const AOI_METRIC_HELP = {
   emotion: 'Emoción más frecuente mientras los participantes miraban esta zona.',
 } as const;
 
+const METRIC_HELP_HALF_WIDTH_PX = 120;
+
+export const MetricHelpLabel = ({ help, children }: { help: string; children: ReactNode }) => {
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const centerX = anchor
+    ? Math.min(Math.max(anchor.left + anchor.width / 2, METRIC_HELP_HALF_WIDTH_PX), window.innerWidth - METRIC_HELP_HALF_WIDTH_PX)
+    : 0;
+  return (
+    <>
+      <span
+        ref={labelRef}
+        className="cursor-help"
+        onMouseEnter={() => labelRef.current && setAnchor(labelRef.current.getBoundingClientRect())}
+        onMouseLeave={() => setAnchor(null)}
+      >
+        {children}
+      </span>
+      {anchor && createPortal(
+        <span
+          role="tooltip"
+          className="fixed z-[9999] w-56 -translate-x-1/2 -translate-y-full rounded-lg border border-slate-200 bg-white p-2 text-left text-[11px] font-normal leading-snug text-slate-600 shadow-lg pointer-events-none"
+          style={{ top: anchor.top - 6, left: centerX }}
+        >
+          {help}
+        </span>,
+        document.body,
+      )}
+    </>
+  );
+};
+
 type AOIRowData = Pick<EyeTrackingAOI, 'label' | 'dwellTimePercent' | 'fixationCount' | 'avgDuration' | 'participantCount' | 'avgTTFF' | 'noticeRate' | 'dominantEmotion'>
   & Partial<Pick<EyeTrackingAOI, 'x' | 'y' | 'width' | 'height'>>;
 
@@ -94,40 +128,40 @@ export const AOIMetricStats = ({ aoi }: { aoi: AOIMetricData }) => (
   <div className="flex items-center gap-6 text-sm">
     <div className="text-center">
       <p className="font-semibold text-blue-600">{aoi.dwellTimePercent}%</p>
-      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.dwell}>Tiempo de mirada</p>
+      <p className="text-xs text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.dwell}>Tiempo de mirada</MetricHelpLabel></p>
     </div>
     <div className="text-center">
       <p className="font-semibold text-gray-700">
         <Crosshair className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
         {aoi.fixationCount}
       </p>
-      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.fixations}>Fijaciones</p>
+      <p className="text-xs text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.fixations}>Fijaciones</MetricHelpLabel></p>
     </div>
     <div className="text-center">
       <p className="font-semibold text-gray-700">
         {aoi.avgDuration > 0 ? `${(aoi.avgDuration / 1000).toFixed(1)}s` : '—'}
       </p>
-      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.duration}>Duración media</p>
+      <p className="text-xs text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.duration}>Duración media</MetricHelpLabel></p>
     </div>
     <div className="text-center">
       <p className="font-semibold text-gray-700">
         <Users className="h-3.5 w-3.5 inline-block mr-0.5 -mt-0.5" />
         {aoi.participantCount}
       </p>
-      <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.viewers}>Participantes</p>
+      <p className="text-xs text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.viewers}>Participantes</MetricHelpLabel></p>
     </div>
     {aoi.avgTTFF != null && aoi.avgTTFF > 0 && (
       <div className="text-center">
         <p className="font-semibold text-purple-600">
           {aoi.avgTTFF < 1000 ? `${aoi.avgTTFF}ms` : `${(aoi.avgTTFF / 1000).toFixed(1)}s`}
         </p>
-        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.firstLook}>Primera mirada</p>
+        <p className="text-xs text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.firstLook}>Primera mirada</MetricHelpLabel></p>
       </div>
     )}
     {aoi.noticeRate != null && (
       <div className="text-center">
         <p className="font-semibold text-green-600">{aoi.noticeRate}%</p>
-        <p className="text-xs text-gray-400 cursor-help" title={AOI_METRIC_HELP.noticed}>Notada</p>
+        <p className="text-xs text-gray-400"><MetricHelpLabel help={AOI_METRIC_HELP.noticed}>Notada</MetricHelpLabel></p>
       </div>
     )}
     {aoi.dominantEmotion && aoi.dominantEmotion !== 'neutral' && (
@@ -135,7 +169,7 @@ export const AOIMetricStats = ({ aoi }: { aoi: AOIMetricData }) => (
         <p className={`text-xs font-semibold px-2 py-0.5 rounded ${EMOTION_COLORS[aoi.dominantEmotion]?.bg || 'bg-gray-50'} ${EMOTION_COLORS[aoi.dominantEmotion]?.text || 'text-gray-600'}`}>
           {EMOTION_LABELS[aoi.dominantEmotion] || aoi.dominantEmotion}
         </p>
-        <p className="text-xs text-gray-400 mt-0.5 cursor-help" title={AOI_METRIC_HELP.emotion}>Emoción</p>
+        <p className="text-xs text-gray-400 mt-0.5"><MetricHelpLabel help={AOI_METRIC_HELP.emotion}>Emoción</MetricHelpLabel></p>
       </div>
     )}
   </div>
