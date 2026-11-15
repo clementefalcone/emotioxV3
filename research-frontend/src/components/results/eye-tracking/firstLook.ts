@@ -14,3 +14,12 @@ export const selectFirstLookPoints = (
       .slice(0, count)
       .map((fixation, order) => ({ x: fixation.x, y: fixation.y, value: fixation.duration * (order === 0 ? 1 : LATER_FIXATION_WEIGHT) })));
 };
+
+export const selectFirstFixations = (fixations: EyeTrackingStimulus['fixations']): EyeTrackingStimulus['fixations'] => {
+  const firstByParticipant = new Map<string, EyeTrackingStimulus['fixations'][number]>();
+  for (const fixation of fixations) {
+    const current = firstByParticipant.get(fixation.participantId);
+    if (!current || fixation.timestamp < current.timestamp) firstByParticipant.set(fixation.participantId, fixation);
+  }
+  return [...firstByParticipant.values()];
+};
