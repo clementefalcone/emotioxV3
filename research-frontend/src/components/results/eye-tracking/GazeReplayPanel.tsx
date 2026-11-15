@@ -17,6 +17,9 @@ import {
 } from './gazeReplay';
 import { drawGazeReplayFrame, drawGroupReplayFrame, drawHeatmapReplayFrame, getParticipantColor } from './drawGazeReplayFrame';
 import { ZoneDwellList, type ZoneDwellRow } from './ZoneDwellList';
+import { drawEmotionStrip, type EmotionStripSeries } from './drawEmotionStrip';
+import { buildEmotionCurve, CURVE_EMOTIONS, type ParticipantEmotionSample } from './emotionCurve';
+import { useEmotionVocabulary } from './emotionScenario';
 import { WebcamRecordingPlayer } from './WebcamRecordingPlayer';
 
 const ALL_PARTICIPANTS = '__all__';
@@ -36,6 +39,9 @@ const HEAT_WINDOW_OPTIONS = [
 ];
 const SPEED_OPTIONS = PLAYBACK_SPEEDS.map(speed => ({ value: speed, label: `${speed}×` }));
 const MAX_CANVAS_WIDTH = 1280;
+const EMOTION_BUCKET_MS = 250;
+const EMOTION_STRIP_HEIGHT_RATIO = 0.2;
+const MIN_EMOTION_STRIP_HEIGHT_PX = 120;
 const VIDEO_FORMATS = [
   { mimeType: 'video/webm;codecs=vp9', extension: 'webm' },
   { mimeType: 'video/webm', extension: 'webm' },
@@ -122,11 +128,12 @@ interface GazeReplayPanelProps {
   readonly gazeTimeline: NonNullable<EyeTrackingStimulus['gazeTimeline']>;
   readonly zones: readonly ReplayZone[];
   readonly webcamRecordings: ReadonlyMap<string, { url: string; offsetMs: number }>;
+  readonly emotionSamples: readonly ParticipantEmotionSample[];
   readonly heatmapSettings: HeatmapSettings;
   readonly heatmapControls: ReactNode;
 }
 
-export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webcamRecordings, heatmapSettings, heatmapControls }: GazeReplayPanelProps) {
+export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webcamRecordings, emotionSamples, heatmapSettings, heatmapControls }: GazeReplayPanelProps) {
   const tracks = useMemo(() => buildParticipantTracks(fixations, gazeTimeline), [fixations, gazeTimeline]);
   const [chosenParticipantId, setChosenParticipantId] = useState<string>(ALL_PARTICIPANTS);
   const isAllParticipants = chosenParticipantId === ALL_PARTICIPANTS;
@@ -143,6 +150,16 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
   const subjectLabel = isAllParticipants ? `Todos (${tracks.length})` : selectedTrack?.participantId ?? '';
   const [view, setView] = useState<ReplayView>('heatmap');
   const [heatWindowMs, setHeatWindowMs] = useState(ACCUMULATED_HEAT);
+  const { labels: emotionLabels, colors: emotionColors } = useEmotionVocabulary();
+  const emotionSeries = useMemo<EmotionStripSeries[]>(
+    () => CURVE_EMOTIONS.filter(emotion => emotion !== 'neutral').map(emotion => ({ emotion, label: emotionLabels[emotion], color: emotionColors[emotion].hex })),
+    [emotionLabels, emotionColors],
+  );
+  const emotionPoints = useMemo(() => {
+    const subjectSamples = isAllParticipants ? emotionSamples : emotionSamples.filter(sample => sample.participantId === selectedTrack?.participantId);
+    return buildEmotionCurve(subjectSamples, EMOTION_BUCKET_MS);
+  }, [emotionSamples, isAllParticipants, selectedTrack?.participantId]);
+  const hasEmotionStrip = emotionPoints.some(point => point.values !== null);
   const sessionHeatPoints = useMemo(
     () => (heatWindowMs === ACCUMULATED_HEAT ? collectHeatPoints(visibleTracks, durationMs, null) : undefined),
     [heatWindowMs, visibleTracks, durationMs],
@@ -155,6 +172,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLCanvasElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const videoFormat = useMemo(() => findSupportedVideoFormat(), []);
 
@@ -179,12 +197,20 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     const scale = Math.min(1, MAX_CANVAS_WIDTH / image.naturalWidth);
     const width = Math.round(image.naturalWidth * scale);
     const height = Math.round(image.naturalHeight * scale);
-    if (canvas.width !== width || canvas.height !== height) {
+    const stripHeight = hasEmotionStrip ? Math.max(MIN_EMOTION_STRIP_HEIGHT_PX, Math.round(width * EMOTION_STRIP_HEIGHT_RATIO)) : 0;
+    if (canvas.width !== width || canvas.height !== height + stripHeight) {
       canvas.width = width;
-      canvas.height = height;
+      canvas.height = height + stripHeight;
     }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    stageRef.current ??= document.createElement('canvas');
+    const stage = stageRef.current;
+    if (stage.width !== width || stage.height !== height) {
+      stage.width = width;
+      stage.height = height;
+    }
+    const ctx = stage.getContext('2d');
+    const outputCtx = canvas.getContext('2d');
+    if (!ctx || !outputCtx) return;
     if (view === 'heatmap') {
       const windowMs = heatWindowMs === ACCUMULATED_HEAT ? null : heatWindowMs;
       const timingLabel = windowMs === null ? 'acumulado' : `últimos ${formatSeconds(windowMs)}`;
@@ -201,7 +227,9 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     } else if (selectedTrack) {
       drawGazeReplayFrame(ctx, { image, fixations: selectedTrack.fixations, gazeSamples: selectedTrack.samples, zones, timeMs, participantLabel: subjectLabel });
     }
-  }, [image, view, heatWindowMs, visibleTracks, sessionHeatPoints, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs, subjectLabel]);
+    outputCtx.drawImage(stage, 0, 0);
+    if (hasEmotionStrip) drawEmotionStrip(outputCtx, { points: emotionPoints, series: emotionSeries, durationMs, timeMs, top: height, height: stripHeight });
+  }, [image, view, heatWindowMs, visibleTracks, sessionHeatPoints, heatmapSettings, isAllParticipants, tracks, selectedTrack, zones, timeMs, subjectLabel, hasEmotionStrip, emotionPoints, emotionSeries, durationMs]);
 
   useEffect(() => {
     if (!isPlaying) return;

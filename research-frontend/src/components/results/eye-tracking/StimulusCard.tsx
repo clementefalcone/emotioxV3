@@ -603,6 +603,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
             gazeTimeline={includedGazeTimeline}
             zones={replayZones}
             webcamRecordings={webcamRecordings}
+            emotionSamples={includedEmotionSamples}
             heatmapSettings={heatmapSettings}
             heatmapControls={<HeatmapSliders settings={heatmapSettings} onChange={setHeatmapSettings} />}
           />
