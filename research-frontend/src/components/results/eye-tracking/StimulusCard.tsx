@@ -10,6 +10,7 @@ import type { ViewMode } from './shared';
 import { ZoneHeatmapOverlay } from './ZoneHeatmapOverlay';
 import { AOIDrawer, type AOI } from '../../research/AOIDrawer';
 import { modulesService } from '../../../services/modules.service';
+import { useToast } from '../../../hooks/useToast';
 import { EmotionPanel } from './EmotionPanel';
 import { SequencePanel } from './SequencePanel';
 import { TransparencyMap } from './TransparencyMap';
@@ -719,6 +720,7 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
   }));
   const [aois, setAois] = useState<AOI[]>(drawableAois);
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -744,14 +746,15 @@ function AoiModal({ stimulus, displayImageUrl, onClose, onSave }: {
         comps.push({ id: 'aois', type: 'hidden', label: 'AOIs', value: JSON.stringify(aois), order: 99, hidden: true });
       }
       await modulesService.update(stimulus.moduleId, { config });
+      toast.success(`AOIs guardadas (${aois.length})`);
       onSave();
       handleClose();
-    } catch {
-      console.error('Failed to save AOIs');
+    } catch (error) {
+      toast.error(`No se pudieron guardar las AOIs del módulo ${stimulus.moduleId}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setSaving(false);
     }
-  }, [aois, stimulus.moduleId, onSave, handleClose]);
+  }, [aois, stimulus.moduleId, onSave, handleClose, toast]);
 
   return (
     <div

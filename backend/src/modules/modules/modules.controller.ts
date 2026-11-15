@@ -42,6 +42,10 @@ export const handleModulesRoutes = async (event: APIGatewayProxyEvent): Promise<
             const researchId = await findResearchIdOf('module', id);
             if (!researchId) return error(`Module ${id} not found`, 404, undefined, origin);
             if (!(await canAccessResearch(researchId, decoded.sub))) return researchNotFound(researchId, decoded.sub, path, origin);
+            if (httpMethod === 'GET') {
+                const module = await modulesService.getById(id);
+                return success({ module }, 200, undefined, origin);
+            }
             if (httpMethod === 'PUT') {
                 const module = await modulesService.update(id, body);
                 return success({ module }, 200, undefined, origin);

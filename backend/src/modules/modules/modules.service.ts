@@ -25,6 +25,11 @@ export const create = async (researchId: string, data: Record<string, unknown>) 
     return selectResult.rows[0];
 };
 
+export const getById = async (moduleId: string) => {
+    const result = await pool.query('SELECT * FROM modules WHERE id = ?', [moduleId]);
+    return result.rows[0];
+};
+
 export const update = async (moduleId: string, data: Record<string, unknown>) => {
     const { name, description, config, order, order_index } = data;
     const updates: string[] = [];

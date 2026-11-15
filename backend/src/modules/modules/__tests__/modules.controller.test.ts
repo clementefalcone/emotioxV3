@@ -10,6 +10,7 @@ vi.mock('../../auth/auth.service', () => ({ getMe: vi.fn().mockResolvedValue({ i
 vi.mock('../../../utils/request', () => ({ getRequestOrigin: vi.fn().mockReturnValue('http://localhost') }));
 vi.mock('../modules.service', () => ({
     create: vi.fn().mockResolvedValue({ id: 'm-new' }),
+    getById: vi.fn().mockResolvedValue({ id: 'm1', config: '{}' }),
     update: vi.fn().mockResolvedValue({ id: 'm1' }),
     deleteModule: vi.fn().mockResolvedValue({ message: 'deleted' }),
     reorder: vi.fn().mockResolvedValue({ message: 'reordered' }),
@@ -17,7 +18,7 @@ vi.mock('../modules.service', () => ({
 
 import { handleModulesRoutes } from '../modules.controller';
 import pool from '../../../config/database';
-import { create, update, deleteModule, reorder } from '../modules.service';
+import { create, getById, update, deleteModule, reorder } from '../modules.service';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
 
@@ -72,6 +73,23 @@ describe('modules routes — study access', () => {
 
         expect(res.statusCode).toBe(404);
         expect(res.body).toContain('Module missing not found');
+    });
+
+    it('lets the owner read a module with its config, which the results AOI editor needs before saving', async () => {
+        routeQueries({ 'FROM modules WHERE id': [{ research_id: 'own' }], 'FROM researches r': [{ 1: 1 }] });
+
+        const res = await request('GET', '/modules/m1');
+
+        expect(res.statusCode).toBe(200);
+        expect(JSON.parse(res.body).module).toEqual({ id: 'm1', config: '{}' });
+        expect(getById).toHaveBeenCalledWith('m1');
+    });
+
+    it('does not let anyone read a module of a foreign study', async () => {
+        routeQueries({ 'FROM modules WHERE id': [{ research_id: 'foreign' }], 'FROM researches r': [] });
+
+        expect((await request('GET', '/modules/m1')).statusCode).toBe(404);
+        expect(getById).not.toHaveBeenCalled();
     });
 
     it('lets the owner edit and delete their module', async () => {
