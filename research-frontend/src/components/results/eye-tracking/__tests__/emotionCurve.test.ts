@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EkmanEmotion } from '../../../../services/analytics.service';
-import { alignSamplesToVideo, buildEmotionCurve, buildFacePresence, findLeadingEmotion, fitEmotionAxisMax, type ParticipantEmotionSample } from '../emotionCurve';
+import { alignSamplesToVideo, buildEmotionCurve, buildFacePresence, findLeadingEmotion, fitEmotionAxisMax, zoomValenceArousalDomain, type ParticipantEmotionSample } from '../emotionCurve';
 
 const NO_EXPRESSIONS: Record<EkmanEmotion, number> = { joy: 0, surprise: 0, anger: 0, fear: 0, disgust: 0, sadness: 0, neutral: 0 };
 
@@ -109,5 +109,19 @@ describe('alignSamplesToVideo', () => {
     ];
     const aligned = alignSamplesToVideo([sample('p1', 200, {}), sample('p1', 2300, {}), sample('p2', 1500, {})], gaze);
     expect(aligned.map(({ participantId, timestamp }) => [participantId, timestamp])).toEqual([['p1', 2000], ['p2', 1500]]);
+  });
+});
+
+describe('zoomValenceArousalDomain', () => {
+  it('keeps the full -1..+1 range at 1x', () => {
+    expect(zoomValenceArousalDomain([0.2, 0.4], 1)).toEqual([-1, 1]);
+  });
+
+  it('centers the zoomed range on the visible values, snapped to a round tick', () => {
+    expect(zoomValenceArousalDomain([0.2, 0.4], 4)).toEqual([0, 0.5]);
+  });
+
+  it('never extends past the -1..+1 scale', () => {
+    expect(zoomValenceArousalDomain([0.9, 1], 2)).toEqual([0, 1]);
   });
 });

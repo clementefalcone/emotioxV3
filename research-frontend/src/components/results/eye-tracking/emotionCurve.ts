@@ -20,7 +20,15 @@ const EMOTION_AXIS_STEP_PERCENT = 5;
 export const fitEmotionAxisMax = (maxPercent: number): number =>
   Math.min(100, Math.max(EMOTION_AXIS_STEP_PERCENT, Math.ceil(maxPercent / EMOTION_AXIS_STEP_PERCENT) * EMOTION_AXIS_STEP_PERCENT));
 
-export const formatClock = (timeMs: number): string => {
+export const zoomValenceArousalDomain = (values: readonly number[], zoom: number): [number, number] => {
+  const halfSpan = 1 / zoom;
+  const tickStep = halfSpan / 2;
+  const center = values.length === 0 ? 0 : Math.round((Math.min(...values) + Math.max(...values)) / 2 / tickStep) * tickStep;
+  const clampedCenter = Math.min(1 - halfSpan, Math.max(-1 + halfSpan, center));
+  return [clampedCenter - halfSpan, clampedCenter + halfSpan];
+};
+
+export const formatClock =(timeMs: number): string => {
   const totalSeconds = Math.floor(timeMs / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
 };

@@ -30,6 +30,7 @@ const ZOOM_OPTIONS: readonly { label: string; windowMs: number | null }[] = [
   { label: 'Todo', windowMs: null },
 ];
 
+const VERTICAL_ZOOM_OPTIONS: readonly number[] = [1, 2, 4, 8];
 
 const isEmotion = (series: EmotionSeries): series is EkmanEmotion => series !== 'valence' && series !== 'arousal';
 
@@ -107,6 +108,8 @@ export function EmotionCurveTimeline({ samples, tracks, zones, markerMs: control
   const [visibleSeries, setVisibleSeries] = useState<readonly EmotionSeries[]>(DEFAULT_VISIBLE_SERIES);
   const [zoomWindowMs, setZoomWindowMs] = useState<number | null>(null);
   const [windowStartMs, setWindowStartMs] = useState(0);
+  const [valenceArousalZoom, setValenceArousalZoom] = useState(1);
+  const [emotionZoom, setEmotionZoom] = useState(1);
   const [ownMarkerMs, setOwnMarkerMs] = useState<number | null>(null);
   const markerMs = controlledMarkerMs === undefined ? ownMarkerMs : controlledMarkerMs;
   const setMarkerMs = onMark ?? setOwnMarkerMs;
@@ -169,11 +172,25 @@ export function EmotionCurveTimeline({ samples, tracks, zones, markerMs: control
         ))}
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        Zoom
-        {ZOOM_OPTIONS.map(option => (
-          <SeriesChip key={option.label} label={option.label} isActive={zoomWindowMs === option.windowMs} onClick={() => chooseZoom(option.windowMs)} />
-        ))}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500">
+        <div className="flex items-center gap-1.5">
+          Zoom tiempo
+          {ZOOM_OPTIONS.map(option => (
+            <SeriesChip key={option.label} label={option.label} isActive={zoomWindowMs === option.windowMs} onClick={() => chooseZoom(option.windowMs)} />
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          Zoom Valencia/Arousal
+          {VERTICAL_ZOOM_OPTIONS.map(zoom => (
+            <SeriesChip key={zoom} label={`${zoom}×`} isActive={valenceArousalZoom === zoom} onClick={() => setValenceArousalZoom(zoom)} />
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          Zoom emociones
+          {VERTICAL_ZOOM_OPTIONS.map(zoom => (
+            <SeriesChip key={zoom} label={`${zoom}×`} isActive={emotionZoom === zoom} onClick={() => setEmotionZoom(zoom)} />
+          ))}
+        </div>
       </div>
 
       <EmotionCurveChart
@@ -184,6 +201,8 @@ export function EmotionCurveTimeline({ samples, tracks, zones, markerMs: control
         domainMs={domainMs}
         markerMs={markerMs}
         onMark={setMarkerMs}
+        valenceArousalZoom={valenceArousalZoom}
+        emotionZoom={emotionZoom}
       />
 
       {isZoomed && (
