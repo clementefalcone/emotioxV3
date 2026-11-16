@@ -15,7 +15,7 @@ export interface ResearchData {
  * Usage: `WHERE r.id = ? AND ${clause}` with [...otherParams, ...params]
  */
 export const buildOwnershipClause = (userId: string, role?: string, alias = 'r') => {
-    if (role === 'admin' || role === 'viewer') {
+    if (role === 'admin') {
         return { clause: '1=1', params: [] as string[] };
     }
     const prefix = alias ? `${alias}.` : '';
