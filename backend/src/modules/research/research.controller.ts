@@ -408,6 +408,10 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
         if (dataExportMatch && httpMethod === 'GET') {
             const researchId = dataExportMatch[1];
             const participantId = decodeURIComponent(dataExportMatch[2]);
+            if (user.role === 'viewer') {
+                console.warn(JSON.stringify({ event: 'participant_data_export_denied', researchId, userSub: decoded.sub }));
+                return error('Viewers cannot export participant personal data', 403, undefined, origin);
+            }
             try {
                 const dataExport = await exportParticipantData(researchId, participantId, user.id, user.role);
                 console.info(JSON.stringify({ event: 'participant_data_exported', researchId, userSub: decoded.sub }));

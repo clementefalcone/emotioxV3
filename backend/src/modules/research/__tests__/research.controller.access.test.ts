@@ -23,6 +23,7 @@ vi.mock('../research-access', () => ({
 }));
 
 import pool from '../../../config/database';
+import { getMe } from '../../auth/auth.service';
 import { handleResearchRoutes } from '../research.controller';
 import { canAccessResearch } from '../research-access';
 import * as tags from '../research-tags.service';
@@ -67,6 +68,16 @@ describe('research routes — tags, archive and activity access', () => {
 
         expect(res.statusCode).toBe(400);
         expect(res.body).toContain('Invalid permission');
+    });
+
+    it('refuses a viewer the personal data export of a participant', async () => {
+        vi.mocked(getMe).mockResolvedValueOnce({ id: 'v1', role: 'viewer' } as never);
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        const res = await request('GET', '/research/r1/participants/p1/data-export');
+
+        expect(res.statusCode).toBe(403);
+        expect(pool.query).not.toHaveBeenCalled();
     });
 
     it('lists only the activity of studies the user can access', async () => {

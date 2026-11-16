@@ -15,6 +15,7 @@ import {
     Users
 } from 'lucide-react';
 import { useToast } from '../../../hooks/useToast';
+import { useIsViewer } from '../../../hooks/useIsViewer';
 import { getReviewUrl } from '../../../utils/publicTestsUrl';
 import { triggerCsvDownload } from '../../../utils/csvDownload';
 
@@ -113,6 +114,7 @@ export function ParticipantsTable({
             toast.error(`No se pudo abrir la revisión de ${participantId}: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
+    const isViewer = useIsViewer();
     const handleExportData = async (participantId: string): Promise<void> => {
         try {
             const dataExport = await researchInProgressService.exportParticipantData(researchId, participantId);
@@ -559,9 +561,11 @@ export function ParticipantsTable({
                             <Button variant="outline" size="sm" onClick={() => handleOpenReview(drawerDetails.id)}>
                                 Ver como participante
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleExportData(drawerDetails.id)}>
-                                Exportar datos
-                            </Button>
+                            {!isViewer && (
+                                <Button variant="outline" size="sm" onClick={() => handleExportData(drawerDetails.id)}>
+                                    Exportar datos
+                                </Button>
+                            )}
                         </div>
                         {/* Summary */}
                         <div className="grid grid-cols-2 gap-4">
