@@ -4,7 +4,7 @@ import { isAuthError, requireAuth } from '../../utils/auth';
 import * as authService from '../auth/auth.service';
 import * as participantsService from './participants.service';
 import { getRequestOrigin } from '../../utils/request';
-import { canAccessResearch, researchNotFound } from '../research/research-access';
+import { canAccessResearch, researchAccessFor, researchNotFound } from '../research/research-access';
 
 /**
  * Parses CSV text into rows. Supports comma and semicolon delimiters.
@@ -66,7 +66,7 @@ export const handleParticipantsRoutes = async (event: APIGatewayProxyEvent): Pro
     }
 
     const scopedResearch = path.match(/^\/participants\/([^/]+)/);
-    if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+    if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, researchAccessFor(httpMethod)))) {
       return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
     }
 

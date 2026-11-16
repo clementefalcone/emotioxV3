@@ -43,7 +43,7 @@ import { isCaptureErrorKind, CAPTURE_ERROR_KINDS } from './capture-errors';
 import { generateTrackingSnippet, generateEmbedSnippet } from './tracking-snippet';
 import { fetchPublicUrl, BlockedUrlError } from './public-fetch';
 import { fetchProxiedAsset, renderInertPage, type ProxiedAsset } from './proxy-rewrite';
-import { canAccessResearch, researchNotFound } from '../research/research-access';
+import { canAccessResearch, researchAccessFor, researchNotFound } from '../research/research-access';
 import { getPrivacyNotice } from '../research/research-privacy';
 
 const MAX_VISITOR_ID_LENGTH = 64;
@@ -367,7 +367,7 @@ export const handleTrackingRoutes = async (
         }
 
         const scopedResearch = path.match(/^\/tracking\/([^/]+)/);
-        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, researchAccessFor(httpMethod)))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 

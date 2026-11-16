@@ -23,7 +23,9 @@ export const listCollaborators = async (researchId: string) => {
     }));
 };
 
-export const addCollaborator = async (researchId: string, email: string, invitedBy: string, permission?: string) => {
+export const COLLABORATOR_PERMISSIONS = ['viewer', 'editor'];
+
+export const addCollaborator = async (researchId: string, email: string, invitedBy: string, permission: string) => {
     // Find the user by email
     const userResult = await pool.query(
         'SELECT id, email, first_name, last_name FROM users WHERE email = ? AND deleted_at IS NULL',
@@ -53,10 +55,9 @@ export const addCollaborator = async (researchId: string, email: string, invited
     }
 
     const id = crypto.randomUUID();
-    const perm = permission === 'editor' ? 'editor' : 'viewer';
     await pool.query(
         'INSERT INTO research_collaborators (id, research_id, user_id, permission, invited_by) VALUES (?, ?, ?, ?, ?)',
-        [id, researchId, targetUser.id, perm, invitedBy]
+        [id, researchId, targetUser.id, permission, invitedBy]
     );
 
     return {
@@ -65,7 +66,7 @@ export const addCollaborator = async (researchId: string, email: string, invited
         email: targetUser.email,
         firstName: targetUser.first_name || null,
         lastName: targetUser.last_name || null,
-        permission: perm,
+        permission,
     };
 };
 

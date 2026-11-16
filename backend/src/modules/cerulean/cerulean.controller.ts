@@ -10,7 +10,7 @@ import * as authService from '../auth/auth.service';
 import { getRequestOrigin } from '../../utils/request';
 import * as ceruleanClient from './client';
 import * as integrationService from './integration.service';
-import { canAccessResearch, researchNotFound } from '../research/research-access';
+import { canAccessResearch, researchAccessFor, researchNotFound } from '../research/research-access';
 
 export const handleCeruleanRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -25,7 +25,7 @@ export const handleCeruleanRoutes = async (event: APIGatewayProxyEvent): Promise
         }
 
         const scopedResearch = path.match(/^\/cerulean\/research\/([^/]+)/);
-        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, researchAccessFor(httpMethod)))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 

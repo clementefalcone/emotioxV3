@@ -10,7 +10,7 @@ import * as authService from '../auth/auth.service';
 import * as publicService from '../public/index';
 import * as researchTagsService from './research-tags.service';
 import { getRequestOrigin } from '../../utils/request';
-import { canAccessResearch, researchNotFound } from './research-access';
+import { canAccessResearch, researchAccessFor, researchNotFound } from './research-access';
 
 export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -473,6 +473,9 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
             if (!email || typeof email !== 'string') {
                 return error('Email is required', 400, undefined, origin);
             }
+            if (!researchService.COLLABORATOR_PERMISSIONS.includes(permission)) {
+                return error(`Invalid permission: expected one of ${researchService.COLLABORATOR_PERMISSIONS.join(', ')}, got ${String(permission)}`, 400, undefined, origin);
+            }
             try {
                 const collaborator = await researchService.addCollaborator(researchId, email.trim().toLowerCase(), user.id, permission);
                 return success({ collaborator }, 201, undefined, origin);
@@ -497,7 +500,7 @@ export const handleResearchRoutes = async (event: APIGatewayProxyEvent): Promise
         }
 
         const taggedResearch = path.match(/^\/research\/([^\/]+)\/(?:tags|archive|unarchive)(?:\/|$)/);
-        if (taggedResearch && !(await canAccessResearch(taggedResearch[1], decoded.sub))) {
+        if (taggedResearch && !(await canAccessResearch(taggedResearch[1], decoded.sub, researchAccessFor(httpMethod)))) {
             return researchNotFound(taggedResearch[1], decoded.sub, path, origin);
         }
 

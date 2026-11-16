@@ -12,7 +12,7 @@ import { createStageFromTemplateInternal } from './research.create';
  */
 export const createStage = async (researchId: string, userId: string, stageName: string, description?: string, role?: string, defaultModuleName?: string) => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
 
     try {
         await client.query('BEGIN');
@@ -157,7 +157,7 @@ export const createStage = async (researchId: string, userId: string, stageName:
  */
 export const deleteStage = async (researchId: string, userId: string, stageId: string, role?: string) => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
 
     try {
         await client.query('BEGIN');
@@ -257,7 +257,7 @@ export const updateModulesOrderInStage = async (
     role?: string
 ): Promise<{ message: string }> => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
     console.log(`[updateModulesOrderInStage] Attempting to update order for ${updates.length} modules in stage ${stageId} by user ${userId}`);
 
     try {
@@ -325,7 +325,7 @@ export const reorderStages = async (
     role?: string
 ): Promise<{ message: string }> => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
 
     try {
         await client.query('BEGIN');
@@ -373,7 +373,7 @@ export const reorderStages = async (
  */
 export const deleteModule = async (researchId: string, userId: string, moduleId: string, role?: string) => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
 
     try {
         await client.query('BEGIN');
@@ -419,7 +419,7 @@ export const deleteModule = async (researchId: string, userId: string, moduleId:
  */
 export const addWelcomeAndThankYouStages = async (researchId: string, userId: string, role?: string): Promise<{ added: string[]; alreadyExists: string[] }> => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
 
     try {
         await client.query('BEGIN');

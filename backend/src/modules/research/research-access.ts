@@ -2,7 +2,7 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import pool from '../../config/database';
 import { error } from '../../utils/response';
 import * as authService from '../auth/auth.service';
-import { buildOwnershipClause } from './research.helpers';
+import { buildOwnershipClause, type ResearchAccess } from './research.helpers';
 import { parseJsonRecord } from '../public/public.types';
 
 const RESEARCH_OWNED_TABLES = {
@@ -12,13 +12,15 @@ const RESEARCH_OWNED_TABLES = {
 
 export type ResearchOwnedResource = keyof typeof RESEARCH_OWNED_TABLES;
 
-export const buildUserOwnership = async (userSub: string) => {
+export const buildUserOwnership = async (userSub: string, access: ResearchAccess = 'read') => {
     const user = await authService.getMe(userSub);
-    return buildOwnershipClause(user.id, user.role);
+    return buildOwnershipClause(user.id, user.role, 'r', access);
 };
 
-export const canAccessResearch = async (researchId: string, userSub: string): Promise<boolean> => {
-    const ownership = await buildUserOwnership(userSub);
+export const researchAccessFor = (httpMethod: string): ResearchAccess => httpMethod === 'GET' ? 'read' : 'write';
+
+export const canAccessResearch = async (researchId: string, userSub: string, access: ResearchAccess): Promise<boolean> => {
+    const ownership = await buildUserOwnership(userSub, access);
     const result = await pool.query(
         `SELECT 1 FROM researches r WHERE r.id = ? AND ${ownership.clause}`,
         [researchId, ...ownership.params],
@@ -45,13 +47,13 @@ export const findResearchIdOf =async (resource: ResearchOwnedResource, id: strin
 export const researchIdFromMediaPath = (mediaPath: string): string | null =>
     mediaPath.match(/^research\/([^/]+)\//)?.[1] ?? null;
 
-export const canAccessMediaPath = async (mediaPath: string, userSub: string): Promise<boolean> => {
+export const canAccessMediaPath = async (mediaPath: string, userSub: string, access: ResearchAccess): Promise<boolean> => {
     const folderResearchId = researchIdFromMediaPath(mediaPath);
     const owners = await pool.query('SELECT DISTINCT research_id FROM media WHERE s3_key = ?', [mediaPath]);
     const researchIds = new Set<string>(owners.rows.map((row) => row.research_id as string));
     if (folderResearchId) researchIds.add(folderResearchId);
     for (const researchId of researchIds) {
-        if (await canAccessResearch(researchId, userSub)) return true;
+        if (await canAccessResearch(researchId, userSub, access)) return true;
     }
     return false;
 };

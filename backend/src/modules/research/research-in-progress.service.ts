@@ -641,7 +641,7 @@ export const PARTICIPANT_DATA_TABLES = ['responses', 'participant_demographics',
 
 export const deleteParticipant = async (researchId: string, participantId: string, userId: string, role?: string) => {
     const client = await pool.connect();
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
 
     try {
         await client.query('BEGIN');

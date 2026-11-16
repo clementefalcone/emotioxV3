@@ -10,6 +10,7 @@ vi.mock('../../cerulean/client', () => ({ isEnabled: vi.fn(), getApiUrl: vi.fn()
 vi.mock('../../cerulean/integration.service', () => ({ certifyResearch: vi.fn(), recordAuditEvent: vi.fn() }));
 vi.mock('../../research/research-access', () => ({
     canAccessResearch: vi.fn(),
+    researchAccessFor: (httpMethod: string) => (httpMethod === 'GET' ? 'read' : 'write'),
     researchNotFound: vi.fn((researchId: string) => ({ statusCode: 404, body: `Research ${researchId} not found`, headers: {} })),
 }));
 

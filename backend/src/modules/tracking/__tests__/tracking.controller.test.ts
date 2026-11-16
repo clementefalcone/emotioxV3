@@ -55,6 +55,7 @@ vi.mock('../../research/research-privacy', () => ({
 }));
 vi.mock('../../research/research-access', () => ({
     canAccessResearch: vi.fn().mockResolvedValue(true),
+    researchAccessFor: (httpMethod: string) => (httpMethod === 'GET' ? 'read' : 'write'),
     researchNotFound: vi.fn((researchId: string) => ({ statusCode: 404, body: JSON.stringify({ message: `Research ${researchId} not found` }), headers: {} })),
 }));
 

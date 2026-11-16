@@ -25,7 +25,7 @@ import { isTasedServiceAvailable } from './tased-client';
 import { registerJob, broadcastProgress, removeJob } from './video-prediction-jobs';
 import pool from '../../config/database';
 import crypto from 'crypto';
-import { canAccessResearch, researchNotFound } from '../research/research-access';
+import { canAccessResearch, researchAccessFor, researchNotFound } from '../research/research-access';
 
 /**
  * Runs the unified hybrid prediction pipeline:
@@ -253,7 +253,7 @@ export const handleAttentionPredictionRoutes = async (
         }
 
         const scopedResearch = path.match(/^\/attention-prediction\/research\/([^/]+)/);
-        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, researchAccessFor(httpMethod)))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 

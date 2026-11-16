@@ -11,7 +11,7 @@ export const handleResponsesRoutes = async (event: APIGatewayProxyEvent): Promis
         const decoded = await requireAuth(event);
 
         const scopedResearch = path.match(/^\/responses\/research\/([^\/]+)/);
-        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, 'read'))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 

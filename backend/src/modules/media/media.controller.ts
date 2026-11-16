@@ -4,7 +4,7 @@ import { isAuthError, requireAuth } from '../../utils/auth.local';
 import * as mediaService from './media.service.local';
 import { getRequestOrigin } from '../../utils/request';
 import { analyzeStimulusComplexity } from './stimulus-complexity.service';
-import { canAccessMediaPath, canAccessResearch, findResearchIdOf, researchIdFromMediaPath, researchNotFound } from '../research/research-access';
+import { canAccessMediaPath, canAccessResearch, researchAccessFor, findResearchIdOf, researchIdFromMediaPath, researchNotFound } from '../research/research-access';
 
 export const handleMediaRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -18,7 +18,7 @@ export const handleMediaRoutes = async (event: APIGatewayProxyEvent): Promise<AP
         }
 
         const denyUnlessAccessible = async (researchId: string) =>
-            (await canAccessResearch(researchId, decoded.sub)) ? null : researchNotFound(researchId, decoded.sub, path, origin);
+            (await canAccessResearch(researchId, decoded.sub, researchAccessFor(httpMethod))) ? null : researchNotFound(researchId, decoded.sub, path, origin);
         const mediaNotFound = (mediaPath: string) => {
             console.warn(JSON.stringify({ event: 'media_access_denied', mediaPath, userSub: decoded.sub, path }));
             return error(`Media ${mediaPath} not found`, 404, undefined, origin);
@@ -27,7 +27,7 @@ export const handleMediaRoutes = async (event: APIGatewayProxyEvent): Promise<AP
         if (path === '/media/analyze-complexity' && httpMethod === 'POST') {
             const { s3Key } = body;
             if (!s3Key) return error('s3Key is required', 400, undefined, origin);
-            if (!(await canAccessMediaPath(s3Key, decoded.sub))) return mediaNotFound(s3Key);
+            if (!(await canAccessMediaPath(s3Key, decoded.sub, researchAccessFor(httpMethod)))) return mediaNotFound(s3Key);
             const result = await analyzeStimulusComplexity(s3Key);
             return success(result, 200, undefined, origin);
         }
@@ -62,7 +62,7 @@ export const handleMediaRoutes = async (event: APIGatewayProxyEvent): Promise<AP
             if (!mediaPath) {
                 return error('media_path or s3_key query parameter is required', 400, undefined, origin);
             }
-            if (!(await canAccessMediaPath(mediaPath, decoded.sub))) return mediaNotFound(mediaPath);
+            if (!(await canAccessMediaPath(mediaPath, decoded.sub, researchAccessFor(httpMethod)))) return mediaNotFound(mediaPath);
             const result = await mediaService.getMediaUrlByPath(mediaPath);
             return success(result, 200, undefined, origin);
         }

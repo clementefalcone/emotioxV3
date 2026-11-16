@@ -10,7 +10,7 @@ import { isAuthError, requireAuth } from '../../utils/auth.local';
 import { getRequestOrigin } from '../../utils/request';
 import { analyzeInsights } from './insights.service';
 import pool from '../../config/database';
-import { canAccessResearch, researchNotFound } from '../research/research-access';
+import { canAccessResearch, researchAccessFor, researchNotFound } from '../research/research-access';
 
 interface FileItem {
     mediaId: string;
@@ -88,7 +88,7 @@ export const handleInsightsRoutes = async (
         }
 
         const scopedResearch = path.match(/^\/insights\/research\/([^/]+)/);
-        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, researchAccessFor(httpMethod)))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 

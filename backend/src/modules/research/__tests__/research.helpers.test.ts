@@ -11,4 +11,9 @@ describe('buildOwnershipClause', () => {
         expect(clause).toBe('(r.created_by = ? OR r.id IN (SELECT research_id FROM research_collaborators WHERE user_id = ?))');
         expect(params).toEqual(['user-1', 'user-1']);
     });
+
+    it('lets only owners and editor collaborators write', () => {
+        expect(buildOwnershipClause('user-1', 'researcher', '', 'write').clause)
+            .toBe("(created_by = ? OR id IN (SELECT research_id FROM research_collaborators WHERE user_id = ? AND permission = 'editor'))");
+    });
 });

@@ -299,7 +299,7 @@ app.get('/api/monitor/events/:researchId', async (req: Request, res: Response) =
             const decoded = await verifyToken(token);
             const userId = decoded.sub;
             const { canAccessResearch } = await import('./modules/research/research-access');
-            if (!(await canAccessResearch(researchId, userId))) {
+            if (!(await canAccessResearch(researchId, userId, 'read'))) {
                 console.warn(JSON.stringify({ event: 'research_access_denied', researchId, userSub: userId, path: req.path }));
                 return res.status(404).json({ error: `Research ${researchId} not found` });
             }

@@ -50,7 +50,7 @@ export const handleAnalyticsRoutes = async (event: APIGatewayProxyEvent, isPubli
         }
 
         const decoded = isPublicRequest ? null : await requireAuth(event);
-        if (decoded && scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub))) {
+        if (decoded && scopedResearch && !(await canAccessResearch(scopedResearch[1], decoded.sub, 'read'))) {
             return researchNotFound(scopedResearch[1], decoded.sub, path, origin);
         }
 

@@ -3,7 +3,7 @@ import { success, error } from '../../utils/response';
 import { isAuthError, requireAuth } from '../../utils/auth';
 import * as modulesService from './modules.service';
 import { getRequestOrigin } from '../../utils/request';
-import { canAccessResearch, findResearchIdOf, isStageOfResearch, researchNotFound } from '../research/research-access';
+import { canAccessResearch, researchAccessFor, findResearchIdOf, isStageOfResearch, researchNotFound } from '../research/research-access';
 
 export const handleModulesRoutes = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const { httpMethod, path } = event;
@@ -20,7 +20,7 @@ export const handleModulesRoutes = async (event: APIGatewayProxyEvent): Promise<
         const reorderMatch = path.match(/^\/modules\/([^\/]+)\/reorder$/);
         if (reorderMatch && httpMethod === 'POST') {
             const researchId = reorderMatch[1];
-            if (!(await canAccessResearch(researchId, decoded.sub))) return researchNotFound(researchId, decoded.sub, path, origin);
+            if (!(await canAccessResearch(researchId, decoded.sub, researchAccessFor(httpMethod)))) return researchNotFound(researchId, decoded.sub, path, origin);
             const result = await modulesService.reorder(researchId, body.modules);
             return success(result, 200, undefined, origin);
         }
@@ -28,7 +28,7 @@ export const handleModulesRoutes = async (event: APIGatewayProxyEvent): Promise<
         if (path === '/modules' && httpMethod === 'POST') {
             const researchId = body.research_id;
             if (typeof researchId !== 'string' || !researchId) return error('research_id is required', 400, undefined, origin);
-            if (!(await canAccessResearch(researchId, decoded.sub))) return researchNotFound(researchId, decoded.sub, path, origin);
+            if (!(await canAccessResearch(researchId, decoded.sub, researchAccessFor(httpMethod)))) return researchNotFound(researchId, decoded.sub, path, origin);
             if (body.stage_id && !(await isStageOfResearch(body.stage_id, researchId))) {
                 return error(`Stage ${body.stage_id} does not belong to research ${researchId}`, 400, undefined, origin);
             }
@@ -41,7 +41,7 @@ export const handleModulesRoutes = async (event: APIGatewayProxyEvent): Promise<
             const id = match[1];
             const researchId = await findResearchIdOf('module', id);
             if (!researchId) return error(`Module ${id} not found`, 404, undefined, origin);
-            if (!(await canAccessResearch(researchId, decoded.sub))) return researchNotFound(researchId, decoded.sub, path, origin);
+            if (!(await canAccessResearch(researchId, decoded.sub, researchAccessFor(httpMethod)))) return researchNotFound(researchId, decoded.sub, path, origin);
             if (httpMethod === 'GET') {
                 const module = await modulesService.getById(id);
                 return success({ module }, 200, undefined, origin);

@@ -18,9 +18,11 @@ vi.mock('../research-tags.service', () => ({
 vi.mock('../research-activity.service', () => ({ listAccessibleResearchActivity: vi.fn().mockResolvedValue([]) }));
 vi.mock('../research-access', () => ({
     canAccessResearch: vi.fn(),
+    researchAccessFor: (httpMethod: string) => (httpMethod === 'GET' ? 'read' : 'write'),
     researchNotFound: vi.fn((researchId: string) => ({ statusCode: 404, body: `Research ${researchId} not found`, headers: {} })),
 }));
 
+import pool from '../../../config/database';
 import { handleResearchRoutes } from '../research.controller';
 import { canAccessResearch } from '../research-access';
 import * as tags from '../research-tags.service';
@@ -34,6 +36,7 @@ describe('research routes — tags, archive and activity access', () => {
         vi.clearAllMocks();
         vi.spyOn(console, 'log').mockImplementation(() => undefined);
         vi.mocked(canAccessResearch).mockResolvedValue(false);
+        vi.mocked(pool.query).mockResolvedValue({ rows: [] } as never);
     });
 
     it.each([
@@ -47,6 +50,23 @@ describe('research routes — tags, archive and activity access', () => {
 
         expect(res.statusCode).toBe(404);
         for (const fn of Object.values(tags)) expect(fn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['GET', '/research/r1/tags', 'read'],
+        ['POST', '/research/r1/archive', 'write'],
+    ])('checks %s %s with %s access', async (method, path, access) => {
+        await request(method, path, { tag: 'x' });
+
+        expect(canAccessResearch).toHaveBeenCalledWith('r1', 's1', access);
+    });
+
+    it('rejects a collaborator permission outside viewer and editor', async () => {
+        vi.mocked(pool.query).mockResolvedValue({ rows: [{ id: 'r1', created_by: 'u1', config: '{}', count: 0 }] } as never);
+        const res = await request('POST', '/research/r1/collaborators', { email: 'a@x.com', permission: 'owner' });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body).toContain('Invalid permission');
     });
 
     it('lists only the activity of studies the user can access', async () => {

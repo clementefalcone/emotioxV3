@@ -14,14 +14,21 @@ export interface ResearchData {
  * Returns { clause, params } to inject into WHERE conditions.
  * Usage: `WHERE r.id = ? AND ${clause}` with [...otherParams, ...params]
  */
-export const buildOwnershipClause = (userId: string, role?: string, alias = 'r') => {
+export type ResearchAccess = 'read' | 'write';
+
+const COLLABORATOR_FILTERS: Record<ResearchAccess, string> = {
+    read: '',
+    write: " AND permission = 'editor'",
+};
+
+export const buildOwnershipClause = (userId: string, role?: string, alias = 'r', access: ResearchAccess = 'read') => {
     if (role === 'admin') {
         return { clause: '1=1', params: [] as string[] };
     }
     const prefix = alias ? `${alias}.` : '';
     const idCol = alias ? `${alias}.id` : 'id';
     return {
-        clause: `(${prefix}created_by = ? OR ${idCol} IN (SELECT research_id FROM research_collaborators WHERE user_id = ?))`,
+        clause: `(${prefix}created_by = ? OR ${idCol} IN (SELECT research_id FROM research_collaborators WHERE user_id = ?${COLLABORATOR_FILTERS[access]}))`,
         params: [userId, userId],
     };
 };

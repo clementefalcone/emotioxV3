@@ -275,7 +275,7 @@ export const update = async (researchId: string, userId: string, data: Partial<R
         throw new Error('No fields to update');
     }
 
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
     values.push(researchId, ...ownership.params);
 
     const query = `
@@ -315,7 +315,7 @@ export const update = async (researchId: string, userId: string, data: Partial<R
 };
 
 export const updateStatus = async (researchId: string, userId: string, status: string, role?: string) => {
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
     // MySQL compatible: no RETURNING clause
     const query = `
     UPDATE researches
@@ -343,7 +343,7 @@ export const updateStatus = async (researchId: string, userId: string, status: s
  * @returns Investigación actualizada
  */
 export const activate = async (researchId: string, userId: string, role?: string) => {
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
     // MySQL compatible: no RETURNING clause
     const query = `
     UPDATE researches
@@ -522,7 +522,7 @@ const cleanupResearchMedia = async (researchId: string): Promise<{ moved: number
 };
 
 export const deleteResearch = async (researchId: string, userId: string, role?: string) => {
-    const ownership = buildOwnershipClause(userId, role, '');
+    const ownership = buildOwnershipClause(userId, role, '', 'write');
     // MySQL compatible: no RETURNING clause
     // Note: MySQL CHECK constraint only allows: 'draft','active','paused','completed','archived'
     // We use 'archived' instead of 'deleted' to comply with the constraint
