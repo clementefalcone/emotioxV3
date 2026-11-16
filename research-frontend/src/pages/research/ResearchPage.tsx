@@ -666,7 +666,7 @@ export const ResearchPage = () => {
                 }
             >
                 <div className="space-y-5">
-                    <p className="text-[13px] text-gray-500">They will receive an email with a link to sign in with Google.</p>
+                    <p className="text-[13px] text-gray-500">They will receive an email with a link to sign in with Google. They will only see the studies you share with them from Share, read-only.</p>
                     <div>
                         <label className="text-[13px] font-medium text-gray-700 mb-1.5 block">Email addresses</label>
                         <div className="flex items-center gap-2">
