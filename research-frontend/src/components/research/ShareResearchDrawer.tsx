@@ -2,6 +2,14 @@ import { useState, useCallback, useEffect } from 'react';
 import { Drawer } from '../ui/Drawer';
 import { UserPlus, X, User, Trash2, Loader2 } from 'lucide-react';
 import apiClient from '../../services/api/client';
+import { CustomSelect } from '../ui/CustomSelect';
+
+const PERMISSION_OPTIONS = [
+    { value: 'editor', label: 'Can edit' },
+    { value: 'viewer', label: 'View only' },
+];
+
+const PERMISSION_LABELS: Record<string, string> = Object.fromEntries(PERMISSION_OPTIONS.map((option) => [option.value, option.label]));
 
 interface Collaborator {
     id: string;
@@ -22,6 +30,7 @@ interface ShareResearchDrawerProps {
 
 export const ShareResearchDrawer = ({ isOpen, onClose, researchId, isOwner }: ShareResearchDrawerProps) => {
     const [email, setEmail] = useState('');
+    const [permission, setPermission] = useState('editor');
     const [loading, setLoading] = useState(false);
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
     const [collabLoading, setCollabLoading] = useState(false);
@@ -59,7 +68,7 @@ export const ShareResearchDrawer = ({ isOpen, onClose, researchId, isOwner }: Sh
         setSuccessMsg(null);
 
         try {
-            await apiClient.post(`/research/${researchId}/collaborators`, { email: trimmed });
+            await apiClient.post(`/research/${researchId}/collaborators`, { email: trimmed, permission });
             setSuccessMsg(`${trimmed} added as collaborator`);
             setEmail('');
             void loadCollaborators();
@@ -69,7 +78,7 @@ export const ShareResearchDrawer = ({ isOpen, onClose, researchId, isOwner }: Sh
         } finally {
             setLoading(false);
         }
-    }, [email, researchId, loadCollaborators]);
+    }, [email, permission, researchId, loadCollaborators]);
 
     const handleRemove = useCallback(async (collaboratorId: string) => {
         setRemovingId(collaboratorId);
@@ -124,6 +133,12 @@ export const ShareResearchDrawer = ({ isOpen, onClose, researchId, isOwner }: Sh
                                 }}
                                 className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 autoFocus
+                            />
+                            <CustomSelect
+                                options={PERMISSION_OPTIONS}
+                                value={permission}
+                                onChange={setPermission}
+                                className="w-32"
                             />
                             <button
                                 type="button"
@@ -184,7 +199,7 @@ export const ShareResearchDrawer = ({ isOpen, onClose, researchId, isOwner }: Sh
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 ml-3 shrink-0">
-                                        <span className="text-xs text-gray-400 capitalize">{collab.permission}</span>
+                                        <span className="text-xs text-gray-400">{PERMISSION_LABELS[collab.permission]}</span>
                                         {isOwner && (
                                             <button
                                                 type="button"
