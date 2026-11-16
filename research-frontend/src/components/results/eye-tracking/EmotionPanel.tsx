@@ -369,10 +369,23 @@ const ScenarioToggle = ({ scenario, onChange }: { scenario: EmotionScenario; onC
   </div>
 );
 
-const DominantEmotionBadge = ({ emotion }: { emotion: EkmanEmotion }) => {
+const PARTICIPANT_TOP_EMOTIONS = 3;
+
+const ParticipantEmotionBadges = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
   const { labels, colors: emotionColors } = useEmotionVocabulary();
-  const colors = emotionColors[emotion];
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors.bg} ${colors.text}`}>{labels[emotion]}</span>;
+  const topEmotions = (Object.entries(distribution) as [EkmanEmotion, number][])
+    .filter(([, pct]) => Math.round(pct) > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, PARTICIPANT_TOP_EMOTIONS);
+  return (
+    <span className="flex flex-wrap gap-1">
+      {topEmotions.map(([emotion, pct]) => (
+        <span key={emotion} className={`px-2 py-0.5 rounded text-xs font-medium ${emotionColors[emotion].bg} ${emotionColors[emotion].text}`}>
+          {labels[emotion]} {Math.round(pct)}%
+        </span>
+      ))}
+    </span>
+  );
 };
 
 export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation; curve?: EmotionCurveTimelineProps }) => {
@@ -457,13 +470,13 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
   );
 };
 
-type EmotionParticipant = { participantId: string; dominantEmotion: EkmanEmotion; sampleCount: number };
+type EmotionParticipant = EmotionAggregation['perParticipant'][number];
 
 const emotionParticipantColumns: DataTableColumn<EmotionParticipant>[] = [
   { key: 'participant', header: 'Participant', render: (p) => <span className="font-mono text-xs text-gray-700">{p.participantId}</span> },
   {
-    key: 'dominant', header: 'Dominant',
-    render: (p) => <DominantEmotionBadge emotion={p.dominantEmotion} />,
+    key: 'emotions', header: 'Emociones',
+    render: (p) => <ParticipantEmotionBadges distribution={p.distribution} />,
   },
   { key: 'samples', header: 'Samples', align: 'right', accessor: 'sampleCount', cellClassName: 'text-gray-500' },
 ];

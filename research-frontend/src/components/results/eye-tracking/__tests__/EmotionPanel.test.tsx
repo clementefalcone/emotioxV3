@@ -91,6 +91,17 @@ describe('EmotionPanel', () => {
         expect(screen.getByText('500')).toBeInTheDocument();
     });
 
+    it('shows each participant top three emotions with their percentages', () => {
+        render(<EmotionPanel emotions={buildEmotions({
+            perParticipant: [{
+                participantId: 'p-1', dominantEmotion: 'neutral', sampleCount: 100,
+                distribution: distributionOf({ neutral: 88.6, sadness: 8.2, surprise: 2.7, joy: 0.5 }),
+            }],
+        })} />);
+        const row = screen.getAllByRole('row').find(r => r.textContent?.includes('p-1')) as HTMLElement;
+        expect(within(row).getAllByText(/\d+%$/).map(chip => chip.textContent)).toEqual(['Neutral 89%', 'Sadness 8%', 'Surprise 3%']);
+    });
+
     it('renders the timeline span and average action units', () => {
         render(<EmotionPanel emotions={buildEmotions()} />);
         expect(screen.getByText('Emotion Timeline')).toBeInTheDocument();
