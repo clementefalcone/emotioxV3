@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildOwnershipClause } from '../research.helpers';
+import { resolveAccessPermission } from '../research.crud';
 
 describe('buildOwnershipClause', () => {
     it('lets an admin see every research', () => {
@@ -15,5 +16,17 @@ describe('buildOwnershipClause', () => {
     it('lets only owners and editor collaborators write', () => {
         expect(buildOwnershipClause('user-1', 'researcher', '', 'write').clause)
             .toBe("(created_by = ? OR id IN (SELECT research_id FROM research_collaborators WHERE user_id = ? AND permission = 'editor'))");
+    });
+});
+
+describe('resolveAccessPermission', () => {
+    it.each([
+        ['viewer', false, 'editor', 'viewer'],
+        ['admin', false, null, 'editor'],
+        ['researcher', true, null, 'editor'],
+        ['researcher', false, 'editor', 'editor'],
+        ['researcher', false, 'viewer', 'viewer'],
+    ])('gives a %s (owner: %s, collaborator: %s) %s access', (role, isOwner, collaboratorPermission, expected) => {
+        expect(resolveAccessPermission(role as string, isOwner as boolean, collaboratorPermission as string | null)).toBe(expected);
     });
 });

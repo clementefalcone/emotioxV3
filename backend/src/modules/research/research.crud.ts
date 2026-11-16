@@ -67,6 +67,12 @@ export const listByEnterprise = async (enterpriseId: string, userId: string, rol
     });
 };
 
+export const resolveAccessPermission = (role: string | undefined, isOwner: boolean, collaboratorPermission: string | null): string => {
+    if (role === 'viewer') return 'viewer';
+    if (role === 'admin' || isOwner) return 'editor';
+    return collaboratorPermission ?? 'viewer';
+};
+
 export const getById = async (researchId: string, userId: string, role?: string) => {
     const ownership = buildOwnershipClause(userId, role);
     // MySQL uses 'config' instead of 'settings', map it to 'settings' for frontend compatibility
@@ -76,15 +82,17 @@ export const getById = async (researchId: string, userId: string, role?: string)
            rtech.name as research_technique_name,
            rtech.default_stages as technique_default_stages,
            e.name as enterprise_name,
-           u.first_name as creator_first_name, u.last_name as creator_last_name, u.email as creator_email
+           u.first_name as creator_first_name, u.last_name as creator_last_name, u.email as creator_email,
+           rc.permission as collaborator_permission
     FROM researches r
     LEFT JOIN research_types rt ON r.research_type_id = rt.id
     LEFT JOIN research_techniques rtech ON r.research_technique_id = rtech.id
     LEFT JOIN enterprises e ON r.enterprise_id = e.id
     LEFT JOIN users u ON r.created_by = u.id
+    LEFT JOIN research_collaborators rc ON rc.research_id = r.id AND rc.user_id = ?
     WHERE r.id = ? AND ${ownership.clause} AND r.deleted_at IS NULL
   `;
-    const result = await pool.query(query, [researchId, ...ownership.params]);
+    const result = await pool.query(query, [userId, researchId, ...ownership.params]);
 
     if (result.rows.length === 0) {
         throw new Error('Research not found');
@@ -112,9 +120,10 @@ export const getById = async (researchId: string, userId: string, role?: string)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { config: _cfg, technique_default_stages: _tds, ...researchWithoutConfig } = rawResearch;
+    const { config: _cfg, technique_default_stages: _tds, collaborator_permission: collaboratorPermission, ...researchWithoutConfig } = rawResearch;
     const research = {
         ...researchWithoutConfig,
+        access_permission: resolveAccessPermission(role, rawResearch.created_by === userId, collaboratorPermission as string | null),
         settings: settings || {},
         technique_default_stages: techniqueDefaultStages || null,
     } as Record<string, unknown>;
