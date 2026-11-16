@@ -20,6 +20,7 @@ import { SidebarSkeleton } from '../ui/Skeleton';
 import { useToast } from '../../hooks/useToast';
 import { researchKeys, useResearch } from '../../hooks/useResearchQuery';
 import { useAuthStore } from '../../stores/auth.store';
+import { useIsResearchReadOnly } from '../../hooks/useIsViewer';
 import { ShareResearchDrawer } from '../research/ShareResearchDrawer';
 import { checkedResearchIds, SINGLETON_STAGES, sortStages, FIXED_STAGES } from './ResearchBuilderSidebar.utils';
 import { StatusModal } from './StatusModal';
@@ -41,9 +42,9 @@ export const ResearchBuilderSidebar = ({ researchId }: ResearchBuilderSidebarPro
     const queryClient = useQueryClient();
     const toast = useToast();
     const logout = useAuthStore((state) => state.logout);
-    const isViewer = useAuthStore((state) => state.user?.role === 'viewer');
 
     const { data: activeResearch, isLoading: loadingResearch } = useResearch(researchId);
+    const isViewer = useIsResearchReadOnly(activeResearch);
     const [showStageSelector, setShowStageSelector] = useState(false);
     const [isAddingStage, setIsAddingStage] = useState(false);
     const [showIatTypeSelector, setShowIatTypeSelector] = useState(false);

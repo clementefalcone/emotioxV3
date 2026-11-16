@@ -50,6 +50,7 @@ export interface Research {
     stages?: Stage[];
     settings?: Record<string, unknown>;
     archived_at?: string | null;
+    access_permission?: 'editor' | 'viewer';
 }
 
 export interface CreateResearchData {

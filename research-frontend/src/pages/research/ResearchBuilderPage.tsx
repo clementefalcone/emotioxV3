@@ -20,6 +20,7 @@ import { ModuleTemplateSelectionModal } from '../../components/research/ModuleTe
 import { LoadingErrorStates } from '../../components/research/LoadingErrorStates';
 import { EyeTrackingLiveTestModal } from '../../components/research/EyeTrackingLiveTestModal';
 import { useToast } from '../../hooks/useToast';
+import { useIsResearchReadOnly } from '../../hooks/useIsViewer';
 import { modulesService } from '../../services/modules.service';
 import { moduleTemplatesService } from '../../services/moduleTemplates.service';
 import { withModuleConditionality, withModuleConditionalityConfig, withModuleHidden, withModuleRequired } from '../../utils/moduleRequired';
@@ -53,6 +54,7 @@ export const ResearchBuilderPage = () => {
 
     // Type assertion para TypeScript
     const typedResearch = research as Research | null;
+    const isReadOnly = useIsResearchReadOnly(typedResearch ?? undefined);
 
     const isAttentionPrediction = typedResearch?.research_type_name === 'Attention Prediction' ||
                                  typedResearch?.research_type_name === "Attention's Prediction";
@@ -516,6 +518,7 @@ export const ResearchBuilderPage = () => {
                         stages={typedResearch.stages || []}
                         onDraftSaveComplete={() => queryClient.invalidateQueries({ queryKey: researchKeys.detail(id!) })}
                         onLiveTest={isEyeTrackingModule ? () => setIsLiveTestOpen(true) : undefined}
+                        isReadOnly={isReadOnly}
                     />
                 </div>
             )}
@@ -547,6 +550,7 @@ export const ResearchBuilderPage = () => {
                     <WebsiteTrackingConfig research={typedResearch} />
                 )}
 
+                <fieldset disabled={isReadOnly} className="contents">
                 {isSettings && <ResearchSettingsView research={typedResearch} />}
 
                 {/* Smart VOC Stage: Show all modules in the same view */}
@@ -641,6 +645,7 @@ export const ResearchBuilderPage = () => {
                         </div>
                     </div>
                 )}
+                </fieldset>
             </div>
 
             {/* Module Template Selection Modal */}

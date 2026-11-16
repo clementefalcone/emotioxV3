@@ -22,6 +22,7 @@ interface ResearchBuilderHeaderProps {
     onModuleJump?: (moduleId: string) => void;
     stages?: Stage[];
     onDraftSaveComplete?: () => void;
+    isReadOnly: boolean;
     onLiveTest?: () => void;
 }
 
@@ -45,6 +46,7 @@ export const ResearchBuilderHeader = ({
     onModuleJump,
     stages = [],
     onDraftSaveComplete,
+    isReadOnly,
     onLiveTest,
 }: ResearchBuilderHeaderProps) => {
     // Support both new generic props and legacy Cognitive Tasks props
@@ -105,7 +107,7 @@ export const ResearchBuilderHeader = ({
                             />
                         </div>
                     )}
-                    {stages.length > 0 && research.id && onDraftSaveComplete && (
+                    {!isReadOnly && stages.length > 0 && research.id && onDraftSaveComplete && (
                         <PendingDraftsDropdown
                             stages={stages}
                             researchId={research.id}
@@ -122,7 +124,7 @@ export const ResearchBuilderHeader = ({
                             Live Test
                         </button>
                     )}
-                    {(activeModule || isMultiModuleStage) && (
+                    {!isReadOnly && (activeModule || isMultiModuleStage) && (
                         <Button onClick={onSave} isLoading={isSaving} disabled={isSaving}>
                             <Save className="h-4 w-4 mr-2" />
                             Save Changes
