@@ -1,4 +1,5 @@
 import { CURVE_AXIS_WIDTH_PX, type ParticipantFacePresence } from './emotionCurve';
+import { formatParticipantLabel } from './participantLabel';
 
 interface FacePresenceBarsProps {
   readonly presence: readonly ParticipantFacePresence[];
@@ -14,7 +15,7 @@ export function FacePresenceBars({ presence, domainMs, markerMs }: FacePresenceB
     <div className="flex max-h-40 flex-col gap-1.5 overflow-y-auto" style={{ paddingLeft: CURVE_AXIS_WIDTH_PX, paddingRight: CURVE_AXIS_WIDTH_PX }}>
       {presence.map(({ participantId, segments }) => (
         <div key={participantId} className="flex flex-col gap-0.5">
-          <span className="truncate font-mono text-[10px] text-gray-400" title={participantId}>{participantId}</span>
+          <span className="truncate font-mono text-[10px] text-gray-400" title={participantId}>{formatParticipantLabel(participantId)}</span>
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200">
             {segments.map(segment => {
               const left = toPercent(segment.startMs, domainMs);

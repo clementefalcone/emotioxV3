@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
 import { CustomSelect } from '../../ui/CustomSelect';
+import { formatParticipantLabel } from './participantLabel';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 import { LATER_FIXATION_WEIGHT, selectFirstFixations, selectFirstLookPoints, selectFixationsWithinWindow } from './firstLook';
 
@@ -75,7 +76,7 @@ export const FirstLookOverlay = ({
         {firstFixations.map(fixation => (
           <span
             key={fixation.participantId}
-            title={`1ra fijación · ${fixation.participantId}`}
+            title={`1ra fijación · ${formatParticipantLabel(fixation.participantId)}`}
             data-testid="first-fixation-marker"
             className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-fuchsia-600 shadow"
             style={{ left: `${fixation.x}%`, top: `${fixation.y}%` }}

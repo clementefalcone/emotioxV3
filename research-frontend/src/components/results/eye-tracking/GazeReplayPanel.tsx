@@ -24,6 +24,7 @@ import { drawEmotionStrip, type EmotionStripSeries } from './drawEmotionStrip';
 import { buildEmotionCurve, CURVE_EMOTIONS, type ParticipantEmotionSample } from './emotionCurve';
 import { EMOTION_VOCABULARIES, type EmotionScenario } from './emotionScenario';
 import { EmotionScenarioToggle } from './EmotionScenarioToggle';
+import { formatParticipantLabel } from './participantLabel';
 import { WebcamRecordingPlayer } from './WebcamRecordingPlayer';
 
 const ALL_PARTICIPANTS = '__all__';
@@ -165,7 +166,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     () => (isAllParticipants ? tracks : selectedTrack ? [selectedTrack] : []),
     [isAllParticipants, tracks, selectedTrack],
   );
-  const subjectLabel = isAllParticipants ? `Todos (${tracks.length})` : selectedTrack?.participantId ?? '';
+  const subjectLabel = isAllParticipants ? `Todos (${tracks.length})` : (selectedTrack ? formatParticipantLabel(selectedTrack.participantId) : '');
   const [view, setView] = useState<ReplayView>('heatmap');
   const heatWindowOptions = HEAT_WINDOW_OPTIONS_BY_SCENARIO[scenario];
   const [chosenHeatWindow, setChosenHeatWindow] = useState(ACCUMULATED_HEAT_OPTION.value);
@@ -290,7 +291,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
     recorder.ondataavailable = event => { if (event.data.size > 0) chunks.push(event.data); };
     recorder.onstop = () => {
       const viewName = view === 'heatmap' ? `heatmap-${heatWindowOption.value}` : 'replay';
-      downloadBlob(new Blob(chunks, { type: videoFormat.mimeType }), `gaze-${viewName}-${isAllParticipants ? 'todos' : participantId}.${videoFormat.extension}`);
+      downloadBlob(new Blob(chunks, { type: videoFormat.mimeType }), `gaze-${viewName}-${isAllParticipants ? 'todos' : formatParticipantLabel(participantId)}.${videoFormat.extension}`);
       recorderRef.current = null;
       setIsRecording(false);
     };
@@ -326,7 +327,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
             onChange={value => setChosenParticipantId(value)}
             options={[
               { value: ALL_PARTICIPANTS, label: `Todos (${tracks.length})` },
-              ...tracks.map(track => ({ value: track.participantId, label: track.participantId })),
+              ...tracks.map(track => ({ value: track.participantId, label: formatParticipantLabel(track.participantId) })),
             ]}
             disabled={isRecording}
           />
@@ -408,7 +409,7 @@ export function GazeReplayPanel({ imageUrl, fixations, gazeTimeline, zones, webc
           {tracks.map((track, index) => (
             <span key={track.participantId} className="flex items-center gap-1 text-[11px] text-gray-500">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getParticipantColor(index) }} />
-              {track.participantId}
+              {formatParticipantLabel(track.participantId)}
             </span>
           ))}
         </div>

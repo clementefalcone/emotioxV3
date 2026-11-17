@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
+import { formatParticipantLabel } from './participantLabel';
 
 const SEQUENCE_COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
@@ -78,7 +79,7 @@ export const SequencePanel = ({
           {participantSequences.map(ps => (
             <div key={ps.participantId} className="flex items-center gap-2">
               <span className="text-[10px] font-mono text-gray-400 w-24 truncate shrink-0" title={ps.participantId}>
-                {ps.participantId}
+                {formatParticipantLabel(ps.participantId)}
               </span>
               <div className="flex items-center gap-0.5 flex-wrap">
                 {ps.sequence.map((aoi, i) => (

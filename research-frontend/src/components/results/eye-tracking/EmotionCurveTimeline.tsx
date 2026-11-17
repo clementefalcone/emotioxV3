@@ -4,6 +4,7 @@ import { CustomSelect } from '../../ui/CustomSelect';
 import { useEmotionVocabulary } from './emotionScenario';
 import { EmotionCurveChart } from './EmotionCurveChart';
 import { FacePresenceBars } from './FacePresenceBars';
+import { formatParticipantLabel } from './participantLabel';
 import { countZoneOccupancy, type ParticipantTrack, type ReplayZone } from './gazeReplay';
 import {
   buildEmotionCurve,
@@ -152,7 +153,7 @@ export function EmotionCurveTimeline({ samples, tracks, zones, markerMs: control
             onChange={setParticipantId}
             options={[
               { value: ALL_PARTICIPANTS, label: `Todos (${participantIds.length})` },
-              ...participantIds.map(id => ({ value: id, label: id })),
+              ...participantIds.map(id => ({ value: id, label: formatParticipantLabel(id) })),
             ]}
             className="w-48"
           />

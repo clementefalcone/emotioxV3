@@ -11,6 +11,7 @@ import {
   type EmotionPresence,
   type EmotionScenario,
 } from './emotionScenario';
+import { formatParticipantLabel } from './participantLabel';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { ActionUnitFace } from './ActionUnitFace';
 import { AVATAR_TOOLTIP_WIDTH_PX, EmotionAvatarBadge } from './EmotionAvatarBadge';
@@ -462,7 +463,7 @@ export const EmotionPanel = ({ emotions, curve, scenario: sharedScenario, onScen
 type EmotionParticipant = EmotionAggregation['perParticipant'][number];
 
 const emotionParticipantColumns: DataTableColumn<EmotionParticipant>[] = [
-  { key: 'participant', header: 'Participant', render: (p) => <span className="font-mono text-xs text-gray-700">{p.participantId}</span> },
+  { key: 'participant', header: 'Participant', render: (p) => <span className="font-mono text-xs text-gray-700">{formatParticipantLabel(p.participantId)}</span> },
   {
     key: 'emotions', header: 'Emociones',
     render: (p) => <ParticipantEmotionBadges distribution={p.distribution} />,
