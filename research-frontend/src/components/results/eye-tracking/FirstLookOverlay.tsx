@@ -2,7 +2,13 @@ import { useState, useMemo } from 'react';
 import { HeatmapRenderer } from '../cognitive-task/components/HeatmapRenderer';
 import { CustomSelect } from '../../ui/CustomSelect';
 import type { EyeTrackingStimulus } from '../../../services/analytics.service';
-import { LATER_FIXATION_WEIGHT, selectFirstFixations, selectFirstLookPoints } from './firstLook';
+import { LATER_FIXATION_WEIGHT, selectFirstFixations, selectFirstLookPoints, selectFixationsWithinWindow } from './firstLook';
+
+const FULL_VIEWING = 'all';
+const ANALYSIS_WINDOW_OPTIONS = [
+  { value: FULL_VIEWING, label: 'Full viewing' },
+  ...[1, 3, 5, 10].map(seconds => ({ value: String(seconds), label: `First ${seconds} sec` })),
+];
 
 export const FirstLookOverlay = ({
   imageUrl,
@@ -14,10 +20,14 @@ export const FirstLookOverlay = ({
   excludedParticipants?: Set<string>;
 }) => {
   const [count, setCount] = useState(1);
+  const [analysisWindow, setAnalysisWindow] = useState(FULL_VIEWING);
 
   const includedFixations = useMemo(
-    () => excludedParticipants?.size ? fixations.filter(f => !excludedParticipants.has(f.participantId)) : fixations,
-    [fixations, excludedParticipants],
+    () => selectFixationsWithinWindow(
+      excludedParticipants?.size ? fixations.filter(f => !excludedParticipants.has(f.participantId)) : fixations,
+      analysisWindow === FULL_VIEWING ? null : Number(analysisWindow),
+    ),
+    [fixations, excludedParticipants, analysisWindow],
   );
 
   const heatmapData = useMemo(() => selectFirstLookPoints(includedFixations, count), [includedFixations, count]);
@@ -34,6 +44,14 @@ export const FirstLookOverlay = ({
             options={[1, 2, 3, 5, 10].map(n => ({ value: String(n), label: `${n} fixation${n > 1 ? 's' : ''}` }))}
             value={String(count)}
             onChange={v => setCount(Number(v))}
+          />
+        </div>
+        <label className="text-xs text-gray-500">within</label>
+        <div className="w-36">
+          <CustomSelect
+            options={ANALYSIS_WINDOW_OPTIONS}
+            value={analysisWindow}
+            onChange={setAnalysisWindow}
           />
         </div>
         <span className="text-xs text-gray-400">

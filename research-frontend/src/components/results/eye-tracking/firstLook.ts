@@ -2,6 +2,12 @@ import type { EyeTrackingStimulus } from '../../../services/analytics.service';
 
 export const LATER_FIXATION_WEIGHT = 0.35;
 
+export const selectFixationsWithinWindow = (
+  fixations: EyeTrackingStimulus['fixations'],
+  windowSeconds: number | null,
+): EyeTrackingStimulus['fixations'] =>
+  windowSeconds === null ? fixations : fixations.filter(fixation => fixation.timestamp < windowSeconds * 1000);
+
 export const selectFirstLookPoints = (
   fixations: EyeTrackingStimulus['fixations'],
   count: number,

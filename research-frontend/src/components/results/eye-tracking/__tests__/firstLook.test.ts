@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LATER_FIXATION_WEIGHT, selectFirstFixations, selectFirstLookPoints } from '../firstLook';
+import { LATER_FIXATION_WEIGHT, selectFirstFixations, selectFirstLookPoints, selectFixationsWithinWindow } from '../firstLook';
 
 const fixation = (participantId: string, timestamp: number, x: number) =>
   ({ participantId, timestamp, x, y: 50, duration: 100 }) as Parameters<typeof selectFirstLookPoints>[0][number];
@@ -19,5 +19,16 @@ describe('selectFirstFixations', () => {
   it('returns only the earliest fixation of each participant, whatever the order received', () => {
     const firsts = selectFirstFixations([fixation('p1', 300, 3), fixation('p1', 100, 1), fixation('p2', 50, 9), fixation('p2', 80, 8)]);
     expect(firsts.map(f => [f.participantId, f.x])).toEqual([['p1', 1], ['p2', 9]]);
+  });
+});
+
+describe('selectFixationsWithinWindow', () => {
+  it('keeps only fixations that start inside the first N seconds of viewing', () => {
+    const kept = selectFixationsWithinWindow([fixation('p1', 999, 1), fixation('p1', 1000, 2), fixation('p2', 4000, 3)], 1);
+    expect(kept.map(f => f.x)).toEqual([1]);
+  });
+
+  it('keeps every fixation for the full viewing', () => {
+    expect(selectFixationsWithinWindow([fixation('p1', 9000, 1)], null)).toHaveLength(1);
   });
 });
