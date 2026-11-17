@@ -16,6 +16,7 @@ import { ActionUnitFace } from './ActionUnitFace';
 import { AVATAR_TOOLTIP_WIDTH_PX, EmotionAvatarBadge } from './EmotionAvatarBadge';
 import { computeEmScore } from './emScore';
 import { EmotionCurveTimeline, type EmotionCurveTimelineProps } from './EmotionCurveTimeline';
+import { EmotionScenarioToggle } from './EmotionScenarioToggle';
 
 const PRESENCE_BADGES: Record<EmotionPresence, { label: string; className: string }> = {
   active: { label: 'Activa', className: 'bg-slate-800 text-white' },
@@ -348,27 +349,6 @@ const EmScoreCard = ({ meanIntensity }: { meanIntensity: Record<EkmanEmotion, nu
   );
 };
 
-const SCENARIO_OPTIONS: readonly { value: EmotionScenario; label: string }[] = [
-  { value: 'ux', label: 'UX/UI' },
-  { value: 'fmcg', label: 'FMCG' },
-];
-
-const ScenarioToggle = ({ scenario, onChange }: { scenario: EmotionScenario; onChange: (scenario: EmotionScenario) => void }) => (
-  <div role="group" aria-label="Nombres de emociones" className="ml-auto flex rounded-full border border-gray-200 p-0.5 text-xs">
-    {SCENARIO_OPTIONS.map(option => (
-      <button
-        key={option.value}
-        type="button"
-        aria-pressed={scenario === option.value}
-        onClick={() => onChange(option.value)}
-        className={`rounded-full px-3 py-1 font-medium transition-colors ${scenario === option.value ? 'bg-[#006AFF] text-white' : 'text-slate-500 hover:text-slate-700'}`}
-      >
-        {option.label}
-      </button>
-    ))}
-  </div>
-);
-
 const PARTICIPANT_TOP_EMOTIONS = 3;
 
 const ParticipantEmotionBadges = ({ distribution }: { distribution: Record<EkmanEmotion, number> }) => {
@@ -388,8 +368,17 @@ const ParticipantEmotionBadges = ({ distribution }: { distribution: Record<Ekman
   );
 };
 
-export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation; curve?: EmotionCurveTimelineProps }) => {
-  const [scenario, setScenario] = useState<EmotionScenario>('ux');
+interface EmotionPanelProps {
+  readonly emotions: EmotionAggregation;
+  readonly curve?: EmotionCurveTimelineProps;
+  readonly scenario?: EmotionScenario;
+  readonly onScenarioChange?: (scenario: EmotionScenario) => void;
+}
+
+export const EmotionPanel = ({ emotions, curve, scenario: sharedScenario, onScenarioChange }: EmotionPanelProps) => {
+  const [ownScenario, setOwnScenario] = useState<EmotionScenario>('ux');
+  const scenario = sharedScenario ?? ownScenario;
+  const changeScenario = onScenarioChange ?? setOwnScenario;
   if (!emotions.enabled) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
@@ -423,7 +412,7 @@ export const EmotionPanel = ({ emotions, curve }: { emotions: EmotionAggregation
         <span className="text-xs text-gray-500">
           Emoción dominante &middot; {emotions.totalSamples.toLocaleString()} muestras &middot; {(emotions.avgConfidence * 100).toFixed(0)}% confianza promedio
         </span>
-        <ScenarioToggle scenario={scenario} onChange={setScenario} />
+        <EmotionScenarioToggle scenario={scenario} onChange={changeScenario} />
       </div>
 
       {/* EmScore */}

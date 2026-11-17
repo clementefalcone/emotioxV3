@@ -167,6 +167,24 @@ export const collectHeatPoints = (
   }));
 };
 
+export type HeatWindow = { readonly scope: 'accumulated' } | { readonly scope: 'last' | 'first'; readonly ms: number };
+
+export const collectWindowHeatPoints = (
+  tracks: readonly Pick<ParticipantTrack, 'fixations'>[],
+  timeMs: number,
+  heatWindow: HeatWindow,
+): HeatPoint[] => {
+  if (heatWindow.scope === 'accumulated') return collectHeatPoints(tracks, timeMs, null);
+  if (heatWindow.scope === 'last') return collectHeatPoints(tracks, timeMs, heatWindow.ms);
+  return collectHeatPoints(tracks, Math.min(timeMs, heatWindow.ms), null);
+};
+
+export const resolveHeatReferenceTimeMs = (heatWindow: HeatWindow, durationMs: number): number | null => {
+  if (heatWindow.scope === 'accumulated') return durationMs;
+  if (heatWindow.scope === 'first') return Math.min(durationMs, heatWindow.ms);
+  return null;
+};
+
 export const countZoneOccupancy = (
   tracks: readonly ParticipantTrack[],
   zones: readonly ReplayZone[],

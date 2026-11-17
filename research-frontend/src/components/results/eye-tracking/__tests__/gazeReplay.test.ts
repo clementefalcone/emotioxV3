@@ -5,6 +5,8 @@ import {
   buildGridZones,
   buildParticipantTracks,
   collectHeatPoints,
+  collectWindowHeatPoints,
+  resolveHeatReferenceTimeMs,
   countZoneOccupancy,
   findTrackPoint,
   getTrackDurationMs,
@@ -124,5 +126,27 @@ describe('gazeReplay', () => {
   it('weakens heat from imprecise gaze', () => {
     const tracks = [{ participantId: 'p1', fixations: [{ x: 5, y: 5, timestamp: 0, duration: 1000, uncertainty: { x: 5, y: 5 } }], samples: [] }];
     expect(collectHeatPoints(tracks, 1000, null)[0].value).toBeCloseTo(500);
+  });
+});
+
+describe('collectWindowHeatPoints', () => {
+  const tracks = [{ fixations }];
+
+  it('freezes the heat at the end of the first-seconds window', () => {
+    expect(collectWindowHeatPoints(tracks, 5000, { scope: 'first', ms: 500 })).toEqual([{ x: 20, y: 50, value: 300 }]);
+  });
+
+  it('grows the first-seconds heat while playback is still inside the window', () => {
+    expect(collectWindowHeatPoints(tracks, 250, { scope: 'first', ms: 500 })).toEqual([{ x: 20, y: 50, value: 150 }]);
+  });
+
+  it('keeps the last-seconds window moving with playback', () => {
+    expect(collectWindowHeatPoints(tracks, 1100, { scope: 'last', ms: 500 })).toEqual(collectHeatPoints(tracks, 1100, 500));
+  });
+
+  it('normalizes first-seconds heat against the end of its window', () => {
+    expect(resolveHeatReferenceTimeMs({ scope: 'first', ms: 3000 }, 10000)).toBe(3000);
+    expect(resolveHeatReferenceTimeMs({ scope: 'first', ms: 3000 }, 2000)).toBe(2000);
+    expect(resolveHeatReferenceTimeMs({ scope: 'last', ms: 3000 }, 10000)).toBeNull();
   });
 });

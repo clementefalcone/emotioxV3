@@ -12,6 +12,7 @@ import { AOIDrawer, type AOI } from '../../research/AOIDrawer';
 import { modulesService } from '../../../services/modules.service';
 import { useToast } from '../../../hooks/useToast';
 import { EmotionPanel } from './EmotionPanel';
+import type { EmotionScenario } from './emotionScenario';
 import { SequencePanel } from './SequencePanel';
 import { TransparencyMap } from './TransparencyMap';
 import { FirstLookOverlay } from './FirstLookOverlay';
@@ -62,6 +63,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
   const hasVideoGaze = isVideo && stimulus.gazeTimeline && stimulus.gazeTimeline.length > 0;
   const defaultViewMode: ViewMode = hasVideoGaze ? 'video' : 'heatmap';
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
+  const [emotionScenario, setEmotionScenario] = useState<EmotionScenario>('ux');
   const [densityMode, setDensityMode] = useState<'density' | 'firstlook' | 'peak'>('density');
   const [imageContainerRef, setImageContainerRef] = useState<HTMLDivElement | null>(null);
   const [heatmapSettings, setHeatmapSettings] = useState<HeatmapSettings>(DEFAULT_HEATMAP_SETTINGS);
@@ -606,6 +608,8 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
             emotionSamples={includedEmotionSamples}
             heatmapSettings={heatmapSettings}
             heatmapControls={<HeatmapSliders settings={heatmapSettings} onChange={setHeatmapSettings} />}
+            scenario={emotionScenario}
+            onScenarioChange={setEmotionScenario}
           />
         ) : viewMode === 'comparison' && shownStimulus.aois.length > 0 ? (
           <ShelfComparison
@@ -615,7 +619,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
         ) : viewMode === 'video' && stimulus.gazeTimeline ? (
           <VideoGazePlayer videoUrl={stimulus.stimulusUrl} gazeTimeline={stimulus.gazeTimeline} curve={stimulus.emotions.enabled ? emotionCurve : undefined} />
         ) : viewMode === 'emotions' ? (
-          <EmotionPanel emotions={shownStimulus.emotions} curve={emotionCurve} />
+          <EmotionPanel emotions={shownStimulus.emotions} curve={emotionCurve} scenario={emotionScenario} onScenarioChange={setEmotionScenario} />
         ) : viewMode === 'prediction' ? (
           <PredictionPanel stimulus={stimulus} researchId={researchId} onPredictionComplete={onRefresh} displayImageUrl={effectiveStimulusUrl} />
         ) : stimulus.stimulusUrl ? (
