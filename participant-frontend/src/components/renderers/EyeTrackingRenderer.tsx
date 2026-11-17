@@ -55,6 +55,8 @@ import {
     V3_HEATMAP_ENABLED,
     getDeviceType,
     extractConfig,
+    isCalibrationAccurate,
+    MAX_CALIBRATION_ATTEMPTS,
 } from './eye-tracking/types';
 
 // V3 attention inference engine
@@ -68,6 +70,7 @@ import { FacePositionPhase } from './eye-tracking/FacePositionPhase';
 import { FACE_DISTANCE_RANGES_CM, estimateFaceDistanceCm } from './eye-tracking/facePosition';
 import { PreparingPhase } from './eye-tracking/PreparingPhase';
 import { CalibrationPhase } from './eye-tracking/CalibrationPhase';
+import { CalibrationFailedPhase } from './eye-tracking/CalibrationFailedPhase';
 import { ViewingPhase } from './eye-tracking/ViewingPhase';
 import { buildShelfColumns, orderShelfColumns } from './eye-tracking/shelfLayout';
 import { CompletePhase } from './eye-tracking/CompletePhase';
@@ -93,7 +96,7 @@ function fisherYatesShuffle<T>(arr: T[]): T[] {
 // Component
 // ---------------------------------------------------------------------------
 
-export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module, onComplete }) => {
+export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module, onComplete, onDisqualify }) => {
     const { t } = useTranslation();
     const { saveResponse } = useParticipantStore();
     const recordConsent = useConsentRecorder('eye_tracking');
@@ -103,7 +106,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     const deviceType = useMemo(() => getDeviceType(), []);
 
-    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
+    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, calibrationFailureAction, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
     const isShelf = displayMode === 'shelf';
     const shelfColumnOrder = useMemo(() => {
         const positions = Array.from({ length: shelfItems }, (_, column) => column);
@@ -133,6 +136,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     const gazePosRef = useRef<[number, number]>([0, 0]);
     const [lowResWarning, setLowResWarning] = useState(false);
     const calibrationDistancesCmRef = useRef<number[]>([]);
+    const [failedCalibrationCount, setFailedCalibrationCount] = useState(0);
 
     // --- Gaze engines (both hooks always called — React rules — only active engine is started) ---
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -848,6 +852,16 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 calibrationResidualsRef.current = hybridResidualsFromTrainedPoints(trainedPoints, calibrationRect);
             }
             calibrationRmsePxRef.current = (useMP ? predictor.cvRmsePx : null) ?? hybridCalibrationRmsePx(calibrationResidualsRef.current);
+            if (calibrationFailureAction && !isCalibrationAccurate(calibrationRmsePxRef.current, window.innerWidth)) {
+                const failedCount = failedCalibrationCount + 1;
+                setFailedCalibrationCount(failedCount);
+                if (failedCount >= MAX_CALIBRATION_ATTEMPTS) {
+                    discardAfterFailedCalibration();
+                    return;
+                }
+                setPhase('calibration-failed');
+                return;
+            }
             rememberCalibration(module.id, { residuals: calibrationResidualsRef.current, rmsePx: calibrationRmsePxRef.current, predictor: mpGaze.predictorRef.current });
             gaze.resetFrameStats();
             gazePointsRef.current = [];
@@ -870,6 +884,15 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         onSequenceComplete: finishCalibration,
     });
 
+    const retryCalibration = () => {
+        mpGaze.resetCalibration();
+        calibrationSequence.restartSequence();
+        calibrationResidualsRef.current = [];
+        calibrationRmsePxRef.current = null;
+        calibrationDistancesCmRef.current = [];
+        setPhase('calibration');
+    };
+
     const handleConsentAccept = useCallback(async (consentText: string, isWebcamRecordingAccepted: boolean) => {
         await recordConsent('accepted', consentText);
         isWebcamRecordingAcceptedRef.current = isWebcamRecordingAccepted;
@@ -886,6 +909,17 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
         onComplete?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gaze/faceEmotions are unstable object literals
     }, [blaze, stopCamera, onComplete]);
+
+    const discardAfterFailedCalibration = () => {
+        if (calibrationFailureAction === 'skip-module' || !onDisqualify) {
+            handleRejectSession();
+            return;
+        }
+        gaze.stop();
+        faceEmotions.stop();
+        stopCamera();
+        onDisqualify();
+    };
 
     const handleConsentDecline = useCallback((consentText: string) => {
         recordConsent('declined', consentText).catch((err: unknown) => console.error(err));
@@ -976,6 +1010,13 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                     interruptionCount={calibrationSequence.interruptionCount}
                 />
             </>
+        );
+    } else if (phase === 'calibration-failed') {
+        phaseContent = (
+            <CalibrationFailedPhase
+                remainingAttempts={MAX_CALIBRATION_ATTEMPTS - failedCalibrationCount}
+                onRetry={retryCalibration}
+            />
         );
     } else if (phase === 'viewing') {
         phaseContent = (

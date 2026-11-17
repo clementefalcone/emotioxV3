@@ -377,6 +377,7 @@ export const ResearchBuilderPage = () => {
                     injectVirtual('test-title', 'input', 'Test title');
                     injectVirtual('aois', 'hidden', 'Areas of Interest');
                     injectVirtual('webcam-recording', 'checkbox', 'Webcam recording');
+                    injectVirtual('calibration-failure-action', 'radio', 'Calibration failure action');
 
                     // Preserve the correct backend structure: { structure: { components: [...] } }
                     const config = {

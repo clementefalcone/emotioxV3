@@ -15,9 +15,10 @@ import { getComponentText, toStableString } from '../../utils/moduleComponent';
 interface DynamicStepProps {
     module: ModuleConfig;
     onComplete?: () => void;
+    onDisqualify?: () => void;
 }
 
-export const DynamicStep: React.FC<DynamicStepProps> = ({ module, onComplete }) => {
+export const DynamicStep: React.FC<DynamicStepProps> = ({ module, onComplete, onDisqualify }) => {
     const { getResponse, saveResponse } = useParticipantStore();
 
     /**
@@ -197,7 +198,7 @@ export const DynamicStep: React.FC<DynamicStepProps> = ({ module, onComplete }) 
 
     // If Eye Tracking, use eye tracking renderer
     if (isEyeTracking) {
-        return <EyeTrackingRenderer key={module.id} module={module} onComplete={onComplete} />;
+        return <EyeTrackingRenderer key={module.id} module={module} onComplete={onComplete} onDisqualify={onDisqualify} />;
     }
 
     // Otherwise, use generic dynamic rendering (for Welcome, Thank You, etc.)

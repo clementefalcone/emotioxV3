@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractConfig } from '../types';
+import { extractConfig, isCalibrationAccurate } from '../types';
 import type { ModuleConfig } from '../../../../types/module';
 
 /** Helper to build a minimal module config with given components. */
@@ -160,5 +160,35 @@ describe('extractConfig — shelf mode fields', () => {
         const config = extractConfig(mod);
 
         expect(config.displayMode).toBe('stand_alone');
+    });
+});
+
+describe('extractConfig — calibration failure action', () => {
+    it('applies no calibration rule to modules created before the setting existed', () => {
+        expect(extractConfig(makeModule([])).calibrationFailureAction).toBeNull();
+    });
+
+    it('reads disqualify-study from new modules', () => {
+        const mod = makeModule([{ id: 'calibration-failure-action', type: 'radio', value: 'disqualify-study' }]);
+        expect(extractConfig(mod).calibrationFailureAction).toBe('disqualify-study');
+    });
+
+    it('reads skip-module when the researcher chose it', () => {
+        const mod = makeModule([{ id: 'calibration-failure-action', type: 'radio', value: 'skip-module' }]);
+        expect(extractConfig(mod).calibrationFailureAction).toBe('skip-module');
+    });
+});
+
+describe('isCalibrationAccurate', () => {
+    it('accepts RMSE up to 25% of the viewport width', () => {
+        expect(isCalibrationAccurate(250, 1000)).toBe(true);
+    });
+
+    it('rejects RMSE above 25% of the viewport width', () => {
+        expect(isCalibrationAccurate(251, 1000)).toBe(false);
+    });
+
+    it('rejects a calibration without RMSE', () => {
+        expect(isCalibrationAccurate(null, 1000)).toBe(false);
     });
 });

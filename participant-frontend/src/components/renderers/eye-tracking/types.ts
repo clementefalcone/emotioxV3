@@ -12,6 +12,7 @@ import {
 export interface EyeTrackingRendererProps {
     module: ModuleConfig;
     onComplete?: () => void;
+    onDisqualify?: () => void;
 }
 
 export interface Fixation {
@@ -33,9 +34,17 @@ export interface ShelfConfig {
  * If validation fails, loops back to calibration (re-calibrate).
  * face: live guide circle driven by MediaPipe landmarks; continues only when the face is centered.
  */
-export type ETPhase = 'consent' | 'face' | 'preparing' | 'calibration' | 'viewing' | 'complete';
+export type ETPhase = 'consent' | 'face' | 'preparing' | 'calibration' | 'calibration-failed' | 'viewing' | 'complete';
 
 export const TOTAL_STEPS = 3;
+
+export const MAX_CALIBRATION_ATTEMPTS = 3;
+export const MAX_CALIBRATION_ERROR_RATIO = 0.25;
+
+export type CalibrationFailureAction = 'disqualify-study' | 'skip-module';
+
+export const isCalibrationAccurate = (rmsePx: number | null, viewportWidthPx: number): boolean =>
+    rmsePx !== null && viewportWidthPx > 0 && rmsePx / viewportWidthPx <= MAX_CALIBRATION_ERROR_RATIO;
 
 /**
  * Gaze engine selection.
@@ -163,6 +172,11 @@ export const extractConfig = (module: ModuleConfig) => {
     const attentionMeasurement = components.find(c => c.id === 'attention-measurement');
     const hasAttentionMeasurement = attentionMeasurement ? getComponentText(attentionMeasurement) === 'true' : true;
 
+    const calibrationFailureComp = components.find(c => c.id === 'calibration-failure-action');
+    const calibrationFailureText = calibrationFailureComp ? getComponentText(calibrationFailureComp) : '';
+    const calibrationFailureAction: CalibrationFailureAction | null =
+        calibrationFailureText === 'skip-module' || calibrationFailureText === 'disqualify-study' ? calibrationFailureText : null;
+
     // Detect video stimulus (shelf mode is always images)
     const isVideo = displayMode !== 'shelf' && (/\.(mp4|webm|ogg)$/i.test(stimulusUrl) || stimulusUrl.includes('video/'));
 
@@ -179,5 +193,5 @@ export const extractConfig = (module: ModuleConfig) => {
         }
     }
 
-    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, hasAttentionMeasurement, isVideo, hasUploadError };
+    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, hasAttentionMeasurement, calibrationFailureAction, isVideo, hasUploadError };
 };

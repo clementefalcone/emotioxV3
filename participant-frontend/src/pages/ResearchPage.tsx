@@ -111,6 +111,11 @@ export const ResearchPage = () => {
     setTimeout(() => { window.location.href = url; }, 1500);
   }, [participantId]);
 
+  const disqualifyParticipant = useCallback(() => {
+    if (backlinks.disqualified) { redirectTo(backlinks.disqualified); return; }
+    setMobileRestriction(t('errors.disqualified', 'You do not qualify for this survey.'));
+  }, [backlinks, redirectTo, t]);
+
   // Initialize device collector
   useDeviceCollector();
 
@@ -471,6 +476,7 @@ export const ResearchPage = () => {
     setShowRestartOption,
     setMobileRestriction,
     redirectTo,
+    disqualifyParticipant,
   });
 
   useEnterToContinue((shouldShowButton(currentModule) || showRestartOption) && !buttonDisabled, handleNext);
@@ -569,7 +575,7 @@ export const ResearchPage = () => {
             message={getComponentText(currentModule.structure.components?.find(c => c.id?.includes('message')))}
           />
         ) : currentModule && currentModule.id !== 'demographics' ? (
-          <DynamicStep module={currentModule} onComplete={handleNext} />
+          <DynamicStep module={currentModule} onComplete={handleNext} onDisqualify={disqualifyParticipant} />
         ) : currentModule && currentModule.id === 'demographics' ? (
           <DemographicsStep module={currentModule} onComplete={handleNext} />
         ) : showRestartOption ? (

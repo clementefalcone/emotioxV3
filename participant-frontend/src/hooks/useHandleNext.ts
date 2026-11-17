@@ -32,6 +32,7 @@ interface UseHandleNextParams {
   setShowRestartOption: (value: boolean) => void;
   setMobileRestriction: (value: string | null) => void;
   redirectTo: (url: string) => void;
+  disqualifyParticipant: () => void;
 }
 
 export const useHandleNext = ({
@@ -50,6 +51,7 @@ export const useHandleNext = ({
   setShowRestartOption,
   setMobileRestriction,
   redirectTo,
+  disqualifyParticipant,
 }: UseHandleNextParams) => {
   const { t } = useTranslation();
 
@@ -88,9 +90,7 @@ export const useHandleNext = ({
         const choices = resolveScreenerChoiceOptions(components);
         const selected = choices.find(c => c.id === choiceValue);
         if (selected?.eligibility === 'Disqualify') {
-          const bl = backlinks;
-          if (bl.disqualified) { redirectTo(bl.disqualified); return; }
-          setMobileRestriction(t('errors.disqualified', 'You do not qualify for this survey.'));
+          disqualifyParticipant();
           return;
         }
       }
@@ -152,8 +152,7 @@ export const useHandleNext = ({
               setMobileRestriction(t('errors.quotaFull', 'This survey has reached its participant limit for your profile.'));
               return;
             } else {
-              if (bl.disqualified) { redirectTo(bl.disqualified); return; }
-              setMobileRestriction(t('errors.disqualified', 'You do not qualify for this survey.'));
+              disqualifyParticipant();
               return;
             }
           }
@@ -294,7 +293,7 @@ export const useHandleNext = ({
       const errorMessage = result.errors.map(e => e.message).join('\n');
       alert(errorMessage);
     }
-  }, [isPreviewMode, participantId, researchId, currentModule, getResponsesByModule, goNext, showRestartOption, startNewSession, clearAllResponses, currentStep, backlinks, t, redirectTo, setSubmitting, setShowRestartOption, setMobileRestriction]);
+  }, [isPreviewMode, participantId, researchId, currentModule, getResponsesByModule, goNext, showRestartOption, startNewSession, clearAllResponses, currentStep, backlinks, t, redirectTo, setSubmitting, setShowRestartOption, setMobileRestriction, disqualifyParticipant]);
 
   return handleNext;
 };

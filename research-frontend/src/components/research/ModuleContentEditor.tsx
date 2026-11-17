@@ -590,6 +590,24 @@ export const ModuleContentEditor = ({
                                     Each participant opts in at consent. Without consent the session is saved without video.
                                 </p>
                             </div>
+                            <div className="space-y-1">
+                                <span className="block text-sm font-medium text-gray-700">After 3 failed calibrations</span>
+                                {[
+                                    { value: 'disqualify-study', label: 'Disqualify from the study' },
+                                    { value: 'skip-module', label: 'Skip only this eye tracking task' },
+                                ].map(option => (
+                                    <label key={option.value} className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="calibration-failure-action"
+                                            className="border-gray-300 text-blue-600 h-4 w-4"
+                                            checked={componentValues['calibration-failure-action'] === option.value}
+                                            onChange={() => onValueChange('calibration-failure-action', option.value)}
+                                        />
+                                        {option.label}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                         {/* Priming display time as tab buttons */}
                         {primingComp && (

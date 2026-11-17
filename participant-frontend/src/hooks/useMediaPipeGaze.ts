@@ -90,12 +90,12 @@ export function useMediaPipeGaze(
 
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const rffConfig = options?.rff;
-  const predictorRef = useRef<GazePredictor>(
-    options?.predictor ?? new RidgeGazePredictor(
-      options?.ridgeLambda ?? DEFAULT_RIDGE_LAMBDA,
-      rffConfig ? { rff: rffConfig } : undefined,
-    ),
+  const ridgeLambda = options?.ridgeLambda ?? DEFAULT_RIDGE_LAMBDA;
+  const createRidgePredictor = useCallback(
+    (): GazePredictor => new RidgeGazePredictor(ridgeLambda, rffConfig ? { rff: rffConfig } : undefined),
+    [ridgeLambda, rffConfig],
   );
+  const predictorRef = useRef<GazePredictor>(options?.predictor ?? createRidgePredictor());
   const filterXRef = useRef<OneEuroFilter1D | null>(null);
   const filterYRef = useRef<OneEuroFilter1D | null>(null);
   const rafRef = useRef(0);
@@ -170,6 +170,12 @@ export function useMediaPipeGaze(
       await predictorRef.current.train();
     }
   }, []);
+
+  const resetCalibration = useCallback((): void => {
+    predictorRef.current = createRidgePredictor();
+    calibrationTargetRef.current = null;
+    setCalibrationCount(0);
+  }, [createRidgePredictor]);
 
   const getFrameStats = useCallback((): MediaPipeGazeFrameStats => {
     const dim = lastCaptureDimensionsRef.current;
@@ -387,6 +393,7 @@ export function useMediaPipeGaze(
     collectCalibrationSamples,
     /** Train ridge regression after all calibration points collected. */
     trainRidge,
+    resetCalibration,
     /** Current feature vector (for diagnostics). */
     lastFeaturesRef,
     /** Predictor instance (for diagnostics — cvRmsePx, diagnostics). */
