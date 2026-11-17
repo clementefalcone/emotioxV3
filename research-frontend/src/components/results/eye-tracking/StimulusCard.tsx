@@ -335,7 +335,7 @@ export const StimulusCard = ({ stimulus: rawStimulus, researchId, stageId, onRef
                     const isExcluded = excludedParticipants.has(p.participantId);
                     return (
                       <tr key={p.participantId} className={cn('border-b border-gray-100', isExcluded && 'opacity-40')}>
-                        <td className="py-1.5 pr-3 text-gray-800 font-mono">{p.participantId.slice(0, 12)}</td>
+                        <td className="py-1.5 pr-3 text-gray-800 font-mono">{p.participantId.replace(/^kiosk-/, 'usuario-').slice(0, 12)}</td>
                         <td className="text-center py-1.5 px-2">
                           <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium capitalize', QUALITY_GRADE_DISPLAY[p.qualityGrade].badgeClass)}>{QUALITY_GRADE_DISPLAY[p.qualityGrade].label}</span>
                         </td>
