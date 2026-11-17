@@ -106,7 +106,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
 
     const deviceType = useMemo(() => getDeviceType(), []);
 
-    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, calibrationFailureAction, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
+    const { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, calibrationTolerance, isVideo, hasUploadError } = useMemo(() => extractConfig(module), [module]);
     const isShelf = displayMode === 'shelf';
     const shelfColumnOrder = useMemo(() => {
         const positions = Array.from({ length: shelfItems }, (_, column) => column);
@@ -852,7 +852,7 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
                 calibrationResidualsRef.current = hybridResidualsFromTrainedPoints(trainedPoints, calibrationRect);
             }
             calibrationRmsePxRef.current = (useMP ? predictor.cvRmsePx : null) ?? hybridCalibrationRmsePx(calibrationResidualsRef.current);
-            if (calibrationFailureAction && !isCalibrationAccurate(calibrationRmsePxRef.current, window.innerWidth)) {
+            if (calibrationTolerance && !isCalibrationAccurate(calibrationRmsePxRef.current, window.innerWidth, calibrationTolerance)) {
                 const failedCount = failedCalibrationCount + 1;
                 setFailedCalibrationCount(failedCount);
                 if (failedCount >= MAX_CALIBRATION_ATTEMPTS) {
@@ -911,14 +911,10 @@ export const EyeTrackingRenderer: React.FC<EyeTrackingRendererProps> = ({ module
     }, [blaze, stopCamera, onComplete]);
 
     const discardAfterFailedCalibration = () => {
-        if (calibrationFailureAction === 'skip-module' || !onDisqualify) {
-            handleRejectSession();
-            return;
-        }
         gaze.stop();
         faceEmotions.stop();
         stopCamera();
-        onDisqualify();
+        onDisqualify?.();
     };
 
     const handleConsentDecline = useCallback((consentText: string) => {

@@ -163,32 +163,34 @@ describe('extractConfig — shelf mode fields', () => {
     });
 });
 
-describe('extractConfig — calibration failure action', () => {
+describe('extractConfig — calibration tolerance', () => {
     it('applies no calibration rule to modules created before the setting existed', () => {
-        expect(extractConfig(makeModule([])).calibrationFailureAction).toBeNull();
+        expect(extractConfig(makeModule([])).calibrationTolerance).toBeNull();
     });
 
-    it('reads disqualify-study from new modules', () => {
-        const mod = makeModule([{ id: 'calibration-failure-action', type: 'radio', value: 'disqualify-study' }]);
-        expect(extractConfig(mod).calibrationFailureAction).toBe('disqualify-study');
-    });
-
-    it('reads skip-module when the researcher chose it', () => {
-        const mod = makeModule([{ id: 'calibration-failure-action', type: 'radio', value: 'skip-module' }]);
-        expect(extractConfig(mod).calibrationFailureAction).toBe('skip-module');
+    it.each(['low', 'medium', 'high'])('reads the %s tolerance chosen by the researcher', (tolerance) => {
+        const mod = makeModule([{ id: 'calibration-tolerance', type: 'radio', value: tolerance }]);
+        expect(extractConfig(mod).calibrationTolerance).toBe(tolerance);
     });
 });
 
 describe('isCalibrationAccurate', () => {
-    it('accepts RMSE up to 25% of the viewport width', () => {
-        expect(isCalibrationAccurate(250, 1000)).toBe(true);
+    it('low tolerance accepts RMSE up to 10% of the viewport width', () => {
+        expect(isCalibrationAccurate(100, 1000, 'low')).toBe(true);
+        expect(isCalibrationAccurate(101, 1000, 'low')).toBe(false);
     });
 
-    it('rejects RMSE above 25% of the viewport width', () => {
-        expect(isCalibrationAccurate(251, 1000)).toBe(false);
+    it('medium tolerance accepts RMSE up to 15% of the viewport width', () => {
+        expect(isCalibrationAccurate(150, 1000, 'medium')).toBe(true);
+        expect(isCalibrationAccurate(151, 1000, 'medium')).toBe(false);
+    });
+
+    it('high tolerance accepts RMSE up to 25% of the viewport width', () => {
+        expect(isCalibrationAccurate(250, 1000, 'high')).toBe(true);
+        expect(isCalibrationAccurate(251, 1000, 'high')).toBe(false);
     });
 
     it('rejects a calibration without RMSE', () => {
-        expect(isCalibrationAccurate(null, 1000)).toBe(false);
+        expect(isCalibrationAccurate(null, 1000, 'high')).toBe(false);
     });
 });

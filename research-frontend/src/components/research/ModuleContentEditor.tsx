@@ -591,18 +591,19 @@ export const ModuleContentEditor = ({
                                 </p>
                             </div>
                             <div className="space-y-1">
-                                <span className="block text-sm font-medium text-gray-700">After 3 failed calibrations</span>
+                                <span className="block text-sm font-medium text-gray-700">Calibration tolerance</span>
                                 {[
-                                    { value: 'disqualify-study', label: 'Disqualify from the study' },
-                                    { value: 'skip-module', label: 'Skip only this eye tracking task' },
+                                    { value: 'low', label: 'Low: disqualify if gaze error is above 10% of the screen width' },
+                                    { value: 'medium', label: 'Medium: disqualify if gaze error is above 15% of the screen width' },
+                                    { value: 'high', label: 'High: disqualify only if gaze error is above 25% of the screen width' },
                                 ].map(option => (
                                     <label key={option.value} className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
                                         <input
                                             type="radio"
-                                            name="calibration-failure-action"
+                                            name="calibration-tolerance"
                                             className="border-gray-300 text-blue-600 h-4 w-4"
-                                            checked={componentValues['calibration-failure-action'] === option.value}
-                                            onChange={() => onValueChange('calibration-failure-action', option.value)}
+                                            checked={componentValues['calibration-tolerance'] === option.value}
+                                            onChange={() => onValueChange('calibration-tolerance', option.value)}
                                         />
                                         {option.label}
                                     </label>

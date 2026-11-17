@@ -39,12 +39,17 @@ export type ETPhase = 'consent' | 'face' | 'preparing' | 'calibration' | 'calibr
 export const TOTAL_STEPS = 3;
 
 export const MAX_CALIBRATION_ATTEMPTS = 3;
-export const MAX_CALIBRATION_ERROR_RATIO = 0.25;
 
-export type CalibrationFailureAction = 'disqualify-study' | 'skip-module';
+export type CalibrationTolerance = 'low' | 'medium' | 'high';
 
-export const isCalibrationAccurate = (rmsePx: number | null, viewportWidthPx: number): boolean =>
-    rmsePx !== null && viewportWidthPx > 0 && rmsePx / viewportWidthPx <= MAX_CALIBRATION_ERROR_RATIO;
+export const MAX_CALIBRATION_ERROR_RATIO_BY_TOLERANCE: Record<CalibrationTolerance, number> = {
+    low: 0.10,
+    medium: 0.15,
+    high: 0.25,
+};
+
+export const isCalibrationAccurate = (rmsePx: number | null, viewportWidthPx: number, tolerance: CalibrationTolerance): boolean =>
+    rmsePx !== null && viewportWidthPx > 0 && rmsePx / viewportWidthPx <= MAX_CALIBRATION_ERROR_RATIO_BY_TOLERANCE[tolerance];
 
 /**
  * Gaze engine selection.
@@ -172,10 +177,11 @@ export const extractConfig = (module: ModuleConfig) => {
     const attentionMeasurement = components.find(c => c.id === 'attention-measurement');
     const hasAttentionMeasurement = attentionMeasurement ? getComponentText(attentionMeasurement) === 'true' : true;
 
-    const calibrationFailureComp = components.find(c => c.id === 'calibration-failure-action');
-    const calibrationFailureText = calibrationFailureComp ? getComponentText(calibrationFailureComp) : '';
-    const calibrationFailureAction: CalibrationFailureAction | null =
-        calibrationFailureText === 'skip-module' || calibrationFailureText === 'disqualify-study' ? calibrationFailureText : null;
+    const calibrationToleranceComp = components.find(c => c.id === 'calibration-tolerance');
+    const calibrationToleranceText = calibrationToleranceComp ? getComponentText(calibrationToleranceComp) : '';
+    const calibrationTolerance: CalibrationTolerance | null = Object.hasOwn(MAX_CALIBRATION_ERROR_RATIO_BY_TOLERANCE, calibrationToleranceText)
+        ? calibrationToleranceText as CalibrationTolerance
+        : null;
 
     // Detect video stimulus (shelf mode is always images)
     const isVideo = displayMode !== 'shelf' && (/\.(mp4|webm|ogg)$/i.test(stimulusUrl) || stimulusUrl.includes('video/'));
@@ -193,5 +199,5 @@ export const extractConfig = (module: ModuleConfig) => {
         }
     }
 
-    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, hasAttentionMeasurement, calibrationFailureAction, isVideo, hasUploadError };
+    return { stimulusUrl, stimulusUrls, taskDescription, viewingDuration, displayMode, shelfCount, shelfItems, shelfRepetitions, randomizeStimuli, hasEmotionRecognition, hasWebcamRecording, hasAttentionMeasurement, calibrationTolerance, isVideo, hasUploadError };
 };
