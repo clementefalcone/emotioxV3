@@ -78,20 +78,13 @@ fi
 
 ssh $SSH_OPTS "$SSH_HOST" 'mkdir -p "$HOME/public_html/participant"'
 
-# 6. Limpiar directorio remoto (excepto .well-known y cgi-bin)
-echo ""
-echo "5. Limpiando directorio remoto..."
-ssh $SSH_OPTS "$SSH_HOST" '
-    REMOTE_DIR="$HOME/public_html/participant"
-    cd "$REMOTE_DIR" || exit 1
-    find . -mindepth 1 ! -name ".well-known" ! -name "cgi-bin" -exec rm -rf {} + 2>/dev/null || true
-    echo "   ✅ Directorio limpiado"
-'
-
 # 7. Copiar archivos construidos
 echo ""
 echo "6. Copiando archivos construidos..."
-rsync -avz --delete -e "ssh $SSH_OPTS" \
+rsync -avz --delete-after -e "ssh $SSH_OPTS" \
+    --exclude='.well-known' \
+    --exclude='cgi-bin' \
+    --exclude='.htaccess' \
     --exclude='.git' \
     --exclude='node_modules' \
     --exclude='src' \
