@@ -478,5 +478,5 @@ const emotionParticipantColumns: DataTableColumn<EmotionParticipant>[] = [
     key: 'emotions', header: 'Emociones',
     render: (p) => <ParticipantEmotionBadges distribution={p.distribution} />,
   },
-  { key: 'samples', header: 'Samples', align: 'right', accessor: 'sampleCount', cellClassName: 'text-gray-500' },
+  { key: 'samples', header: 'Movements', align: 'right', accessor: 'sampleCount', cellClassName: 'text-gray-500' },
 ];
